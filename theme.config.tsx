@@ -1,18 +1,20 @@
-import React from 'react'
-import { DocsThemeConfig } from 'nextra-theme-docs'
+import React from 'react';
+import { DocsThemeConfig } from 'nextra-theme-docs';
 
 const config: DocsThemeConfig = {
-  logo: <span>My Project</span>,
+  logo: (
+    <>
+      <img src="/cardinal.png" width="36" />
+      <h1 className="nx-font-bold nx-text-2xl">Cardinal</h1>
+    </>
+  ),
   project: {
-    link: 'https://github.com/shuding/nextra-docs-template',
+    link: 'https://github.com/cardinalhq/cardinal-docs',
   },
-  chat: {
-    link: 'https://discord.com',
-  },
-  docsRepositoryBase: 'https://github.com/shuding/nextra-docs-template',
+  docsRepositoryBase: 'https://github.com/cardinalhq/cardinal-docs',
   footer: {
-    text: 'Nextra Docs Template',
+    text: '© 2024, Cardinal HQ, Inc. All rights reserved.',
   },
-}
+};
 
-export default config
+export default config;
