@@ -1,8 +1,0 @@
-{
-  "sign-up": "Create a Cardinal account",
-  "install-otel-collector": "Install OpenTelemetry Collector",
-  "dashboard": "Cost Dashboard",
-  "slack": "Slack Notifications",
-  "api": "API Access",
-  "terraform": "Terraform Provider"
-}

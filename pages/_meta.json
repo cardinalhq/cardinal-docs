@@ -1,4 +1,5 @@
 {
-  "index": "Getting Started",
-  "manage-vendor-costs": "Manage Vendor Costs"
+  "index": "Quick Start",
+  "pipelines": "Collector Pipelines",
+  "integrations": "Integrations"
 }

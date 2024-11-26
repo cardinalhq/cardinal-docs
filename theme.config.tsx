@@ -15,6 +15,17 @@ const config: DocsThemeConfig = {
       <link rel="icon" type="image/png" href={`${basePath}/cardinal.png`} />
     </>
   ),
+  useNextSeoProps() {
+    return {
+      titleTemplate: '%s – Cardinal',
+    };
+  },
+  editLink: {
+    component: () => <></>,
+  },
+  feedback: {
+    content: () => <></>,
+  },
   project: {
     link: 'https://github.com/cardinalhq/cardinal-docs',
   },

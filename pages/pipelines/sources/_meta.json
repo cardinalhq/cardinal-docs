@@ -1,0 +1,6 @@
+{
+  "datadog": "Datadog",
+  "logstash": "Logstash",
+  "opentelemetry": "OpenTelemetry (OTLP)",
+  "prometheus-remote-write": "Prometheus"
+}
