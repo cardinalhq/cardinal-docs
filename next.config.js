@@ -9,5 +9,5 @@ module.exports = {
   images: {
     unoptimized: true,
   },
-  basePath: '/cardinal-docs',
+  // basePath: '/cardinal-docs',
 };

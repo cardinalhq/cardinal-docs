@@ -1,7 +1,7 @@
 import React from 'react';
 import { DocsThemeConfig } from 'nextra-theme-docs';
 
-const basePath = '/cardinal-docs';
+const basePath = '';
 
 const config: DocsThemeConfig = {
   logo: (
