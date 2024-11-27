@@ -1,1 +1,48 @@
 # Quick Start
+
+### 1. Install the Cardinal Kubernetes Operator
+
+The Cardinal Kubernetes Operator simplifies the deployment and management of Cardinal OpenTelemetry Collectors on Kubernetes. It only needs to be installed once per Kubernetes cluster, and can manage multiple Collectors on that cluster.
+
+**Prerequisites**
+
+- [Helm](https://helm.sh) v3 or later
+- Kubernetes cluster with permissions to install `CRDs`, `ClusterRoles`, and `ClusterRoleBindings`
+
+**Add the Cardinal Helm repository**
+
+```sh copy
+helm repo add cardinalhq oci://public.ecr.aws/cardinalhq.io
+helm repo update
+```
+
+**Install the Operator**
+
+```sh copy
+helm install cardinalhq-operator cardinalhq/cardinalhq-operator \
+  --namespace cardinalhq-operator \
+  --create-namespace
+```
+
+This command installs the Operator, its necessary roles, and the CRD for Collector resources in your cluster.
+
+### 2. Deploy a Collector
+
+Now, let's deploy your first Cardinal OpenTelemetry Collector.
+
+![Add a Collector](/add_collector.png)
+
+1. [Sign-in to Cardinal,](https://app.cardinalhq.io) and select the **Pipelines** tab in the left sidebar.
+2. Click the **Add a Collector...** button.
+3. Give your Collector a descriptive name, and click the **Add Collector** button.
+4. Follow Steps 1-2 on the screen to create a Kubernetes Secret for your Cardinal API key, and apply the manifest to deploy your new Collector.
+
+### 3. Configure a Collector Pipeline
+
+Your new Collector is now deployed with a default minimal configuration.
+
+Follow Step 3 on the screen to add your first [Source](./pipelines/sources) to the Collector Pipeline. Then, add any additional Sources and [Destinations](./pipelines/destinations) to build out your Pipeline.
+
+### 4. Send Data to the Collector
+
+Refer to the documentation for each of your [Sources](./pipelines/sources) for information on how to configure your existing instrumentation libraries or agents to send data to the Collector.

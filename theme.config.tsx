@@ -27,7 +27,7 @@ const config: DocsThemeConfig = {
     content: () => <></>,
   },
   project: {
-    link: 'https://github.com/cardinalhq/cardinal-docs',
+    link: '',
   },
   docsRepositoryBase: 'https://github.com/cardinalhq/cardinal-docs',
   footer: {
