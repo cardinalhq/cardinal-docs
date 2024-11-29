@@ -1,1 +1,51 @@
+import { Table, Td, Th, Tr } from 'nextra/components'
+
 # OpenTelemetry (OTLP)
+
+Receives telemetry data via gRPC or HTTP in the [OTLP](https://opentelemetry.io/docs/specs/otlp/) format.
+
+### Supported Signal Types
+<br />
+<Table>
+  <thead>
+    <Tr>
+      <Th>Metrics</Th>
+      <Th>Logs</Th>
+      <Th>Traces</Th>
+    </Tr>
+  </thead>
+  <tbody>
+    <Tr>
+      <Td>✅</Td>
+      <Td>✅</Td>
+      <Td>✅</Td>
+    </Tr>
+  </tbody>
+</Table>
+
+### Configuration Options
+<br />
+<Table>
+  <thead>
+    <Tr>
+      <Th>Option</Th>
+      <Th>Type</Th>
+      <Th>Default</Th>
+      <Th>Description</Th>
+    </Tr>
+  </thead>
+  <tbody>
+    <Tr>
+      <Td>HTTP Port</Td>
+      <Td>`number`</Td>
+      <Td>4318</Td>
+      <Td>HTTP port to listen on for incoming telemetry data.</Td>
+    </Tr>
+    <Tr>
+      <Td>gRPC Port</Td>
+      <Td>`number`</Td>
+      <Td>4317</Td>
+      <Td>gRPC port to listen on for incoming telemetry data.</Td>
+    </Tr>
+  </tbody>
+</Table>

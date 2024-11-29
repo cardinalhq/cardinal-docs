@@ -1,1 +1,63 @@
+import { Table, Td, Th, Tr } from 'nextra/components'
+
 # Datadog
+
+Sends telemetry data to [Datadog.](https://datadoghq.com/)
+
+### Supported Signal Types
+<br />
+<Table>
+  <thead>
+    <Tr>
+      <Th>Metrics</Th>
+      <Th>Logs</Th>
+      <Th>Traces</Th>
+    </Tr>
+  </thead>
+  <tbody>
+    <Tr>
+      <Td>✅</Td>
+      <Td>✅</Td>
+      <Td>✅</Td>
+    </Tr>
+  </tbody>
+</Table>
+
+### Configuration Options
+<br />
+<Table>
+  <thead>
+    <Tr>
+      <Th>Option</Th>
+      <Th>Type</Th>
+      <Th>Default</Th>
+      <Th>Description</Th>
+    </Tr>
+  </thead>
+  <tbody>
+    <Tr>
+      <Td>Datadog API Key</Td>
+      <Td>`string`</Td>
+      <Td></Td>
+      <Td>A valid [Datadog API key.](https://docs.datadoghq.com/account_management/api-app-keys/)<br />Generating a new one for each pipeline is recommended.</Td>
+    </Tr>
+    <Tr>
+      <Td>Metrics URL</Td>
+      <Td>`string`</Td>
+      <Td></Td>
+      <Td>(optional) The URL to send metrics to.<br />Defaulted based on the API key.</Td>
+    </Tr>
+    <Tr>
+      <Td>Logs URL</Td>
+      <Td>`string`</Td>
+      <Td></Td>
+      <Td>(optional) The URL to send logs to.<br />Defaulted based on the API key.</Td>
+    </Tr>
+    <Tr>
+      <Td>Traces URL</Td>
+      <Td>`string`</Td>
+      <Td></Td>
+      <Td>(optional) The URL to send traces to.<br />Defaulted based on the API key.</Td>
+    </Tr>
+  </tbody>
+</Table>

@@ -1,1 +1,61 @@
+import { Table, Td, Th, Tr } from 'nextra/components'
+
 # Logstash
+
+Receives logs from [Elastic Logstash](https://www.elastic.co/logstash) pipelines.
+
+### Supported Signal Types
+<br />
+<Table>
+  <thead>
+    <Tr>
+      <Th>Metrics</Th>
+      <Th>Logs</Th>
+      <Th>Traces</Th>
+    </Tr>
+  </thead>
+  <tbody>
+    <Tr>
+      <Td>❌</Td>
+      <Td>✅</Td>
+      <Td>❌</Td>
+    </Tr>
+  </tbody>
+</Table>
+
+### Configuration Options
+<br />
+<Table>
+  <thead>
+    <Tr>
+      <Th>Option</Th>
+      <Th>Type</Th>
+      <Th>Default</Th>
+      <Th>Description</Th>
+    </Tr>
+  </thead>
+  <tbody>
+    <Tr>
+      <Td>Port</Td>
+      <Td>`number`</Td>
+      <Td>2255</Td>
+      <Td>Port to listen on for incoming telemetry data.</Td>
+    </Tr>
+  </tbody>
+</Table>
+
+### Configure Logstash Pipeline
+
+Add a [TCP output](https://www.elastic.co/guide/en/logstash/current/plugins-outputs-tcp.html) to your Logstash pipeline, and configure the host and port to point to the Cardinal Collector's Service URL. 
+
+Make sure to set the `codec` to `json_lines`
+
+```javascript copy
+output {
+  tcp {
+    host => "mycollector.cardinalhq.svc.cluster.local"
+    port => 2255
+    codec => json_lines
+  }
+}
+```
