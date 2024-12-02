@@ -44,18 +44,22 @@ Receives logs from [Elastic Logstash](https://www.elastic.co/logstash) pipelines
   </tbody>
 </Table>
 
-### Configure Logstash Pipeline
+### Send Data to the Collector
 
-Add a [TCP output](https://www.elastic.co/guide/en/logstash/current/plugins-outputs-tcp.html) to your Logstash pipeline, and configure the host and port to point to the Cardinal Collector's Service URL. 
+#### Logstash Pipeline
 
-Make sure to set the `codec` to `json_lines`
+Add a [TCP output](https://www.elastic.co/guide/en/logstash/current/plugins-outputs-tcp.html) to your Logstash pipeline, and configure the host and port to send data to the Cardinal Collector's Service URL. 
+
+Set the `codec` to `json_lines`, and enable Elastic Common Schema (ECS) v8 compatibility, as shown below.
 
 ```javascript copy
 output {
   tcp {
     host => "mycollector.cardinalhq.svc.cluster.local"
     port => 2255
-    codec => json_lines
+    codec => json_lines {
+      ecs_compatibility => v8
+    }
   }
 }
 ```

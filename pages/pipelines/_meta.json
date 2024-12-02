@@ -1,6 +1,5 @@
 {
   "sources": "Sources",
   "destinations": "Destinations",
-  "rules": "Rules",
-  "recommendations": "Recommendations"
+  "rules": "Rules"
 }

@@ -1,1 +1,27 @@
-# Prometheus Alert Manager
+# Prometheus AlertManager
+
+Send a copy of your Prometheus alerts to Cardinal.
+
+### Generate a Cardinal API Key
+
+1. Navigate to the [API Keys page](https://app.cardinalhq.io/configure/apiKey) in the Cardinal UI.
+2. Click the `Create API Key` button, and give it a descriptive name.
+3. Copy the API Key to use below.
+
+### Configure AlertManager
+
+Update your [Prometheus AlertManager configuration](https://prometheus.io/docs/alerting/latest/configuration/) to add Cardinal to the `webhook_configs` section, as shown below.
+
+```yaml copy
+alertmanager:
+  enabled: true
+  config:
+    receivers:
+      - name: default-receiver
+        webhook_configs:
+          - url: "https://api.global.aws.cardinalhq.io/api/v1/webhooks/alertManager"
+            http_config:
+              authorization:
+                type: "x-cardinalhq-api-key"
+                credentials: "YOUR_CARDINAL_API_KEY"
+```

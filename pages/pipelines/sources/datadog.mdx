@@ -44,9 +44,11 @@ Receives telemetry data from the [Datadog Agent.](https://docs.datadoghq.com/age
   </tbody>
 </Table>
 
-### Configure Datadog Agent
+### Send Data to the Collector
 
-Update your Datadog Agent configuration to point to the Cardinal Collector's Service URL by setting the `dd_url`, `logs_dd_url`, and `apm_dd_url` properties.
+#### Datadog Agent
+
+Update your Datadog Agent configuration to send data to the Cardinal Collector's Service URL by setting the `dd_url`, `logs_dd_url`, and `apm_dd_url` properties.
 
 ```yaml copy
 datadog:
@@ -61,3 +63,5 @@ datadog:
       use_http: true
       logs_no_ssl: true
 ```
+
+Add a [Datadog Destination](../destinations/datadog) to your Pipeline to continue forwarding data to your Datadog account.

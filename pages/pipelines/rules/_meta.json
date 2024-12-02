@@ -1,4 +1,9 @@
 {
+  "add-tags": "Add Tags",
   "drop-tags": "Drop Tags",
-  "filter": "Filter"
+  "filter": "Filter",
+  "sample": "Sample",
+  "extract-metric": "Extract Metric",
+  "pii": "Drop/Mask PII",
+  "custom": "Custom OTTL"
 }
