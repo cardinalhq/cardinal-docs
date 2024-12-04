@@ -9,18 +9,11 @@ The Cardinal Kubernetes Operator simplifies the deployment and management of Car
 - [Helm](https://helm.sh) v3 or later
 - Kubernetes cluster with permissions to install `CRDs`, `ClusterRoles`, and `ClusterRoleBindings`
 
-**Add the Cardinal Helm repository**
-
-```sh copy
-helm repo add cardinalhq oci://public.ecr.aws/cardinalhq.io
-helm repo update
-```
-
 **Install the Operator**
 
 ```sh copy
-helm install cardinalhq-operator cardinalhq/cardinalhq-operator \
-  --namespace cardinalhq-operator \
+helm install chq-operator oci://public.ecr.aws/cardinalhq.io/cardinalhq-operator \
+  --namespace chq-operator \
   --create-namespace
 ```
 
