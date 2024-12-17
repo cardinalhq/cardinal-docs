@@ -1,1 +1,76 @@
-# Sample
+# Sampling Telemetry Data
+
+## Overview
+
+The **Sample Rule** helps you control the volume of your log telemetry data by reducing its quantity before it's stored or sent to downstream analytics tools. High-volume or "noisy" logs can quickly drive up costs and overwhelm your monitoring systems, making it harder to spot key issues. By sampling the data—either randomly or proportionally—you maintain a representative set of logs without all the excess.
+
+## What Does This Rule Do?
+
+The Sample Rule inspects incoming log entries and decides which ones to keep based on your chosen sampling strategy and specified conditions. The key parameters include:
+
+- **Sample Mode:** Choose how you want to sample (randomly or proportionally).
+- **Percent Reduction:** Define the percentage by which you want to reduce the volume of logs.
+- **Conditions (Optional):** Apply filtering conditions so that only certain logs are sampled, while others remain untouched.
+
+**Example Use Cases:**
+- Randomly sample only 10% of all logs to significantly reduce ingestion volume.
+- Proportionally sample logs so that both common and less frequent log messages are represented according to their relative frequencies.
+- Apply sampling conditions to only reduce logs from a particularly noisy service while keeping critical logs from other services intact.
+
+## Key Features
+
+- **Cost Management:** Sampling helps keep ingestion and storage costs in check, as you only retain a subset of the raw data.
+- **Preserved Insights:** With careful tuning, you can maintain enough coverage to identify trends and anomalies without being swamped by unnecessary volume.
+- **Flexible Conditions:** Use conditions to limit sampling to specific attributes (e.g., certain services, environments, or error codes). This ensures that critical logs remain fully captured, while non-essential ones are thinned out.
+- **Adaptable Methods:**
+- **Proportional Sampling:** Ensures that frequently occurring log types are still well-represented after sampling.
+- **Random Sampling:** Offers a straightforward way to reduce volume regardless of log frequency.
+
+## Options and Parameters
+
+### Sample Mode
+
+**Proportional:**
+Retains a representative distribution of your logs. High-frequency logs are reduced proportionally, but still maintain a semblance of their original frequency relative to less common logs.
+
+**Random:**
+Simply keeps a fixed percentage of logs at random, without regard to their frequency or content.
+
+### Percent Reduction
+
+Specify the percentage by which you want to reduce your log volume. For example, a 90% reduction means that only 10% of your logs will be kept. This value can be fine-tuned based on desired cost savings and the level of detail you need in your monitoring data.
+
+### Conditions (Optional)
+
+Add conditions to apply sampling selectively. For example, you can:
+
+- Only sample logs from a certain `service.name`.
+- Reduce logs with a specific `environment = "staging"` but keep production logs intact.
+- Throttle noisy `debug` level logs while preserving all `error` level logs.
+
+If no conditions are specified, the sampling rule applies to all incoming logs.
+
+## Example Configuration
+
+**Goal:** Randomly sample logs to achieve a 50% reduction, but only for a noisy microservice in staging.
+
+**Configuration Steps:**
+1. **Sample Mode:** Random
+2. **Percent Reduction:** `50` (keep 50% of logs)
+3. **Conditions:**
+```ottl
+attributes[“service.name”] = “staging-microservice”
+```
+**Result:** Only the logs from the `staging-microservice` are randomly sampled down to half their original volume. All other logs continue to flow at full volume.
+
+## Testing and Verification
+
+- **Start with a small reduction:** Begin with a mild sampling rate (e.g., 10%) and verify that you still see meaningful patterns and trends.
+- **Adjust Conditions:** Narrow or broaden your conditions based on test results. If too much important data is lost, reduce the sampling rate or remove certain conditions.
+- **Monitor Metrics:** Evaluate downstream dashboards and alerts to ensure that crucial insights remain visible despite reduced data volume.
+
+---
+
+## Summary
+
+By implementing a Sample Rule, you gain control over log volume and costs, ensuring that your observability platform remains both efficient and insightful. Whether you choose a random approach for simplicity or a proportional approach to maintain representativeness, sampling empowers you to keep essential data visible while reducing unnecessary noise. This leads to cost savings, clearer insights, and a more maintainable telemetry ecosystem.

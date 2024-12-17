@@ -4,6 +4,7 @@
   "filter": "Filter",
   "sample": "Sample",
   "extract-metric": "Extract Metric",
+  "extract-tags": "Extract Tags",
   "pii": "Drop/Mask PII",
   "custom": "Custom OTTL"
 }

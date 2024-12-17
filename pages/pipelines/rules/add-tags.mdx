@@ -1,1 +1,120 @@
-# Add Tags
+# Adding Tags (Decorating Telemetry Data)
+
+## Overview
+
+The **Decoration Rule** allows you to enrich your telemetry data (logs, metrics, traces) by adding metadata tags based on defined conditions. Whether you’re labeling data with a team name, environment, service tier, or any other contextual attribute, decoration rules help you provide meaningful context without manually updating every source of telemetry.
+
+By specifying multiple sub-rules, you can apply different tags depending on various conditions. For instance, you might have one sub-rule that adds `"team:frontend"` when a certain service name matches `"web_service"` and another sub-rule that adds `"team:backend"` when conditions match a backend service. You can even create a "catch-all" rule to tag any data that doesn’t match other conditions, ensuring comprehensive coverage of your telemetry.
+
+## What Does This Rule Do?
+
+Decoration rules inspect incoming telemetry data and, if conditions are met, apply a specified tag (a key-value pair) to the data. You have full control over:
+
+- **Tag Name:** The name of the tag (key) to add.
+- **Conditions:** Criteria that determine when a tag should be applied. For example, based on service name, environment, or any other attribute available in your telemetry.
+- **Value Assignment:** Different conditions can yield different tag values. This lets you create targeted tagging strategies.
+- **First match wins:** Your sub-rules will be evaluated in priority order and the first matching rule applies its decoration value.
+- **Overwrite Behavior:** Choose whether to overwrite existing tag values if the tag is already present on the telemetry data.
+
+**Example Use Cases:**
+- Add `"team:frontend"` to all telemetry from web-facing services.
+- Mark telemetry from certain endpoints with `"tier:gold"` for premium features.
+- Apply `"env:production"` to data only if the `environment` attribute is `prod`.
+- Provide a default tag (like `"team:unassigned"`) for all telemetry not matched by any other rule.
+
+## Key Features
+
+- **Multi-Condition Support:** Create multiple sub-rules, each with its own conditions and corresponding tag value.
+- **Catch-All Rule:** Define a fallback (catch-all) rule to ensure all telemetry receives a tag if desired.
+- **Overwrite Option:** Choose if newly set tag values should replace existing ones, giving you full control over your tagging logic.
+- **Rich Conditions:** Use a wide range of attributes, dimensions, and fields from your telemetry data to determine which tags to apply.
+
+## Options and Parameters
+
+### Decoration Tag Name
+
+This is the key (name) of the tag that will be added to your telemetry. For example:
+- `team`
+- `service_tier`
+- `owner`
+
+This tag name is reused across all sub-rules. Each sub-rule only alters the **value** of this tag.
+
+### Overwrite Incoming Values
+
+If this option is enabled and the telemetry data already has a tag with the specified name, your decoration rule will overwrite it with the new value. If disabled, existing tags remain unchanged.
+
+### Sub-Rules (Conditions and Values)
+
+Each sub-rule consists of:
+
+1. **Conditions:** A set of filters determining when to apply the tag. For example:
+```ottl
+attributes[“service.name”] = “web_service”
+attributes[“environment”] = “production”
+```
+If these conditions are met, the associated tag value is applied.
+
+2. **Tag Value:** The value to assign to the specified decoration tag name when conditions are met. For example: `"frontend_team"` or `"gold_tier"`.
+
+You can add multiple sub-rules. Each sub-rule is evaluated in order of priority, and the first one that matches applies. If none match, you can specify a sub-rule with no conditions as a catch-all, ensuring that **all** telemetry gets tagged.
+
+### Catch-All Rule
+
+Define a sub-rule without any conditions to serve as a fallback. If no other conditions match, this catch-all rule will apply the default tag value. This ensures every piece of telemetry is tagged, even if it doesn’t meet any condition.
+
+## Example Configuration
+
+**Goal:** Tag all telemetry with a `team` tag.
+- If `service.name` starts with `"web"` and `environment` is `"production"`, set `team=frontend`.
+- If `service.name` includes `"backend"` and `environment` is `"production"`, set `team=backend`.
+- Otherwise, set `team=unassigned` as a catch-all.
+
+**Configuration Steps:**
+
+1. **Tag Name:**
+`team`
+
+2. **Overwrite Incoming Values:**
+Enabled (to ensure that all telemetry ends up with the correct team tag, even if it was previously set).
+
+3. **Sub-Rule #1:**
+- Conditions:
+```
+attributes["service.name"] contains "web"
+attributes["environment"] = "production"
+  ```
+- Tag Value: `frontend`
+
+4. **Sub-Rule #2:**
+- Conditions:
+```
+attributes["service.name"] contains "backend"
+attributes["environment"] = "production"
+  ```
+- Tag Value: `backend`
+
+5. **Sub-Rule #3 (Catch-All):**
+- No conditions (matches everything else).
+- Tag Value: `unassigned`
+
+**Result:**
+- Telemetry from a `"web_service"` in `"production"` gets tagged with `team=frontend`.
+- Telemetry from a `"backend_processor"` in `"production"` gets tagged with `team=backend`.
+- All other telemetry, regardless of conditions, gets `team=unassigned`.
+
+## Testing and Verification
+
+Before applying the rule to live data, test it using sample telemetry or exemplars to ensure:
+
+- The correct conditions match where intended.
+- The correct tag value is applied.
+- Existing tags are overwritten only if you chose that option.
+
+Adjust conditions or tag values as needed based on test outcomes.
+
+---
+
+## Summary
+
+Decoration rules let you dynamically add contextual tags to your telemetry data, enabling richer analysis, more targeted dashboards, and streamlined alerting. By specifying multiple conditions and values, you can implement a flexible tagging strategy that adapts to a wide variety of services, environments, and scenarios—ultimately making your observability pipeline more informative, organized, and cost-effective.

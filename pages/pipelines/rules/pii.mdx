@@ -1,1 +1,104 @@
-# Drop/Mask PII
+# PII Data Removal or Masking Rule
+
+## Overview
+
+This rule allows you to identify and handle Personally Identifiable Information (PII) within your telemetry data. You can configure the rule to either remove (drop) or mask the sensitive information that matches a specified pattern. By applying this rule, you can ensure that sensitive data such as email addresses, phone numbers, or credit card numbers do not end up in your stored logs or analytics systems.
+
+## What Does This Rule Do?
+
+When applied, the rule searches the incoming telemetry data for values that match a given pattern. If a match is found, the rule can:
+
+- **Mask the matched values** using a specified replacement string (e.g. `"***"`).
+- **Drop the matched values** entirely, removing them from the event before it is processed or stored.
+
+This provides a flexible way to comply with privacy regulations (like GDPR) or internal data handling policies by ensuring that sensitive fields never persist in their original form.
+
+## Key Features
+
+- **Action Configuration:** Choose whether to mask or drop the detected PII.
+- **Flexible Patterns:** Select from a library of predefined regular expressions that target common PII types (e.g., email addresses, US phone numbers, IPv4 addresses). You can also provide a custom regex pattern.
+- **Scope Control:** Limit the rule’s application to a specific part of the telemetry data. You can apply it to all attributes, resource attributes, scope attributes, datapoint attributes, and optionally include the event’s body.
+- **Custom Masking:** When masking data, specify your own replacement string to control how the data appears after processing.
+- **Conditional Logic:** Add conditions to refine when the rule should apply, ensuring you only mask or drop PII under certain conditions.
+
+## Options and Parameters
+
+### Actions
+
+- **Mask:** Matches to the provided pattern are replaced with the defined `replacementString`.
+Example: An email like `jane.doe@example.com` might be masked as `***@example.com`.
+
+- **Drop:** Any matching field or value is entirely removed from the data.
+Example: A credit card number `4111-1111-1111-1111` is dropped entirely.
+
+### Pattern Library
+
+You can select from these predefined patterns to simplify setup:
+
+- **Email Address:** `"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"`
+- **US Phone Number:** `"[2-9][0-9]{2}\\)?[-.\\s]?[0-9]{3}[-.\\s]?[0-9]{4}"`
+- **IPV4 Address:** `"(?:[0-9]{1,3}\\.){3}[0-9]{1,3}"`
+- **IPV6 Address:** `"([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}"`
+- **US Street Address:** `"\\d{1,5}\\s\\w+(\\s\\w+)*\\s(?:Street|St|Avenue|Ave|Boulevard|Blvd|...)"`
+- **Credit Card Numbers:** `"([0-9]{4}[- ]?){3}[0-9]{2,4}"`
+- **IBAN Number:** `"[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}"`
+- **Custom:** Provide your own regex pattern.
+
+### Pattern
+
+Define or edit the regex pattern that the rule will use to detect sensitive data. You can start with a predefined pattern and then modify it, or enter your own pattern directly.
+
+### Scope
+
+Select the scope at which the rule applies. You can limit the rule’s effect to a certain category of data within the telemetry payload. The available options include:
+
+- **All attributes**
+- **All attributes and body**
+- **All resource attributes**
+- **All resource attributes and body**
+- **All scope attributes**
+- **All scope attributes and body**
+- **All datapoint attributes**
+- **All datapoint attributes and body**
+
+By selecting a scope, you define which parts of the telemetry data are scanned for PII and subsequently masked or dropped.
+
+### Mask (Replacement String)
+
+When using the **Mask** action, provide a `replacementString` that will be used to overwrite the matched text. By default, it may be `"***"`, but you can choose any string that suits your needs.
+
+### Conditions
+
+Use conditions to refine which data is subject to the rule. For example, you might only want to mask emails when a specific `user_id` field equals a certain value.
+
+Conditions are specified as key-value pairs of fields and expected values, allowing you to create simple or complex filters before the rule’s logic is applied.
+
+---
+
+## Example
+
+**Goal:** Mask all email addresses in all attributes with `"***"`.
+
+**Configuration:**
+
+- **Action:** Mask
+- **Pattern:** `"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"` (Email pattern)
+- **Scope:** `All attributes`
+- **Replacement String:** `***`
+- **Conditions:** None (apply to all data)
+
+With this configuration, any telemetry event containing an email address anywhere in the attributes will be transformed, for example `jane.doe@example.com` becomes `***`.
+
+---
+
+## Testing and Verification
+
+Use the built-in sandbox environment to preview how the rule will affect sample telemetry data. Experiment with different patterns, actions, and scopes, then review the resulting masked or dropped values before applying the rule in a production environment.
+
+This ensures you have confidence that the rule works as intended and avoids unintended data loss or over-masking.
+
+---
+
+## Summary
+
+The PII Data Removal or Masking Rule is a powerful tool for ensuring sensitive information is handled appropriately. By combining predefined or custom patterns, comprehensive scope options, and versatile masking or dropping actions, you can meet compliance requirements and maintain data privacy with minimal effort.
