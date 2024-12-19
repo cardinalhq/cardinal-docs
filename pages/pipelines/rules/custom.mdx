@@ -1,3 +1,5 @@
+import ExpandableImage from "../../../components/ExpandableImage"
+
 # Creating Custom OTTL Rules
 
 ## Overview
@@ -19,6 +21,8 @@ Custom OTTL (OpenTelemetry Transformation Language) rules provide a powerful mec
 If you have a condition checking for `attributes["http.status_code"] == 404`, and the condition passes, a statement could set `attributes["error"] = true` or remove a sensitive field like `attributes["user_session_id"]`.
 
 ## Configuring Custom OTTL Rules
+Example:
+<ExpandableImage url={'/docs_rules_custom.png'} alt={'Custom'} imgStyle={{height:200, margin:30}}/>
 
 1. **Add Conditions (Optional)**
 - Each condition is an OTTL expression that returns `true` or `false`.
@@ -26,7 +30,7 @@ If you have a condition checking for `attributes["http.status_code"] == 404`, an
 - Example condition:
 ```ottl
 attributes["http.status_code"] == 404
-     ```
+```
 - Multiple conditions are combined with a logical AND, meaning all must be `true` for the statements to run.
 - If no conditions are specified, the statements apply to every piece of telemetry data.
 
@@ -37,7 +41,7 @@ attributes["http.status_code"] == 404
 ```ottl
 set(attributes["error"], true)
 delete(attributes["user_session_id"])
-     ```
+```
 - You can add multiple statements, all of which will be executed in order once the conditions are met.
 
 3. **Use the Exemplar Selector (Optional)**

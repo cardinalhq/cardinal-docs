@@ -1,3 +1,5 @@
+import ExpandableImage from "../../../components/ExpandableImage"
+
 # Extracting Metrics from Log Telemetry
 
 ## Overview
@@ -36,6 +38,8 @@ When enabled, the rule inspects incoming logs and extracts metric values based o
 - **Dimensions (Labels):** Add one or more dimensions to the metric. Dimensions are key/value pairs that add context (e.g., `service.name = "checkout"`, `host.region = "us-east-1"`). You define a dimension name (the metric label key) and choose which log field to extract the dimension value from.
 
 ## Options and Parameters
+Example:
+<ExpandableImage url={'/docs_rules_extract_metric.png'} alt={'Extract metrics'} imgStyle={{height:200, margin:30}}/>
 
 ### Metric Type
 

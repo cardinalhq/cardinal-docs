@@ -1,3 +1,5 @@
+import ExpandableImage from "../../components/ExpandableImage"
+
 # Pipeline Rules
 
 Cardinal Collector Pipelines support a variety of rule types that can be applied to telemetry data.
@@ -10,6 +12,15 @@ Cardinal Collector Pipelines support a variety of rule types that can be applied
 - Enhance data quality and context by adding tags or extracting metrics.
 - Improve privacy by masking or dropping sensitive information.
 - Streamline observability efforts, making it easier to investigate and understand system behavior.
+
+## Pipeline Processors
+
+Cardinal pipelines give you full flexibility in where you can place rules.  Each receiver and exporter you add to your pipeline can individually process your telemetry data.  We also provide you a shared node to enable common rules.
+<div style={{display:'flex', gap:16, flexDirection:'column' }}>
+<ExpandableImage url={'/docs_pipeline.png'} alt={'PII'} imgStyle={{width:500, margin:30}}/>
+    <div>In order to configure each processor, click on the node in the graph and then choose a telemetry type to edit rules.  Rules are evaluated in a priority order top to bottom.</div>
+<ExpandableImage url={'/docs_rules.png'} alt={'PII'} imgStyle={{width:500, margin:30}}/>
+</div>
 
 Below is a brief overview of the key types of rules you can configure.
 
