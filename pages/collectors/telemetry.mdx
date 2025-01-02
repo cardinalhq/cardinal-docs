@@ -1,1 +1,31 @@
-# Collector Telemetry
+# CardinalHQ Telemetry Overview
+
+CardinalHQ automatically collects and displays key metrics from **collectors**, **rules**, and **sources/destinations**, giving you a comprehensive view of your entire telemetry pipeline. By understanding these three components, you can proactively monitor resource utilization, data flows, and transformation logic—all from a single, unified interface.
+
+---
+
+## Managed Collector Telemetry
+Monitoring the health of your collectors is critical for ensuring uninterrupted data ingestion and transformation. The **[Managed Collector](./telemetry/managed_collector)** page outlines how we capture resource usage (CPU, memory), uptime, and other operational stats, helping you quickly identify capacity issues and potential bottlenecks.
+
+---
+
+## Rule Telemetry
+Rules within CardinalHQ govern data transformations such as filtering, masking, sampling, and more. The **[Rules](./telemetry/rules)** page details how you can track:
+- **Conditions Matched vs. Not Matched**
+- **Rule Evaluation Time**
+- **Rule Evaluation Errors**
+
+This telemetry helps you confirm that your rules are effective, understand performance implications, and troubleshoot any misconfigurations.
+
+---
+
+## Source and Destination Telemetry
+Tracking your data’s journey from sources (receivers) to destinations (exporters) ensures every step in the pipeline is transparent. The **[Sources and Destinations](./telemetry/sources_and_destinations)** page explains how to monitor:
+- **Accepted vs. Refused Data** at sources
+- **Sent vs. Failed Data** at destinations
+
+By measuring acceptance and delivery rates, you can quickly spot ingestion bottlenecks, troubleshoot downstream failures, and maintain data integrity.
+
+---
+
+By combining insights from these three telemetry categories, you gain a holistic understanding of your pipelines’ health and performance. This integrated view enables fast troubleshooting, proactive scaling, and confident observability across all of your services. 
