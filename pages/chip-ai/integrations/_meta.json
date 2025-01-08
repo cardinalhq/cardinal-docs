@@ -1,4 +1,5 @@
 {
   "github": "GitHub",
+  "kubernetes-events": "Kubernetes Events",
   "prometheus-alert-manager": "Prometheus AlertManager"
 }
