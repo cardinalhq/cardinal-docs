@@ -1,0 +1,36 @@
+# Auto-Instrumentation for Go
+
+The [OpenTelemetry Operator for Kubernetes](.) painlessly allows a Go application to begin emitting traces.  Other signal types such as logs and metrics
+are not currently supported as an automatic feature, but can be enabled with [some Go code changes](../../semiautomatic/go)
+
+Go requires a privileged container to run.  This may be a restriction in some Kubernetes environments.  If this is restricted in your environment, manual instrumentation is the best practice.  While the pod must be privileged, your application containers can still run in a more restricted manner.  The instrumentation container must run in a privileged mode to monitor your Go application.
+
+Additionally, the `shareProcessNamespace: true` setting must be included to ensure that the containers all share a single operating system namespace, allowing one container to monitor the other.
+
+Two annotations required are shown below, as well as the additional permission settings:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: your-go-app-name
+  labels:
+    ...
+spec:
+  selector:
+    matchLabels:
+      ...
+  template:
+    shareProcessNamespace: true
+    securityContext:
+      runAsNonRoot: false
+    metadata:
+      labels:
+        ...
+      annotations:
+        instrumentation.opentelemetry.io/inject-go: opentelemetry-operator/auto-instrumentation
+        instrumentation.opentelemetry.io/otel-go-auto-target-exe: /app/bin/your-go-app-binary
+...
+```
+
+For more information, see the [opentelemetry-go-instrumentation](https://github.com/open-telemetry/opentelemetry-go-instrumentation) documentation.

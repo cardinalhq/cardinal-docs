@@ -1,0 +1,36 @@
+# OpenTelemetry Instrumentation
+
+Many organizations have an observability platform they are happy with, but many do not or are not satisfied with their current platform.
+OpenTelemetry is a good path forward. Depending on if you are installing observability into your applications and environments
+for the first time, OpenTelemetry is a great path forward. If you are wanting to move to a more open platform, OpenTelemetry is also a great path forward.
+
+# Greenfield
+
+If you are not currently using an observability product, or wish to migrate entirely from it to become OpenTelemetry native, automatic instrumentation is the path of least effort.
+
+Benefits:
+
+* Using autoinstrumentation allows for immediate benefits in observability.
+* If you are Kubernetes native, the [OpenTelemetry Operator for Kubernetes](./instrumentation/automatic/otel-operator) is a powerful tool.
+* OpenTelemetry is vendor agnostic, allowing you to instrument in a single way, and use many platforms to visualize and process your signal data.
+* Being OpenTelemetry native from the beginning allows for semantic conventions to be adopted.  These conventions help Cardinal's Chip AI to be more consistent in understanding your signals.  Using semantic conventions is easy and will assist humans who consume your signal data.
+
+Potential Issues:
+
+* Not all languages support the same level of autoinstrumentation, so some manual work may be required to get complete signal coverage.
+* While autoinstrumentation is available for any environment, it is easier in a Kubernetes environment when using the [OpenTelemetry Operator for Kubernetes](./instrumentation/automatic/otel-operator)
+
+# Conversion From Another Framework
+
+While there are some paths to convert from various observability frameworks and SDKs to an OpenTelemetry native environment, often these lose some of the benefits of OpenTelemetry. These benefits include the semantic meaning behind each metric name and the attributes on those metrics.
+
+Often observability providers will happily consume OpenTelemetry format data and store it in their proprietary systems. However, it is more difficult to have an application that is instrumented with a specific vendor's framework and ingest these signals into an OpenTelemetry Collector.
+
+Benefits:
+
+* If the OpenTelementry Collector (either Cardinal's release or from the OpenTelemetry project) supports ingesting your vendor's format, it may be possible to just point your application's data at the collector and get good results.
+
+Potential Issues:
+
+* Most vendors are happy to ingest OpenTelemtry data in addition to their proprietary formats, but generally they do not want it to be easy to convert from their proprietary format into OpenTelementry.  This means that while there may be an easy path to take data that is in OpenTelementry format and send it to a vendor's system, generally the other way around is not available, or is less reliable.
+* Often vendors have their own "shape" and semantics of telemetry data, especially legacy vendors.  Converting from these semantics and data shapes often makes the resulting OpenTelementry data to be less useful for humans as well as automated tools.

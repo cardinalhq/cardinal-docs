@@ -1,0 +1,227 @@
+# Go semi-automatic instrumentation
+
+The
+[Go auto-instrumentation](../automatic/otel-operator/go) obtained from the
+[OpenTelemetry Operator for Kubernetes](../automatic/otel-operator)
+enables traces with minimal effort, but other signal types are not currently automatic.
+This includes application logs, custom metrics, and custom spans.
+To obtain logs and enable metrics as well as manual span generation, some code needs to be added to your Go application.
+
+This guide describes a simple way to add this that does not depend on any specific vendor's toolkit, and emits the OpenTelemetry signals via OTLP protocol over HTTP.
+
+## Setting up telemetry
+
+For OpenTelemetry, we need to configure various components.  These are propagators for traces, and providers and exporters for all signal types.  By default, any instrumentation that uses the OpenTelemetry Go SDK will use a "no-op" provider, meaning all data will be dropped.  This feature allows setting up the telemetry exporting path after logging is configured and metrics may have been defined, and those will still work.
+
+On to the code!
+
+### File `otel_setup.go`
+
+Create this file, and put it somewhere you can call it, likely near your `main.go` or similar entrypoint.
+
+This example is similar to the example in the [Getting Started](https://opentelemetry.io/docs/languages/go/getting-started/) guide for the OpenTelemetry Go SDK.
+
+```go
+package cmd
+
+import (
+    "context"
+    "errors"
+    "log/slog"
+
+    "go.opentelemetry.io/otel"
+    "go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
+    "go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+    "go.opentelemetry.io/otel/exporters/stdout/stdoutlog"
+    "go.opentelemetry.io/otel/log/global"
+    "go.opentelemetry.io/otel/propagation"
+    otellog "go.opentelemetry.io/otel/sdk/log"
+    "go.opentelemetry.io/otel/sdk/metric"
+    "go.opentelemetry.io/otel/sdk/trace"
+)
+
+// setupOTelSDK bootstraps the OpenTelemetry pipeline.
+// If it does not return an error, make sure to call shutdown for proper cleanup.
+func setupOTelSDK(ctx context.Context) (shutdown func(context.Context) error, err error) {
+    var shutdownFuncs []func(context.Context) error
+
+    // shutdown calls cleanup functions registered via shutdownFuncs.
+    // The errors from the calls are joined.
+    // Each registered cleanup will be invoked once.
+    shutdown = func(ctx context.Context) error {
+        var err error
+        for _, fn := range shutdownFuncs {
+            err = errors.Join(err, fn(ctx))
+        }
+        shutdownFuncs = nil
+        return err
+    }
+
+    // handleErr calls shutdown for cleanup and makes sure that all errors are returned.
+    handleErr := func(inErr error) {
+        err = errors.Join(inErr, shutdown(ctx))
+    }
+
+    // Set up propagator.
+    prop := newPropagator()
+    otel.SetTextMapPropagator(prop)
+
+    // Set up trace provider.
+    tracerProvider, err := newTracerProvider(ctx)
+    if err != nil {
+        handleErr(err)
+        return
+    }
+    shutdownFuncs = append(shutdownFuncs, tracerProvider.Shutdown)
+    otel.SetTracerProvider(tracerProvider)
+
+    // Set up meter provider.
+    meterProvider, err := newMeterProvider(ctx)
+    if err != nil {
+        handleErr(err)
+        return
+    }
+    shutdownFuncs = append(shutdownFuncs, meterProvider.Shutdown)
+    otel.SetMeterProvider(meterProvider)
+
+    // Set up logger provider.
+    loggerProvider, err := newLoggerProvider(ctx)
+    if err != nil {
+        handleErr(err)
+        return
+    }
+    shutdownFuncs = append(shutdownFuncs, loggerProvider.Shutdown)
+    global.SetLoggerProvider(loggerProvider)
+
+    return
+}
+
+func newPropagator() propagation.TextMapPropagator {
+    return propagation.NewCompositeTextMapPropagator(
+        propagation.TraceContext{},
+        propagation.Baggage{},
+    )
+}
+
+func newTracerProvider(ctx context.Context) (*trace.TracerProvider, error) {
+    traceExporter, err := otlptracehttp.New(ctx, otlptracehttp.WithInsecure())
+    if err != nil {
+        return nil, err
+    }
+
+    tracerProvider := trace.NewTracerProvider(
+        trace.WithBatcher(traceExporter),
+    )
+    return tracerProvider, nil
+}
+
+func newMeterProvider(ctx context.Context) (*metric.MeterProvider, error) {
+    metricExporter, err := otlpmetrichttp.New(ctx, otlpmetrichttp.WithInsecure())
+    if err != nil {
+        return nil, err
+    }
+
+    meterProvider := metric.NewMeterProvider(
+        metric.WithReader(metric.NewPeriodicReader(metricExporter)),
+    )
+    return meterProvider, nil
+}
+
+func newLoggerProvider(ctx context.Context) (*otellog.LoggerProvider, error) {
+    logExporter, err := otlploghttp.New(ctx, otlploghttp.WithInsecure())
+    if err != nil {
+        return nil, err
+    }
+
+    loggerProvider := otellog.NewLoggerProvider(
+        otellog.WithProcessor(otellog.NewBatchProcessor(logExporter)),
+    )
+    return loggerProvider, nil
+}
+```
+
+## Hooking up logging via `slog`
+
+Go uses a package called `log/slog` that implements a structured logging framework.  While this guide only covers using `slog`, other logging systems exist.  Each one uses a "bridge" that implements some way to take log messages from a Go logging framework and convert it into something that the OpenTelemetry SDK will consume and export.
+
+We will be using the [slog bridge](https://pkg.go.dev/go.opentelemetry.io/contrib/bridges/otelslog).  A list of other bridges is available in the [OpenTelemetry Registry](https://opentelemetry.io/ecosystem/registry/?language=go&component=log-bridge).
+
+## SDK Configuration
+
+This is handled via environment variables in the common cases, and can be adjusted in code if necessary.
+
+Set `OTEL_EXPORTER_OTLP_ENDPOINT` to the HTTP endpoint of your OpenTelemetry Collector agent.  If you are using CardinalHQ's Managed Collector, this is the "agent" collector, which runs on each node.  You can use the service name, or you can use the "local host" IP address.
+
+Set `OTEL_SERVICE_NAME` to the name of your service.  This is used to set the otel resource `service.name` attribute.
+
+If you are using Kubernetes, a common way to set these is via the deployment manifest.  In the pod template spec, add:
+
+```yaml
+spec:
+  template:
+    spec:
+      containers:
+        - name: my-app-name
+          env:
+            - name: HOST_IP
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: status.hostIP
+            - name: OTEL_SERVICE_NAME
+              value: my-app-name
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: 'http://$(HOST_IP):4318'
+```
+
+Also note that if you are using CardinalHQ's Managed Collector, you may not need to set the service name as it will be obtained automatically when sending to the agent collector.
+
+### Go code additions
+
+Add this code near the top of your `main()` function:
+
+includes to add:
+
+```go
+include(
+    "context"
+    "log/slog"
+    "os"
+    "os/signal"
+
+    slogmulti "github.com/samber/slog-multi"
+    "go.opentelemetry.io/contrib/bridges/otelslog"
+
+...
+
+func main() {
+    // enableOtel could be set via environment variables or command line flags.
+    // Here, we check to see if the environment variable is set, and only enable it
+    // when it is set.
+    enableOtel := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT") != ""
+
+    // Handle SIGINT (CTRL+C) gracefully.
+    ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+    defer stop()
+
+    if enableOtel {
+        slog.Info("OpenTelemetry exporting enabled")
+        otelShutdown, err := setupOTelSDK(ctx)
+        if err != nil {
+            return err
+        }
+        defer func() {
+            err = errors.Join(err, otelShutdown(context.Background()))
+        }()
+    }
+
+    slog.SetDefault(slog.New(slogmulti.Fanout(
+        slog.NewJSONHandler(os.Stdout, nil),
+        otelslog.NewHandler(os.Getenv("OTEL_SERVICE_NAME")),
+    )))
+}
+```
+
+You can choose a different `slog.Handler` implementation if you prefer to not have JSON logged to the console.
+
+You can also directly use the OpenTelemetry Go SDK to make additional metrics  manually create spans.  It will do nothing useful without the `enableOtel` flag being set to `true`, but it will not cause any problems.  One common reason to disable telemetry is for testing and for local development.
