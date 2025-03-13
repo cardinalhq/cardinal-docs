@@ -1,0 +1,39 @@
+# Adding instrumentation to Services
+
+Generally, the only deployment change that needs to occur is to add an annotation to the pods that a Deployment, DaemonSet, or StatefulSet creates.
+
+# Signals
+
+By default, you will get traces from many Python libraries without
+any additional configuration.  Our recommended `Instrumentation` configuration
+will also ensure that logs are sent to the collector.  However, you may
+need to make some changes to your application to ensure that you continue
+to have console logs.  See [Setting Up `stderr` Logging in Python](../../semiautomatic/python#setting-up-stderr-logging-in-python) for more information.
+
+For more information, see the [opentelemetery-java-autoinstrumentation](https://github.com/open-telemetry/opentelemetry-java-instrumentation) documentation.
+
+# Auto-Instrumentation for Python
+
+A single annotation is used to enable instrumentation of Python.
+
+> Note: It is important that the attribute is applied to the pod template, and not the Deployment, StatefulSet, or DaemonSet.
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: your-python-app-name
+  labels:
+    ...
+spec:
+  selector:
+    matchLabels:
+      ...
+  template:
+    metadata:
+      labels:
+        ...
+      annotations:
+        instrumentation.opentelemetry.io/inject-python: opentelemetry-operator/auto-instrumentation
+...
+```

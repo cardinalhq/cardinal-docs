@@ -2,11 +2,16 @@
 
 Generally, the only deployment change that needs to occur is to add an annotation to the pods that a Deployment, DaemonSet, or StatefulSet creates.
 
-> Note: It is important that the attribute is applied to the pod template, and not the Deployment, StatefulSet, or DaemonSet.
+# Signals
+
+Java auto-instrumentation will typically set up logs, metrics, and traces to be exported from a large set of
+Java libraries without any additional effort.
 
 # Auto-Instrumentation for Java
 
-A single annotation is used to enable instrumentation of Java.  This causes a container to be injected into the pod as an "init-container" that will run before your container runs, and will pre-configure your container to use OpenTelemetry instrumentation based on the components your Java application uses.
+A single annotation is used to enable instrumentation of Java.
+
+> Note: It is important that the attribute is applied to the pod template, and not the Deployment, StatefulSet, or DaemonSet.
 
 ```yaml
 apiVersion: apps/v1

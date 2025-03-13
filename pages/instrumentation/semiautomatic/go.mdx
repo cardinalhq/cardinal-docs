@@ -7,11 +7,28 @@ enables traces with minimal effort, but other signal types are not currently aut
 This includes application logs, custom metrics, and custom spans.
 To obtain logs and enable metrics as well as manual span generation, some code needs to be added to your Go application.
 
-This guide describes a simple way to add this that does not depend on any specific vendor's toolkit, and emits the OpenTelemetry signals via OTLP protocol over HTTP.
+This guide describes how to add OpenTelemetry to your Go application.
+
+## Differences from other languages
+
+Most other languages handle automatic instrumentation by injecting
+a library into the application's runtime.  Go does not have a way to
+do this, so the OpenTelemetry Operator for Kubernetes instead runs
+a "sidecar" container which uses eBPF to intercept system calls and
+application function calls to generate traces.  This is a very
+different approach from other languages, and it means that the
+Go application itself must be configured to export logs and custom
+metrics.
 
 ## Setting up telemetry
 
-For OpenTelemetry, we need to configure various components.  These are propagators for traces, and providers and exporters for all signal types.  By default, any instrumentation that uses the OpenTelemetry Go SDK will use a "no-op" provider, meaning all data will be dropped.  This feature allows setting up the telemetry exporting path after logging is configured and metrics may have been defined, and those will still work.
+For Go, we need to configure various components.
+These are propagators for traces, and providers and exporters
+for all signal types.  By default, any instrumentation that
+uses the OpenTelemetry Go SDK will use a "no-op" provider,
+meaning all data will be dropped.  This feature allows setting
+up the telemetry exporting path after logging is configured
+and metrics may have been defined, and those will still work.
 
 On to the code!
 
@@ -146,35 +163,46 @@ Go uses a package called `log/slog` that implements a structured logging framewo
 
 We will be using the [slog bridge](https://pkg.go.dev/go.opentelemetry.io/contrib/bridges/otelslog).  A list of other bridges is available in the [OpenTelemetry Registry](https://opentelemetry.io/ecosystem/registry/?language=go&component=log-bridge).
 
-## SDK Configuration
+## Environment Variables
 
-This is handled via environment variables in the common cases, and can be adjusted in code if necessary.
+Due the Go using a sidecar container, that container is typically
+configured with the necessary environment variables.  As we are doing
+semi-automatic instrumentation, we need to set these environment
+variables ourselves.
 
-Set `OTEL_EXPORTER_OTLP_ENDPOINT` to the HTTP endpoint of your OpenTelemetry Collector agent.  If you are using CardinalHQ's Managed Collector, this is the "agent" collector, which runs on each node.  You can use the service name, or you can use the "local host" IP address.
+The most important ones are `OTEL_EXPORTER_OTLP_ENDPOINT` and
+`OTEL_SERVICE_NAME`.  The endpoint is the address of the OpenTelemetry
+Collector, and the service name is the name of the service that is
+being instrumented.  The service name is used to identify the service
+in the traces that are generated.
 
-Set `OTEL_SERVICE_NAME` to the name of your service.  This is used to set the otel resource `service.name` attribute.
+These are usually set in the Kubernetes manifest for your Go application
+container.
 
-If you are using Kubernetes, a common way to set these is via the deployment manifest.  In the pod template spec, add:
+### Example Kubernetes manifest
 
 ```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-go-app
 spec:
   template:
     spec:
       containers:
-        - name: my-app-name
-          env:
-            - name: HOST_IP
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: status.hostIP
-            - name: OTEL_SERVICE_NAME
-              value: my-app-name
-            - name: OTEL_EXPORTER_OTLP_ENDPOINT
-              value: 'http://$(HOST_IP):4318'
+      - name: my-go-app
+        env:
+        # Set the OpenTelemetry Collector endpoint to the collector
+        # service for the agent collector.
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "http://collector-name-agent.collector.svc.cluster.local:4318"
+        - name: OTEL_SERVICE_NAME
+          value: "my-go-app"
 ```
 
-Also note that if you are using CardinalHQ's Managed Collector, you may not need to set the service name as it will be obtained automatically when sending to the agent collector.
+The `OTEL_EXPORTER_OTLP_ENDPOINT` should point to the agent collector,
+which will add the additional Kubernetes and container resource attributes.
+See the [the recommended `Instrumentation` configuration](../automatic/otel-operator/installation#installing-instrumentation-configuration) for more information.
 
 ### Go code additions
 
