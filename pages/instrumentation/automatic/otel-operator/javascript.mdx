@@ -1,0 +1,79 @@
+# Adding Instrumentation to Browser Applications
+
+For JavaScript applications running in the browser, adding instrumentation is a matter of integrating the appropriate OpenTelemetry libraries into your codebase. Unlike server-side instrumentation—where a Kubernetes annotation might suffice—browser instrumentation is implemented directly in your JavaScript bundle.
+
+## Signals
+
+By default, the OpenTelemetry browser instrumentation collects traces from common browser events such as:
+- **Page Loads:** Captured via the Document Load Instrumentation.
+- **User Interactions:** Captured with the User Interaction Instrumentation.
+- **Network Requests:** Captured automatically when using the `fetch` API or `XMLHttpRequest`.
+
+These signals provide insights into how users interact with your application, and no additional configuration is required to capture these events. 
+## Instrumentation for JavaScript Browser Applications
+
+### Installation
+
+Ensure that you have installed the necessary OpenTelemetry packages:
+
+```bash
+npm install @opentelemetry/api \
+  @opentelemetry/sdk-trace-web \
+  @opentelemetry/instrumentation-document-load \
+  @opentelemetry/instrumentation-user-interaction \
+  @opentelemetry/instrumentation-xml-http-request \
+  @opentelemetry/exporter-trace-otlp-http \
+  @opentelemetry/resources
+```
+
+To enable browser instrumentation, add the following code snippet to your client-side JavaScript. This snippet initializes the tracer provider, sets up the required instrumentations, and includes custom resource attributes such as your service name.
+
+> Note: This module provides a trace-exporter for OTLP (http/json)
+
+```js
+import { DocumentLoadInstrumentation } from '@opentelemetry/instrumentation-document-load';
+import { registerInstrumentations } from '@opentelemetry/instrumentation';
+import {
+  BatchSpanProcessor,
+  SimpleSpanProcessor,
+  WebTracerProvider,
+} from '@opentelemetry/sdk-trace-web';
+import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
+import { defaultResource, resourceFromAttributes } from '@opentelemetry/resources';
+import { ATTR_SERVICE_NAME } from '@opentelemetry/semantic-conventions';
+
+
+
+const collectorOptions = {
+  url: 'https://<opentelemetry-gateway-collector-hostname>/v1/traces', 
+  concurrencyLimit: 10, // an optional limit on pending requests
+};
+
+const resource = defaultResource().merge(
+  resourceFromAttributes({
+    [ATTR_SERVICE_NAME]: '<your_service_name>',
+  }),
+);
+
+const exporter = new OTLPTraceExporter(collectorOptions);
+const provider = new WebTracerProvider({
+  resource: resource,
+  spanProcessors: [
+    new BatchSpanProcessor(exporter, {
+      maxQueueSize: 100,
+      maxExportBatchSize: 10,
+      scheduledDelayMillis: 500,
+      exportTimeoutMillis: 30000,
+    }),
+  ]
+});
+
+provider.register();
+
+registerInstrumentations({
+  instrumentations: [new DocumentLoadInstrumentation(),],
+});
+```
+
+### Adding Ingress for the Gateway Collector
+TBD
