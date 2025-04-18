@@ -1,8 +1,28 @@
 import Image from 'next/image'
 
+# Chip!
+
+In today's fast-paced development environments, monitoring systems need to be
+both intelligent and unobtrusive. Chip, developed by ex-Netflix engineers,
+serves as a monitoring copilot that emphasizes meaningful alerts over noise.
+By automatically analyzing telemetry data—including custom metrics—Chip
+identifies critical signals without requiring extensive configuration.
+Its native support for OpenTelemetry ensures seamless integration with
+existing stacks, allowing teams to set up in under 30 minutes.
+Designed for high-velocity teams, Chip enables developers to focus
+on building and shipping products, confident that their systems are
+being effectively monitored.​
+
 # AWS CloudWatch Metrics
 
-Cardinal’s Chip can effortlessly monitor AWS CloudWatch metrics for you. Follow these clear steps to enable this powerful integration:
+AWS CloudWatch provides real-time monitoring of your AWS resources and
+applications by collecting key metrics and logs. Integrating CloudWatch
+metrics with Cardinal’s Chip via AWS Firehose is quick and
+straightforward, taking just a few minutes to set up. Once
+integrated, Chip analyzes your CloudWatch metrics alongside other
+telemetry data, such as Kubernetes metrics and logs, delivering
+comprehensive insights into your system’s performance without the
+hassle of manually managing CloudWatch alerts and alarms.
 
 ## Prerequisites
 
@@ -15,21 +35,21 @@ Cardinal’s Chip can effortlessly monitor AWS CloudWatch metrics for you. Follo
 
 ### Configure Cardinal Gateway Collector
 
-   - Log into your account at [CardinalHQ](https://app.cardinalhq.io).
-   - Navigate to the **Pipelines** configuration tab.
-     <Image src="/chip/integrations/cloudwatch-metrics/chip-pipelines.png" width={330/2} height={126} />
-   - Select your Gateway collector from the dropdown.
-   - Click **Add a source** (bottom-left of the pipeline graph).
-     <Image src="/chip/integrations/cloudwatch-metrics/chip-add-source.png" width={334/2} height={89} />
-   - Choose **AWS Firehose Metrics**.
-   - Set a port between `1024` and `65535`.  The acutal port here does not matter, and will be used
-     by the ingress step to route traffic to the collector.  The port should not already be used by
-     another receiver on this collector.
-   - Choose `JSON` as the encoding.
-   - Create and securely store an **Access Key** for authentication.  This access key is
-     used to authenticate the AWS Firehose stream to the Cardinal Gateway collector.
-     Its value should be a random string of at least 16 characters.
-     <Image src="/chip/integrations/cloudwatch-metrics/chip-add-details.png" width={2004} height={606} />
+- Log into your account at [CardinalHQ](https://app.cardinalhq.io).
+- Navigate to the **Pipelines** configuration tab.
+  <Image src="/chip/integrations/cloudwatch-metrics/chip-pipelines.png" width={330/2} height={126} />
+- Select your Gateway collector from the dropdown.
+- Click **Add a source** (bottom-left of the pipeline graph).
+  <Image src="/chip/integrations/cloudwatch-metrics/chip-add-source.png" width={334/2} height={89} />
+- Choose **AWS Firehose Metrics**.
+- Set a port between `1024` and `65535`.  The acutal port here does not matter, and will be used
+  by the ingress step to route traffic to the collector.  The port should not already be used by
+  another receiver on this collector.
+- Choose `JSON` as the encoding.
+- Create and securely store an **Access Key** for authentication.  This access key is
+  used to authenticate the AWS Firehose stream to the Cardinal Gateway collector.
+  Its value should be a random string of at least 16 characters.
+  <Image src="/chip/integrations/cloudwatch-metrics/chip-add-details.png" width={2004} height={606} />
 
 ### Configure Kubernetes Ingress
 
