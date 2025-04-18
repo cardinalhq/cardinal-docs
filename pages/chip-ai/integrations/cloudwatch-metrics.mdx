@@ -1,17 +1,16 @@
-import Image from 'next/image'
+import Image from 'next/image';
 
 # Chip!
 
-In today's fast-paced development environments, monitoring systems need to be
-both intelligent and unobtrusive. Chip, developed by ex-Netflix engineers,
-serves as a monitoring copilot that emphasizes meaningful alerts over noise.
-By automatically analyzing telemetry data—including custom metrics—Chip
-identifies critical signals without requiring extensive configuration.
-Its native support for OpenTelemetry ensures seamless integration with
-existing stacks, allowing teams to set up in under 30 minutes.
-Designed for high-velocity teams, Chip enables developers to focus
-on building and shipping products, confident that their systems are
-being effectively monitored.​
+In modern engineering organizations, effective monitoring requires
+minimizing alert noise and reducing setup complexity. Chip, developed
+by former Netflix engineers, addresses these challenges by
+automatically analyzing telemetry data—including custom metrics—to
+surface critical issues without extensive configuration. Its built-in
+support for OpenTelemetry allows quick integration into existing
+systems, typically within 30 minutes. Chip helps engineering teams
+maintain focus on core development tasks while ensuring reliable
+system observability.
 
 # AWS CloudWatch Metrics
 
@@ -26,10 +25,10 @@ hassle of manually managing CloudWatch alerts and alarms.
 
 ## Prerequisites
 
-* A Cardinal Gateway Collector installed in a Kubernetes cluster.
-* AWS permissions to create a Data Firehose stream and a CloudWatch metric stream,
+- A Cardinal Gateway Collector installed in a Kubernetes cluster.
+- AWS permissions to create a Data Firehose stream and a CloudWatch metric stream,
   s3 buckets, and the associated IAM roles and policies.
-* Permission in the Kubernetes cluster to create an Ingress resource with TLS termination.
+- Permission in the Kubernetes cluster to create an Ingress resource with TLS termination.
 
 ## Quick Start
 
@@ -37,24 +36,36 @@ hassle of manually managing CloudWatch alerts and alarms.
 
 - Log into your account at [CardinalHQ](https://app.cardinalhq.io).
 - Navigate to the **Pipelines** configuration tab.
-  <Image src="/chip/integrations/cloudwatch-metrics/chip-pipelines.png" width={330/2} height={126} />
+  <Image
+    src="/chip/integrations/cloudwatch-metrics/chip-pipelines.png"
+    width={330 / 2}
+    height={126}
+  />
 - Select your Gateway collector from the dropdown.
 - Click **Add a source** (bottom-left of the pipeline graph).
-  <Image src="/chip/integrations/cloudwatch-metrics/chip-add-source.png" width={334/2} height={89} />
+  <Image
+    src="/chip/integrations/cloudwatch-metrics/chip-add-source.png"
+    width={334 / 2}
+    height={89}
+  />
 - Choose **AWS Firehose Metrics**.
-- Set a port between `1024` and `65535`.  The acutal port here does not matter, and will be used
-  by the ingress step to route traffic to the collector.  The port should not already be used by
+- Set a port between `1024` and `65535`. The acutal port here does not matter, and will be used
+  by the ingress step to route traffic to the collector. The port should not already be used by
   another receiver on this collector.
 - Choose `JSON` as the encoding.
-- Create and securely store an **Access Key** for authentication.  This access key is
+- Create and securely store an **Access Key** for authentication. This access key is
   used to authenticate the AWS Firehose stream to the Cardinal Gateway collector.
   Its value should be a random string of at least 16 characters.
-  <Image src="/chip/integrations/cloudwatch-metrics/chip-add-details.png" width={2004} height={606} />
+  <Image
+    src="/chip/integrations/cloudwatch-metrics/chip-add-details.png"
+    width={2004}
+    height={606}
+  />
 
 ### Configure Kubernetes Ingress
 
-   - AWS Firehose requires a TLS-secured (`https://`) endpoint.
-   - Set up Kubernetes Ingress with a TLS certificate. Refer to your environment’s specific documentation to accomplish this step.
+- AWS Firehose requires a TLS-secured (`https://`) endpoint.
+- Set up Kubernetes Ingress with a TLS certificate. Refer to your environment’s specific documentation to accomplish this step.
 
 ## Configure AWS Firehose
 
@@ -63,20 +74,44 @@ hassle of manually managing CloudWatch alerts and alarms.
 - Click **Create Firehose Stream**.
   - Source: Select **Direct PUT**.
   - Destination: Select **HTTP Endpoint**.
-    <Image src="/chip/integrations/cloudwatch-metrics/firehose-source.png" width={3136} height={498}/>
+    <Image
+      src="/chip/integrations/cloudwatch-metrics/firehose-source.png"
+      width={3136}
+      height={498}
+    />
   - Enter your TLS-secured collector endpoint (`https://...`).
-    <Image src="/chip/integrations/cloudwatch-metrics/firehose-destination.png" width={2180} height={496}/>
+    <Image
+      src="/chip/integrations/cloudwatch-metrics/firehose-destination.png"
+      width={2180}
+      height={496}
+    />
   - Authentication: Select **Use access key** and input your earlier-created key.
-    <Image src="/chip/integrations/cloudwatch-metrics/firehose-access-key.png" width={2134} height={520}/>
+    <Image
+      src="/chip/integrations/cloudwatch-metrics/firehose-access-key.png"
+      width={2134}
+      height={520}
+    />
   - Content Encoding: Select **GZIP**.
-    <Image src="/chip/integrations/cloudwatch-metrics/firehose-compression.png" width={1158} height={216}/>
+    <Image
+      src="/chip/integrations/cloudwatch-metrics/firehose-compression.png"
+      width={1158}
+      height={216}
+    />
   - Optional: Add additional OpenTelemetry attributes via **Add parameter**.
   - Expand **Buffer hints**, and set "size" to "1" and "interval" to "60".
-    <Image src="/chip/integrations/cloudwatch-metrics/firehose-buffer-hints.png" width={2528} height={752}/>
+    <Image
+      src="/chip/integrations/cloudwatch-metrics/firehose-buffer-hints.png"
+      width={2528}
+      height={752}
+    />
   - Choose S3 Bucket options:
     - Recommended: Select **Failed data only**.
     - Set retention policies and encryption as required for compliance.
-    <Image src="/chip/integrations/cloudwatch-metrics/firehose-s3.png" width={1528} height={962}/>
+      <Image
+        src="/chip/integrations/cloudwatch-metrics/firehose-s3.png"
+        width={1528}
+        height={962}
+      />
 - Click **Create firehose stream**.
 
 ## Configure AWS CloudWatch Stream
@@ -84,13 +119,29 @@ hassle of manually managing CloudWatch alerts and alarms.
 - In AWS Console, navigate to **CloudWatch → Metrics → Streams**.
 - Click **Create metric stream**.
   - Select **Custom setup with Firehose**.
-  <Image src="/chip/integrations/cloudwatch-metrics/cloudwatch-destination.png" width={1720} height={830}/>
+    <Image
+      src="/chip/integrations/cloudwatch-metrics/cloudwatch-destination.png"
+      width={1720}
+      height={830}
+    />
   - Select your newly created Firehose from the dropdown.
   - Change output format to **JSON**.
-  <Image src="/chip/integrations/cloudwatch-metrics/cloudwatch-output-format.png" width={1636} height={560}/>
-  - Select desired metrics (all or specific services, e.g., RDS).  This list can be changed later.
-  <Image src="/chip/integrations/cloudwatch-metrics/cloudwatch-metric-selection-all.png" width={1648} height={590}/>
-  <Image src="/chip/integrations/cloudwatch-metrics/cloudwatch-metric-selection-rds.png" width={1642} height={1138}/>
+    <Image
+      src="/chip/integrations/cloudwatch-metrics/cloudwatch-output-format.png"
+      width={1636}
+      height={560}
+    />
+  - Select desired metrics (all or specific services, e.g., RDS). This list can be changed later.
+    <Image
+      src="/chip/integrations/cloudwatch-metrics/cloudwatch-metric-selection-all.png"
+      width={1648}
+      height={590}
+    />
+    <Image
+      src="/chip/integrations/cloudwatch-metrics/cloudwatch-metric-selection-rds.png"
+      width={1642}
+      height={1138}
+    />
   - Name your metric stream (optional).
 - Click **Create metric stream**.
 
@@ -98,7 +149,11 @@ hassle of manually managing CloudWatch alerts and alarms.
 
 - Navigate back to the Data Firehose service, and examine the metrics for the firehose you created.
 - After some short time, you should see data coming in, and data being sent over HTTP.  There should be no errors logged.
-<Image src="/chip/integrations/cloudwatch-metrics/firehose-confirmation.png" width={2560} height={1632}/>
+  <Image
+    src="/chip/integrations/cloudwatch-metrics/firehose-confirmation.png"
+    width={2560}
+    height={1632}
+  />
 - If you see errors, check
   - That the ingress into your collector is fully set up and functional
   - That the endpoint configured on the firehose is correct.
