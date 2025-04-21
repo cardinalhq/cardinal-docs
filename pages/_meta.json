@@ -1,5 +1,6 @@
 {
   "index": "Quick Start",
+  "features": "Features",
   "collectors": "Managed Collectors",
   "chip-ai": "Chip AI",
   "instrumentation": "Instrumentation"

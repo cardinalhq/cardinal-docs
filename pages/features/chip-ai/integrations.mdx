@@ -1,0 +1,25 @@
+## integrations
+
+Integrations extend Chip's capabilities, allowing you to connect with various data sources and services.  New integrations are being added regularly.
+
+### Data Ingestion
+
+Integrations allow you to ingest telemetry signals and events from various sources, such as cloud providers, databases, source repositories, and third-party services. This enables you to centralize your observability data and enable Chip to provide more meaningful insights.
+
+#### Telemetry Signals
+
+Importing telemetry signals is a straightforward process. Chip supports various data formats, and is OpenTelemetry native.  Using the OpenTelemetry Collector as a gateway, you can easily send telemetry from other sources into Chip's OpenTelemetry telemetry pipeline.
+
+#### Events
+
+Events can be ingested from a variety of sources, including:
+- **Cloud Providers**: AWS, GCP, Azure, etc.
+- **Databases**: PostgreSQL, MySQL, MongoDB, etc.
+- **Source Repositories**: GitHub, GitLab, Bitbucket, etc.
+- **Third-Party Services**: PagerDuty, Slack, etc.
+- **Alerting Systems**: Prometheus, Grafana, etc.
+
+
+### Data Export
+
+If you need to export telemetry data to other systems, Chip provides integrations that allow you to send data to external services, such as data lakes, analytics platforms, and existing monitoring providers. This ensures that you can leverage your existing tools and workflows while benefiting from Chip's advanced analytics and insights.

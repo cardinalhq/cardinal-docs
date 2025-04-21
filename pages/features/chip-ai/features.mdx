@@ -1,0 +1,19 @@
+## Chip features
+
+### Actionable Alerting and Insights
+
+Chip's alerting system is designed to provide actionable insights, reducing noise and alert fatigue. It automatically identifies significant anomalies and alerts. When an alert is triggered, Chip proactively pinpoints the likely source of the issue, minimizing investigative overhead. Additionally, it offers practical, immediate steps to address detected issues, accelerating resolution and minimizing downtime.
+
+### OpenTelemetry Native
+
+Chip uses a custom open source OpenTelemetry Collector to collect and process telemetry data. This collector is designed to be lightweight and efficient, ensuring minimal impact on your system's performance while providing powerful data processing capabilities.
+
+These colectors are fully managed by Cardinal, and are deployed in a highly available configuration within your Kubernetes cluster. They are easy to deploy (using the Cardinal Operator) and are configured graphically through the CardinalHQ web interface.
+
+Three styles of collectors are used in a complete Chip deployment:
+
+- **Gateway Collector**: This is the main collector that receives telemetry data from various sources, such as cloud providers, databases, and third-party services. It processes and forwards this data to the Chip backend for analysis and visualization.  It also receives telemetry data from the Agent Collector and Polling Collector.
+- **Agent Collector**: This collector is deployed on individual hosts or containers to collect telemetry data locally. It can perform local processing and filtering before sending the data to the Gateway Collector, reducing network overhead and improving performance.
+- **Polling Collector**: This collector is used to poll data from external sources, such as Kubernetes clusters or other monitoring systems.
+
+All collectors benefit from
