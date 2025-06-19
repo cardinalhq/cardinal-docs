@@ -1,0 +1,59 @@
+# Cardinal OpenTelemetry Collector
+
+Running a Cardinal OpenTelemetry Collector within your VPC/infrastructure enables you to use Chip while only sending **< 0.01%** of your telemetry data to Cardinal.
+
+- Recommended if your telemetry data volume is high
+- Runs downstream of your existing OpenTelemetry Collector, within your own VPC/infrastructure
+- Sends only minimal exemplars and aggregates to Cardinal, not raw telemetry data
+
+*(If your telemetry data volume is low, or you prefer to not install a new Collector, refer to the [OTLP Export to Cardinal](/otel-collectors/export-to-cardinal) section for an alternative)*
+
+### Install the Cardinal Kubernetes Operator
+
+The Cardinal Kubernetes Operator simplifies the deployment and management of Cardinal OpenTelemetry Collectors on Kubernetes.
+
+**Prerequisites**
+
+- [Helm](https://helm.sh) v3 or later
+- Kubernetes cluster with permissions to install `CRDs`, `ClusterRoles`, and `ClusterRoleBindings`
+
+**Install the Operator**
+
+```sh copy
+helm install chq-operator oci://public.ecr.aws/cardinalhq.io/cardinalhq-operator \
+  --namespace chq-operator \
+  --create-namespace
+```
+
+This command installs the Operator, its necessary roles, and the CRD for Collector resources in your cluster.
+
+### Deploy a Collector
+
+Next, let's deploy a Cardinal OpenTelemetry Collector.
+
+1. [Sign-in to Cardinal,](https://app.cardinalhq.io) and select the **Pipelines** tab in the left sidebar.
+2. Click the **Add a Collector...** button.
+3. Follow the steps to create a Kubernetes Secret for your Cardinal API key, and apply the CRD manifest to deploy your new Collector.
+
+### Send Data to the Collector
+
+If you have an existing OpenTelemetry Collector, add an OTLP Exporter to its pipeline to send data to this Cardinal OpenTelemetry Collector's OTLP Receiver.
+
+```yaml copy
+exporters:
+  otlphttp/cardinal-collector:
+    endpoint: http://<your-k8s-ingress-or-service-endpoint>
+
+service:
+  pipelines:
+    metrics:
+      exporters: [otlphttp/cardinal-collector]
+
+    logs:
+      exporters: [otlphttp/cardinal-collector]
+
+    traces:
+      exporters: [otlphttp/cardinal-collector]
+```
+
+If you don't have an existing OpenTelemetry Collector, point your application OpenTelemetry SDKs to this Collector's OTLP Receiver using the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable, as outlined in the language-specific SDK documentation.

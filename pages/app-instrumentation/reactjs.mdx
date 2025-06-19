@@ -1,0 +1,81 @@
+# React.js App Instrumentation
+
+Follow the steps below to auto-instrument your React.js web app. When completed, your app will appear in the Cardinal Service Catalog, and Chip will begin monitoring it.
+
+1. Install the OpenTelemetry dependencies:
+
+```sh copy
+npm install --save @opentelemetry/instrumentation
+npm install --save @opentelemetry/auto-instrumentations-web
+npm install --save @opentelemetry/sdk-trace-web
+npm install --save @opentelemetry/context-zone
+npm install --save @opentelemetry/resources
+npm install --save @opentelemetry/semantic-conventions
+npm install --save @opentelemetry/exporter-trace-otlp-http
+```
+
+2. Initialize the instrumentation:
+
+If your application has signed-in user state, we recommend initializing the instrumentation so that user information is added to `fetch` spans.
+
+Here's an example:
+
+```js copy
+import { getWebAutoInstrumentations } from '@opentelemetry/auto-instrumentations-web';
+import { ZoneContextManager } from '@opentelemetry/context-zone';
+import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
+import { registerInstrumentations } from '@opentelemetry/instrumentation';
+import { resourceFromAttributes } from '@opentelemetry/resources';
+import {
+  BatchSpanProcessor,
+  WebTracerProvider,
+} from '@opentelemetry/sdk-trace-web';
+import { ATTR_SERVICE_NAME } from '@opentelemetry/semantic-conventions';
+
+// Enable OpenTelemetry Web instrumentation, and add user attributes 
+// to `fetch` spans
+useEffect(() => {
+  if (userProfile) {
+    const resource = resourceFromAttributes({
+      [ATTR_SERVICE_NAME]: 'your-service-name',
+    });
+
+    const tracerProvider = new WebTracerProvider({
+      resource,
+      spanProcessors: [
+        new BatchSpanProcessor(
+          new OTLPTraceExporter({
+            url: window.location.origin + '/api/otlp/v1/traces',
+          }),
+        ),
+      ],
+    });
+    tracerProvider.register({
+      contextManager: new ZoneContextManager(),
+    });
+
+    registerInstrumentations({
+      tracerProvider,
+      instrumentations: [
+        getWebAutoInstrumentations({
+          '@opentelemetry/instrumentation-user-interaction': {
+            enabled: false,
+          },
+          '@opentelemetry/instrumentation-document-load': {
+            enabled: false,
+          },
+          '@opentelemetry/instrumentation-fetch': {
+            enabled: true,
+            semconvStabilityOptIn: 'http',
+            ignoreNetworkEvents: true,
+            applyCustomAttributesOnSpan(span) {
+              span.setAttribute('user.email', userProfile.email);
+              span.setAttribute('user.id', userProfile.userId);
+            },
+          },
+        }),
+      ],
+    });
+  }
+}, [userProfile]);
+```

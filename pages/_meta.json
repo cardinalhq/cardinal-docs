@@ -1,6 +1,5 @@
 {
   "index": "Quick Start",
-  "collectors": "Managed Collectors",
-  "chip-ai": "Chip AI",
-  "instrumentation": "Instrumentation"
+  "app-instrumentation": "App Instrumentation",
+  "otel-collectors": "OpenTelemetry Collectors"
 }

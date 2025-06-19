@@ -1,7 +1,0 @@
-{
-  "installation": "Installing the OpenTelemetry Operator",
-  "go": "Instrumenting Go",
-  "java": "Instrumenting Java",
-  "python": "Instrumenting Python",
-  "javascript": "Instrumenting JavaScript"
-}

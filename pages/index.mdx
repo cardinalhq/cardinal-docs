@@ -1,41 +1,37 @@
 # Quick Start
 
-### 1. Install the Cardinal Kubernetes Operator
+Ready to see how [Chip](https://cardinalhq.io) can get you from instrumentation to **incident-ready** in minutes? 🚀
 
-The Cardinal Kubernetes Operator simplifies the deployment and management of Cardinal OpenTelemetry Collectors on Kubernetes. It only needs to be installed once per Kubernetes cluster, and can manage multiple Collectors on that cluster.
+Chip is **OpenTelemetry-native**, so whether you're new to OTel, or using it already, you'll be able to get onboarded in under 30 minutes.
 
-**Prerequisites**
+### New to OpenTelemetry?
 
-- [Helm](https://helm.sh) v3 or later
-- Kubernetes cluster with permissions to install `CRDs`, `ClusterRoles`, and `ClusterRoleBindings`
+For the fastest onboarding experience, we recommend auto-instrumenting your applications using the open-source, vendor-neutral OpenTelemetry SDKs. This gives you baseline telemetry out-of-the-box, with zero (or minimal) code changes.
 
-**Install the Operator**
+*(If you currently use vendor-specific SDKs or agents, like the Datadog Agent, DogStatsD, or dd-trace, you can still add the OpenTelemetry SDKs to try Chip without disrupting your existing vendor usage.)*
 
-```sh copy
-helm install chq-operator oci://public.ecr.aws/cardinalhq.io/cardinalhq-operator \
-  --namespace chq-operator \
-  --create-namespace
-```
+Select your language:
 
-This command installs the Operator, its necessary roles, and the CRD for Collector resources in your cluster.
+- [Node.js](/app-instrumentation/nodejs)
+- [Python](/app-instrumentation/python)
+- [Java](/app-instrumentation/java)
+- [Go](/app-instrumentation/go)
+- [React.js](/app-instrumentation/reactjs)
 
-### 2. Deploy a Collector
 
-Now, let's deploy your first Cardinal OpenTelemetry Collector.
+### Existing OpenTelemetry users
 
-![Add a Collector](/add_collector.png)
+If your applications are already instrumented using OpenTelemetry SDKs, and you're running an OpenTelemetry Collector, getting onboarded to Chip is as simple as adding an OTLP Exporter to your Collector pipeline.
 
-1. [Sign-in to Cardinal,](https://app.cardinalhq.io) and select the **Pipelines** tab in the left sidebar.
-2. Click the **Add a Collector...** button.
-3. Give your Collector a descriptive name, and click the **Add Collector** button.
-4. Follow Steps 1-2 on the screen to create a Kubernetes Secret for your Cardinal API key, and apply the manifest to deploy your new Collector.
+Select your preferred option:
 
-### 3. Configure a Collector Pipeline
+[Add an OTLP Exporter to send data to Cardinal](/otel-collectors/export-to-cardinal) 
+  - Recommended for fast onboarding, PoCs, or if your telemetry data volume is low
+  - Sends raw telemetry data to Cardinal
 
-Your new Collector is now deployed with a default minimal configuration.
+OR
 
-Follow Step 3 on the screen to add your first [Source](./pipelines/sources) to the Collector Pipeline. Then, add any additional Sources and [Destinations](./pipelines/destinations) to build out your Pipeline.
-
-### 4. Send Data to the Collector
-
-Refer to the documentation for each of your [Sources](./pipelines/sources) for information on how to configure your existing instrumentation libraries or agents to send data to the Collector.
+[Install the Cardinal OpenTelemetry Collector](/otel-collectors/cardinal-collector)
+  - Recommended if your telemetry data volume is high
+  - Runs downstream of your existing Collector, within your VPC/infrastructure
+  - Sends < 0.01% of your data to Cardinal (only exemplars and aggregates, not raw data)

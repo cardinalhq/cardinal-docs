@@ -1,0 +1,31 @@
+# OTLP Export to Cardinal
+
+With an existing OpenTelemetry Collector, getting onboarded to Chip is as simple as adding an OTLP Exporter to your Collector pipeline.
+
+- Recommended for fast onboarding, PoCs, or if your telemetry data volume is low
+- Sends raw telemetry data to Cardinal
+
+*(If your telemetry data volume is high, and you prefer not to send it all to Cardinal, refer to the [Cardinal OpenTelemetry Collector](/otel-collectors/cardinal-collector) section for an alternative)*
+
+### Add an OTLP Exporter
+
+Update your Collector configuration `yaml` to add a new exporter, and include it in your pipelines for metrics, logs, and traces.
+
+```yaml copy
+exporters:
+  otlphttp/cardinal:
+    endpoint: https://intake-otlphttp.us-east-2.aws.cardinalhq.io
+    headers:
+      x-cardinalhq-api-key: <your-cardinal-api-key>
+
+service:
+  pipelines:
+    metrics:
+      exporters: [otlphttp/cardinal]
+
+    logs:
+      exporters: [otlphttp/cardinal]
+
+    traces:
+      exporters: [otlphttp/cardinal]
+```

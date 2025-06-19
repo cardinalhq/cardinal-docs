@@ -1,0 +1,85 @@
+# Node.js App Instrumentation
+
+Follow the steps below to auto-instrument your Node.js service. When completed, your service will appear in the Cardinal Service Catalog, and Chip will begin monitoring it.
+
+### Local Testing
+
+1. Get a Cardinal API key:
+
+Sign in to your [Cardinal account,](http://app.cardinalhq.io) and get an API key from the Organization Settings > API Keys section.
+
+2. Install the OpenTelemetry auto-instrumentation dependencies:
+
+```sh copy
+npm install --save @opentelemetry/api
+npm install --save @opentelemetry/auto-instrumentations-node
+```
+
+3. Enable log forwarding:
+
+See the [Pino Logger](#pino-logger) section below.
+
+4. Export the following environment variables:
+
+```sh copy
+export OTEL_SERVICE_NAME="your-service-name" # Set your service name
+export OTEL_METRICS_EXPORTER="otlp"
+export OTEL_LOGS_EXPORTER="otlp"
+export OTEL_TRACES_EXPORTER="otlp"
+export OTEL_EXPORTER_OTLP_ENDPOINT="https://intake-otlphttp.us-east-2.aws.cardinalhq.io"
+export OTEL_EXPORTER_OTLP_HEADERS="x-cardinalhq-api-key=<your-api-key>" # Set your API key
+export NODE_OPTIONS="--require @opentelemetry/auto-instrumentations-node/register"
+```
+
+5. Run your application:
+
+```sh copy
+npm run start # Or your application's start script
+```
+
+6. Validate that Cardinal is receiving data:
+
+Exercise the service by calling some API endpoints, or causing some logs or metrics to be emitted. Wait for a few minutes, then visit the Service Catalog in the [Cardinal UI](http://app.cardinalhq.io) to check that your service appears in the list.
+
+### Docker
+
+Set the environment variables outlined above in your Docker container runtime configuration. 
+
+*(If you run an OpenTelemetry Collector, set the `OTEL_EXPORTER_OTLP_ENDPOINT` to your Collector's OTLP Receiver endpoint, and follow the steps in the [OTLP Export to Cardinal](/otel-collectors/export-to-cardinal) section to forward data to Cardinal.)*
+
+### Kubernetes
+
+Set the environment variables outlined above in your `Deployment` or `StatefulSet` manifest. 
+
+*(If you run an OpenTelemetry Collector, set the `OTEL_EXPORTER_OTLP_ENDPOINT` to your Collector's OTLP Receiver endpoint, and follow the steps in the [OTLP Export to Cardinal](/otel-collectors/export-to-cardinal) section to forward data to Cardinal.)*
+
+### Additional Integrations
+
+#### Pino Logger
+
+Configure [Pino](https://getpino.io/) to forward logs to Cardinal.
+
+1. Install the `pino-opentelemetry-transport` package:
+
+```sh copy
+npm install --save pino-opentelemetry-transport
+```
+
+2. Configure Pino to use the `pino-opentelemetry-transport` when you initialize the logger:
+
+```js copy  
+const logger = pino({
+  transport: {
+    targets: [
+      {
+        target: "pino/file",
+        options: { destination: 1 }, // continues to write to stdout
+      },
+      {
+        target: "pino-opentelemetry-transport",
+        options: {},
+      },
+    ],
+  },
+});
+```
