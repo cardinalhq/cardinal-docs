@@ -18,6 +18,7 @@ wget https://github.com/open-telemetry/opentelemetry-java-instrumentation/releas
 
 ```sh copy
 export OTEL_SERVICE_NAME="your-service-name"
+export OTEL_RESOURCE_ATTRIBUTES="deployment.environment.name=local" # local/dev/staging/prod
 export OTEL_METRICS_EXPORTER="otlp"
 export OTEL_LOGS_EXPORTER="otlp"
 export OTEL_TRACES_EXPORTER="otlp"

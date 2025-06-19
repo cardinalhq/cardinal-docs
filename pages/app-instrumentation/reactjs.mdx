@@ -38,6 +38,7 @@ useEffect(() => {
   if (userProfile) {
     const resource = resourceFromAttributes({
       [ATTR_SERVICE_NAME]: 'your-service-name',
+      'deployment.environment.name': 'local', // local/dev/staging/prod
     });
 
     const tracerProvider = new WebTracerProvider({
