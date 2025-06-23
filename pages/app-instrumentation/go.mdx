@@ -34,14 +34,14 @@ Exercise the service by calling some API endpoints, or causing some logs or metr
 
 ### Docker
 
-Set the environment variables outlined above in your Docker container runtime configuration. 
+Set the environment variables outlined above in your Docker container runtime configuration.
 
 - Update `OTEL_RESOURCE_ATTRIBUTES` to set the `deployment.environment.name` value to your environment.
 - If you run an OpenTelemetry Collector, set the `OTEL_EXPORTER_OTLP_ENDPOINT` to your Collector's OTLP Receiver endpoint, and follow the steps in the [OTLP Export to Cardinal](/otel-collectors/export-to-cardinal) section to forward data to Cardinal.
 
 ### Kubernetes
 
-Set the environment variables outlined above in your `Deployment` or `StatefulSet` manifest. 
+Set the environment variables outlined above in your `Deployment` or `StatefulSet` manifest.
 
 - Update `OTEL_RESOURCE_ATTRIBUTES` to set the `deployment.environment.name` value to your environment.
 - If you run an OpenTelemetry Collector, set the `OTEL_EXPORTER_OTLP_ENDPOINT` to your Collector's OTLP Receiver endpoint, and follow the steps in the [OTLP Export to Cardinal](/otel-collectors/export-to-cardinal) section to forward data to Cardinal.
@@ -50,7 +50,53 @@ Set the environment variables outlined above in your `Deployment` or `StatefulSe
 
 #### Slog Logger
 
-TBD
+To use the standard library `slog` logger with Cardinal, you can use the `slog-multi` package.
+This will allow you to log both to standard error (the console) and to Cardinal.
+
+To set up the SDK, we will also be using our `oteltools` package to configure OpenTelemetry.
+
+```go
+include(
+    "context"
+    "log/slog"
+    "os"
+    "os/signal"
+  	"syscall"
+
+    slogmulti "github.com/samber/slog-multi"
+	"github.com/cardinalhq/oteltools/pkg/telemetry"
+    "go.opentelemetry.io/contrib/bridges/otelslog"
+
+...
+
+func main() {
+    // Handle ^C and kubernetes termination gracefully.
+    ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+    defer stop()
+
+    // Check to see if the environment variable is set, and only enable it
+    // when it is set.
+    enableOtel := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT") != ""
+
+    if enableOtel {
+        slog.Info("OpenTelemetry exporting enabled")
+		otelShutdown, err := telemetry.SetupOTelSDK(ctx)
+        if err != nil {
+            return err
+        }
+        defer func() {
+            err = errors.Join(err, otelShutdown(context.Background()))
+        }()
+    }
+
+    slog.SetDefault(slog.New(slogmulti.Fanout(
+        slog.NewJSONHandler(os.Stdout, nil),
+        otelslog.NewHandler(os.Getenv("OTEL_SERVICE_NAME")),
+    )))
+
+    // Your application logic here
+}
+```
 
 #### Zap Logger
 
