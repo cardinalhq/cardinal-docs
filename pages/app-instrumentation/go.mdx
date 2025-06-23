@@ -46,14 +46,32 @@ Set the environment variables outlined above in your `Deployment` or `StatefulSe
 - Update `OTEL_RESOURCE_ATTRIBUTES` to set the `deployment.environment.name` value to your environment.
 - If you run an OpenTelemetry Collector, set the `OTEL_EXPORTER_OTLP_ENDPOINT` to your Collector's OTLP Receiver endpoint, and follow the steps in the [OTLP Export to Cardinal](/otel-collectors/export-to-cardinal) section to forward data to Cardinal.
 
-### Additional Integrations
+## Additional Integrations
 
-#### Slog Logger
+### Basics of the OpenTelemetry Go SDK
 
-To use the standard library `slog` logger with Cardinal, you can use the `slog-multi` package.
-This will allow you to log both to standard error (the console) and to Cardinal.
+* The OpenTelemetry Go SDK uses the context to propagate trace information. For clients, you would create a span (which will return a context),
+create a request with that context, and then make the request as usual.
 
-To set up the SDK, we will also be using our `oteltools` package to configure OpenTelemetry.
+* Servers can use the context from the incoming request to extract any baggage or trace information, and create a span to report the server-side
+processing of the request.
+
+* Metrics can be created inside a package by referring to the default metric meter provider.  If there is no meter provider set,
+this will not cause any issues.  For example, if you create metrics inside an `init()` function, they will be reconfigured to use the SDK
+when it is set up later, usually in `main()`.
+
+* Logging generally uses a bridge.  There are many bridged available.  We will show an example of using the standard library `slog` logger with Cardinal,
+but any OpenTelemetry logger that has a bridge will work just as well.
+
+* There are many more integrations than will be listed below.
+
+### OpenTelemetry Go SDK Setup
+
+While the default settings for the SDK will export Go runtime metrics, you can also enable additional instrumentation for HTTP servers, gRPC servers,
+and other packages.  To assist with this setup, we have created a package called `oteltools/telemetry` that provides a convenient way to set up the OpenTelemetry SDK with common configurations.
+
+You don't need to use this package, but it will ensure that the SDK is properly shut down when your application exits,
+and will set up the SDK with some production-ready defaults.
 
 ```go
 include(
@@ -63,11 +81,8 @@ include(
     "os/signal"
   	"syscall"
 
-    slogmulti "github.com/samber/slog-multi"
 	"github.com/cardinalhq/oteltools/pkg/telemetry"
-    "go.opentelemetry.io/contrib/bridges/otelslog"
-
-...
+)
 
 func main() {
     // Handle ^C and kubernetes termination gracefully.
@@ -89,6 +104,29 @@ func main() {
         }()
     }
 
+    // Your application logic here
+}
+```
+
+### Logging
+
+#### Slog Logger
+
+To use the standard library `slog` logger with Cardinal, you can use the `slog-multi` package.
+This will allow you to log both to standard out (the console) and to Cardinal.
+
+```go
+include(
+    "log/slog"
+    "os"
+
+    slogmulti "github.com/samber/slog-multi"
+    "go.opentelemetry.io/contrib/bridges/otelslog"
+)
+
+func main() {
+    // SDK setup from the previous section
+
     slog.SetDefault(slog.New(slogmulti.Fanout(
         slog.NewJSONHandler(os.Stdout, nil),
         otelslog.NewHandler(os.Getenv("OTEL_SERVICE_NAME")),
@@ -98,6 +136,135 @@ func main() {
 }
 ```
 
-#### Zap Logger
+### HTTP Client Tracing
 
-TBD
+To trace outgoing HTTP requests, you can use the `otelhttp` package. This package provides middleware that automatically instruments HTTP requests made by your application.  You can optionally send "baggage" along with the request, which the server may choose to include in their spans.
+
+```go
+include(
+    "context"
+    "net/http"
+    "os"
+
+    "go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+)
+
+func main() {
+    // SDK setup from the previous section
+
+    // Create a tracer for your application.  The string should generally be the name of your package,
+    // such as "github.com/yourusername/yourapp".  You can create a tracer per package,
+    // allowing you to know the context of the trace.
+    tr := otel.Tracer("example/client")
+
+    // Create a new HTTP client with OpenTelemetry tracing enabled
+    client := http.Client{
+		Transport: otelhttp.NewTransport(
+			http.DefaultTransport,
+			// By setting the otelhttptrace client in this transport, it can be
+			// injected into the context after the span is started, which makes the
+			// httptrace spans children of the transport one.
+			otelhttp.WithClientTrace(func(ctx context.Context) *httptrace.ClientTrace {
+				return otelhttptrace.NewClientTrace(ctx)
+			}),
+		),
+	}
+
+    // (optional) add some baggage to the context, which will be propagated with the HTTP request
+	bag, _ := baggage.Parse("username=donuts")
+	ctx := baggage.ContextWithBaggage(context.Background(), bag)
+
+    err := makeRequest(ctx, client)
+    if err != nil {
+        slog.Error("Failed to make request", "error", err)
+    }
+}
+
+func makeRequest(ctx context.Context, client *http.Client) error {
+    ctx, span := tr.Start(ctx, "say hello", trace.WithAttributes(semconv.PeerService("HelloService")))
+    defer span.End()
+
+    req, err := http.NewRequestWithContext(ctx, "GET", "https://example.com", nil)
+    if err != nil {
+        return err
+    }
+
+    resp, err := client.Do(req)
+    if err != nil {
+        return err
+    }
+    defer resp.Body.Close()
+
+    // do something with the response
+}
+```
+
+#### HTTP Server Tracing
+
+To trace incoming HTTP requests, you can use the `otelhttp` package as well. This package provides middleware that automatically instruments HTTP requests received by your application.
+
+```go
+include(
+    "context"
+    "net/http"
+
+    "go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+)
+
+func main() {
+    // SDK setup from the previous section
+
+	uk := attribute.Key("username")
+
+	helloHandler := func(w http.ResponseWriter, req *http.Request) {
+		ctx := req.Context()
+		span := trace.SpanFromContext(ctx)
+		bag := baggage.FromContext(ctx)
+		span.AddEvent("handling this...", trace.WithAttributes(uk.String(bag.Member("username").Value())))
+
+		_, _ = io.WriteString(w, "Hello, world!\n")
+	}
+
+    // Wrap the handler with an OpenTelemetry HTTP handler
+	otelHandler := otelhttp.NewHandler(http.HandlerFunc(helloHandler), "Hello")
+
+	http.Handle("/hello", otelHandler)
+	err = http.ListenAndServe(":7777", nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+```
+
+#### `pgx/v5` Database Tracing
+
+To trace database queries made with the `pgx/v5` package, you can use the `otelpgx` package. This package provides middleware that automatically instruments database queries made by your application.
+
+```go
+package configdb
+
+import (
+	"context"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/pgx-contrib/pgxotel"
+)
+
+// NewMetadataConnectionPool creates a new connection pool using pgx/v5,
+// instrumented with OpenTelemetry tracing.
+//
+// When making a DB call, if you pass in a context with tracing applied, it will
+// automatically create spans for your queries.  For HTTP servers, you can use the
+// incoming request context for this purpose.
+func NewConnectionPool(ctx context.Context, url string, dbName string) (*pgxpool.Pool, error) {
+	cfg, err := pgxpool.ParseConfig(url)
+	if err != nil {
+		return nil, err
+	}
+
+	cfg.ConnConfig.Tracer = &pgxotel.QueryTracer{
+		Name: dbName,
+	}
+
+	return pgxpool.NewWithConfig(ctx, cfg)
+}
