@@ -14,11 +14,12 @@ Sign in to your [Cardinal account,](http://app.cardinalhq.io) and get an API key
 
 ```sh copy
 export OTEL_SERVICE_NAME="your-service-name"
+export OTEL_RESOURCE_ATTRIBUTES="deployment.environment.name=local" # local/dev/staging/prod
 export OTEL_METRICS_EXPORTER="otlp"
 export OTEL_LOGS_EXPORTER="otlp"
 export OTEL_TRACES_EXPORTER="otlp"
 export OTEL_EXPORTER_OTLP_ENDPOINT="https://otelhttp.intake.us-east-2.aws.cardinalhq.io"
-export OTEL_EXPORTER_OTLP_HEADERS="x-cardinalhq-api-key=<your-api-key>"
+export OTEL_EXPORTER_OTLP_HEADERS="x-cardinalhq-api-key=<your-api-key>" # Set your API key
 ```
 
 4. Run your application:
