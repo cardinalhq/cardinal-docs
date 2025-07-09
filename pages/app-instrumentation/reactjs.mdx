@@ -16,7 +16,7 @@ npm install --save @opentelemetry/exporter-trace-otlp-http
 
 2. Initialize the instrumentation:
 
-If your application has signed-in user state, we recommend initializing the instrumentation so that user information is added to `fetch` spans.
+If your application has signed-in user state, we recommend initializing the instrumentation when the user profile is available, so that user information is included in `fetch` spans.
 
 Here's an example:
 
@@ -46,7 +46,7 @@ useEffect(() => {
       spanProcessors: [
         new BatchSpanProcessor(
           new OTLPTraceExporter({
-            url: window.location.origin + '/api/otlp/v1/traces',
+            url: window.location.origin + '/otlp/v1/traces', // See Step 3 below
           }),
         ),
       ],
@@ -80,3 +80,67 @@ useEffect(() => {
   }
 }, [userProfile]);
 ```
+
+3. Set up a backend endpoint to proxy (receive and forward) traces – this ensures that you're not exposing your Cardinal API key in your browser app.
+
+Here's an example of an [Express](https://expressjs.com/) route handler to do this:
+
+```js copy
+app.post('/otlp/v1/traces', async (req, res) => {
+  try {
+    const otlpEndpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+    if (!!otlpEndpoint) {
+      const response = await fetch(otlpEndpoint + '/v1/traces', {
+        method: 'POST',
+        body: JSON.stringify(req.body),
+        headers: {
+            'Content-Type': 'application/json',
+            'x-cardinalhq-api-key': process.env.CARDINALHQ_API_KEY,
+        },
+      });
+      return res.status(response.status).send();
+    }
+    return res.status(200).send();
+  } catch (err) {
+    logger.error(err, 'Error proxying web traces');
+    // Handle error
+  }
+});
+```
+
+Set these environment variables:
+
+```sh copy
+export OTEL_EXPORTER_OTLP_ENDPOINT="https://otelhttp.intake.us-east-2.aws.cardinalhq.io"
+export CARDINALHQ_API_KEY="your-api-key" # Set your API key
+```
+
+To get an API key, sign in to your [Cardinal account,](http://app.cardinalhq.io) and create a new API key from the Organization Settings > API Keys section.
+
+### PostHog Integration
+
+Use [PostHog](https://posthog.com/) for session replay recordings?
+
+Update the `applyCustomAttributesOnSpan` function in your browser instrumentation code above to add a `posthog.session_replay_url` attribute to spans:
+
+```js copy
+import { usePostHog } from 'posthog-js/react';
+
+const postHog = usePostHog();
+
+// In your `useEffect` hook from above...
+applyCustomAttributesOnSpan(span) {
+  // ... user attributes
+  span.setAttribute(
+    'posthog.session_replay_url',
+    postHog.get_session_replay_url({
+      withTimestamp: true,
+      timestampLookBack: 30,
+    }),
+  );
+},
+```
+
+Now, when Chip detects a user-impacting error, it will helpfully include a link to the relevant PostHog session recording right in the Slack notification:
+
+![PostHog session recording link in Slack notification](/posthog_integration.png)
