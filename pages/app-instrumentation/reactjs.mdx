@@ -117,6 +117,16 @@ export CARDINALHQ_API_KEY="your-api-key" # Set your API key
 
 To get an API key, sign in to your [Cardinal account,](http://app.cardinalhq.io) and create a new API key from the Organization Settings > API Keys section.
 
+4. Run your application:
+
+```sh copy
+npm run start # Or your application's start script
+```
+
+5. Validate that Cardinal is receiving data:
+
+Exercise the app by opening some pages that make `fetch` HTTP calls. Wait for a few minutes, then visit the Service Catalog in the [Cardinal UI](http://app.cardinalhq.io) to check that your service appears in the list.
+
 ### PostHog Integration
 
 Use [PostHog](https://posthog.com/) for session replay recordings?
