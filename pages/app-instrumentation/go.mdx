@@ -8,9 +8,7 @@ Follow the steps below to instrument your Go service. When completed, your servi
 
 Sign in to your [Cardinal account,](http://app.cardinalhq.io) and get an API key from the Organization Settings > API Keys section.
 
-2. TBD
-
-3. Export the following environment variables:
+2. Export the following environment variables:
 
 ```sh copy
 export OTEL_SERVICE_NAME="your-service-name"
@@ -21,6 +19,9 @@ export OTEL_TRACES_EXPORTER="otlp"
 export OTEL_EXPORTER_OTLP_ENDPOINT="https://otelhttp.intake.us-east-2.aws.cardinalhq.io"
 export OTEL_EXPORTER_OTLP_HEADERS="x-cardinalhq-api-key=<your-api-key>" # Set your API key
 ```
+
+3. Follow the steps in the [Additional Integrations](#additional-integrations) section below to instrument your application, depending on the libraries you are using in your application.
+
 
 4. Run your application:
 
