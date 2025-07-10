@@ -1,0 +1,147 @@
+# Google Cloud Logs
+
+Send logs for Google Cloud Platform (GCP) services to Cardinal.
+
+Overall steps:
+
+1. Set up a Google Cloud Pub/Sub topic and subscription.
+2. Create a Google Cloud Log Router sink to route logs to the Pub/Sub topic.
+3. Set up an OpenTelemetry Collector to pull logs from the Pub/Sub topic and send them to Cardinal.
+
+## Setting up Google Cloud Logs
+
+The [Google Cloud Log Routing](https://cloud.google.com/logging/docs/export/configure_export_v2#creating_sink) document
+describes these steps in more detail.
+
+### Create a Google Cloud Pub/Sub topic
+
+1. Go to your [Topic List](https://console.cloud.google.com/cloudpubsub/topic/list) in the Google Cloud Console and click the **Create Topic** button.
+2. Give it a meaningful name, such as `cardinal-logs`, and click **Create**.
+
+### Create a Google Cloud Pub/Sub subscription
+
+In most cases a default subscription is automatically created when you create the topic.
+If this did not happen, you will need to manually create it.
+
+1. Go to your [Subscription List](https://console.cloud.google.com/cloudpubsub/subscription/list) in the Google Cloud Console and click the **Create Subscription** button.
+2. Give it a meaningful name, such as `cardinal-logs-sub`.
+3. Set the **Topic** to the topic you created in the previous step.
+4. Set the **Delivery type** to **Pull**.
+5. The remaining options can be left as default.
+
+### Route logs to the Pub/Sub topic
+
+1. Go to your [Log Router](https://console.cloud.google.com/logs/router) in the Google Cloud Console.
+1. Click the **Create Sink** button.
+1. Give it a meaningful name, such as `cardinal-logs-sink`.
+1. Click **Next**.
+1. Set the **Sink Service** to **Cloud Pub/Sub Topic**.
+1. Set the **Sink Destination** to the topic you created in the previous step.
+1. Click **Next**.
+1. In the **Choose logs to include in sink** step, you can either select specific logs or leave it as default to include all logs. For more information on this, refer to the [Logging Query Language](https://cloud.google.com/logging/docs/view/logging-query-language) documentation.
+1. Click the **Create Sink** button to create the sink.
+
+## Using a new OpenTelemetry Collector
+
+These steps will guide you through setting up a minimal OpenTelemetry Collector on a Google Compute Engine (GCE) VM instance to collect metrics for various Google Cloud Platform (GCP) services.
+
+(If you already have an existing OpenTelemetry Collector, skip to the [next section.](#using-an-existing-opentelemetry-collector))
+
+### Build and publish a Collector Docker image
+
+1. Create the following Collector configuration file in a new directory:
+
+```sh copy
+touch config.yaml
+```
+
+```yaml copy
+receivers:
+googlecloudpubsub:
+    project: your-project-id
+    subscription: projects/your-project-id/subscriptions/your-subscription-name
+    encoding: cloud_logging
+processors:
+  resource/env:
+    attributes:
+      - key: deployment.environment.name
+        value: "${DEPLOYMENT_ENVIRONMENT}"
+        action: upsert
+      - key: service.name
+        from_attribute: gcp.service_name
+        action: insert
+exporters:
+  otlphttp/cardinal:
+    endpoint: "${CARDINALHQ_OTLP_ENDPOINT}"
+    headers:
+      x-cardinalhq-api-key: "${CARDINALHQ_API_KEY}"
+service:
+  pipelines:
+    logs:
+      receivers: [googlecloudpubsub]
+      processors: [resource/env]
+      exporters: [otlphttp/cardinal]
+```
+
+(Refer to the [googlecloudpubsub](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/googlecloudpubsubreceiver) README for more configuration options.)
+
+2. Create a Dockerfile in the same directory:
+
+```sh copy
+touch Dockerfile
+```
+
+```dockerfile copy
+FROM otel/opentelemetry-collector-contrib:latest
+
+COPY config.yaml /etc/otelcol-contrib/config.yaml
+```
+
+3. Build and publish the Docker image to Google Artifact Registry:
+
+(Replace `LOCATION`, `PROJECT_ID`, and `REPOSITORY` with your own values.)
+
+```sh copy
+export DOCKER_DEFAULT_PLATFORM=linux/amd64
+
+docker build -t ${LOCATION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/otel-collector-googlecloudmonitoring:latest .
+docker push ${LOCATION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/otel-collector-googlecloudmonitoring:latest
+```
+
+### Deploy the Collector to a GCE VM instance
+
+1. In the Google Cloud Console, navigate to the [VM Instances page](https://console.cloud.google.com/compute/instances).
+2. Click the **Create Instance** button.
+3. On the **Machine configuration** step, give the instance a name, and select the `e2-medium` machine type.
+4. On the **OS and storage** step, click the **Deploy Container** button.
+
+Set the **Container image** to the image you built in the previous step, and add the following environment variables to the instance:
+
+- `GCP_PROJECT_ID`: The ID of the GCP project to collect metrics from (e.g. `sandbox-124512`).
+- `DEPLOYMENT_ENVIRONMENT`: A name for the deployment environment (e.g. `dev` or `prod`).
+- `CARDINALHQ_OTLP_ENDPOINT`: `https://otelhttp.intake.us-east-2.aws.cardinalhq.io`
+- `CARDINALHQ_API_KEY`: Your Cardinal API key.
+
+![Container configuration](/gce_collector_container_config.png)
+
+5. On the **Security** step, under the **Identity and API access > Access scopes** section, select **Set access for each API** and set the **Stackdriver Monitoring API** option to `Full`.
+
+![Security configuration](/gce_collector_security_config.png)
+
+6. Click the **Create** button to deploy the instance.
+
+7. Once the instance is up and running, SSH into it, and run the following command to verify that the Collector is running and collecting metrics by tailing its logs:
+
+```sh copy
+docker ps # Get the Container ID of the Collector
+docker logs -f <CONTAINER_ID> # View the logs of the Collector
+```
+
+## Using an existing OpenTelemetry Collector
+
+1. Update your existing OpenTelemetry Collector configuration to include the yaml provided above.
+2. Set the environment variables as shown above.
+
+Restart the Collector to apply the changes.
+
+Verify that the Collector is running and collecting logs by tailing the collector logs.
