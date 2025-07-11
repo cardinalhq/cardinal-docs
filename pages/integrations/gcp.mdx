@@ -1,17 +1,19 @@
-# Google Cloud Logs
+# Google Cloud Platform (GCP)
 
-Send logs for Google Cloud Platform (GCP) services to Cardinal.
+Send metrics and/or logs for Google Cloud Platform (GCP) services to Cardinal.
 
-Overall steps:
+Overall Steps:
 
-1. Set up a Google Cloud Pub/Sub topic and subscription.
-2. Create a Google Cloud Log Router sink to route logs to the Pub/Sub topic.
-3. Set up an OpenTelemetry Collector to pull logs from the Pub/Sub topic and send them to Cardinal.
+1. (Logs) Set up a Google Cloud Pub/Sub topic and subscription.
+2. (Logs) Create a Google Cloud Log Router sink to route logs to the Pub/Sub topic.
+3. (Logs / Metrics) Set up an OpenTelemetry Collector to pull logs from the Pub/Sub topic and send them to Cardinal.
 
-## Setting up Google Cloud Logs
+## Set up Google Cloud Logs
 
 The [Google Cloud Log Routing](https://cloud.google.com/logging/docs/export/configure_export_v2#creating_sink) document
 describes these steps in more detail.
+
+_(If you are only interested in sending metrics, skip to the [next section.](#using-a-new-opentelemetry-collector))_
 
 ### Create a Google Cloud Pub/Sub topic
 
@@ -43,9 +45,9 @@ If this did not happen, you will need to manually create it.
 
 ## Using a new OpenTelemetry Collector
 
-These steps will guide you through setting up a minimal OpenTelemetry Collector on a Google Compute Engine (GCE) VM instance to collect metrics for various Google Cloud Platform (GCP) services.
+These steps will guide you through setting up a minimal OpenTelemetry Collector on a Google Compute Engine (GCE) VM instance to collect metrics and logs for various Google Cloud Platform (GCP) services.
 
-(If you already have an existing OpenTelemetry Collector, skip to the [next section.](#using-an-existing-opentelemetry-collector))
+_(If you already have an existing OpenTelemetry Collector, skip to the [next section.](#using-an-existing-opentelemetry-collector))_
 
 ### Build and publish a Collector Docker image
 
@@ -57,10 +59,18 @@ touch config.yaml
 
 ```yaml copy
 receivers:
-googlecloudpubsub:
-    project: your-project-id
-    subscription: projects/your-project-id/subscriptions/your-subscription-name
+  googlecloudpubsub: # For logs
+    project: "${GCP_PROJECT_ID}"
+    subscription: "${GCP_SUBSCRIPTION_NAME}"
     encoding: cloud_logging
+  googlecloudmonitoring: # For metrics
+    collection_interval: 1m
+    project_id: "${GCP_PROJECT_ID}"
+    metrics_list:
+      # This is an example of how to collect all Google Cloud Run metrics.
+      # You can find the full list of metrics in the Google Cloud Platform 
+      # documentation – https://cloud.google.com/monitoring/api/metrics_gcp
+      - metric_descriptor_filter: 'metric.type = starts_with("run.googleapis.com")'
 processors:
   resource/env:
     attributes:
@@ -68,8 +78,11 @@ processors:
         value: "${DEPLOYMENT_ENVIRONMENT}"
         action: upsert
       - key: service.name
-        from_attribute: gcp.service_name
         action: insert
+        from_attribute: "gcp.service_name"
+      - key: service.name
+        action: insert
+        from_attribute: "service_name"
 exporters:
   otlphttp/cardinal:
     endpoint: "${CARDINALHQ_OTLP_ENDPOINT}"
@@ -77,13 +90,19 @@ exporters:
       x-cardinalhq-api-key: "${CARDINALHQ_API_KEY}"
 service:
   pipelines:
-    logs:
+    logs: # For logs
       receivers: [googlecloudpubsub]
+      processors: [resource/env]
+      exporters: [otlphttp/cardinal]
+    metrics: # For metrics
+      receivers: [googlecloudmonitoring]
       processors: [resource/env]
       exporters: [otlphttp/cardinal]
 ```
 
-(Refer to the [googlecloudpubsub](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/googlecloudpubsubreceiver) README for more configuration options.)
+The environment variables will be set at runtime in a later step.
+
+(Refer to the [googlecloudpubsub](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/googlecloudpubsubreceiver) and [googlecloudmonitoring](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/googlecloudmonitoringreceiver) receiver READMEs for more configuration options.)
 
 2. Create a Dockerfile in the same directory:
 
@@ -104,8 +123,8 @@ COPY config.yaml /etc/otelcol-contrib/config.yaml
 ```sh copy
 export DOCKER_DEFAULT_PLATFORM=linux/amd64
 
-docker build -t ${LOCATION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/otel-collector-googlecloudmonitoring:latest .
-docker push ${LOCATION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/otel-collector-googlecloudmonitoring:latest
+docker build -t ${LOCATION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/otel-collector-gcp:latest .
+docker push ${LOCATION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/otel-collector-gcp:latest
 ```
 
 ### Deploy the Collector to a GCE VM instance
@@ -117,20 +136,24 @@ docker push ${LOCATION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/otel-collecto
 
 Set the **Container image** to the image you built in the previous step, and add the following environment variables to the instance:
 
-- `GCP_PROJECT_ID`: The ID of the GCP project to collect metrics from (e.g. `sandbox-124512`).
-- `DEPLOYMENT_ENVIRONMENT`: A name for the deployment environment (e.g. `dev` or `prod`).
+- `GCP_PROJECT_ID`: The ID of the GCP project to collect metrics from (e.g. `sandbox-124512`)
+- `GCP_SUBSCRIPTION_NAME`: The name of the Google Cloud Pub/Sub subscription to collect logs from (e.g. `projects/your-project-id/subscriptions/your-subscription-name`)
+- `DEPLOYMENT_ENVIRONMENT`: A name for the deployment environment (e.g. `dev` or `prod`)
 - `CARDINALHQ_OTLP_ENDPOINT`: `https://otelhttp.intake.us-east-2.aws.cardinalhq.io`
-- `CARDINALHQ_API_KEY`: Your Cardinal API key.
+- `CARDINALHQ_API_KEY`: Your Cardinal API key
 
 ![Container configuration](/gce_collector_container_config.png)
 
-5. On the **Security** step, under the **Identity and API access > Access scopes** section, select **Set access for each API** and set the **Stackdriver Monitoring API** option to `Full`.
+5. On the **Security** step, under the **Identity and API access > Access scopes** section, select **Set access for each API** and set the following:
+
+- **Stackdriver Monitoring API:** `Full` (for metrics)
+- **Cloud Pub/Sub:** `Read Only` (for logs)
 
 ![Security configuration](/gce_collector_security_config.png)
 
 6. Click the **Create** button to deploy the instance.
 
-7. Once the instance is up and running, SSH into it, and run the following command to verify that the Collector is running and collecting metrics by tailing its logs:
+7. Once the instance is up and running, SSH into it, and run the following command to verify that the Collector is running and collecting metrics and logs by tailing its logs:
 
 ```sh copy
 docker ps # Get the Container ID of the Collector
@@ -141,7 +164,5 @@ docker logs -f <CONTAINER_ID> # View the logs of the Collector
 
 1. Update your existing OpenTelemetry Collector configuration to include the yaml provided above.
 2. Set the environment variables as shown above.
-
-Restart the Collector to apply the changes.
-
-Verify that the Collector is running and collecting logs by tailing the collector logs.
+3. Restart the Collector to apply the changes.
+4. Verify that the Collector is running and collecting metrics and logs by tailing its logs.

@@ -1,5 +1,4 @@
 {
-  "gcp_logs": "Google Cloud Logs",
-  "gcp_metrics": "Google Cloud Metrics",
+  "gcp": "Google Cloud Platform",
   "github": "GitHub"
 }
