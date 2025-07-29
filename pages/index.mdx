@@ -1,37 +1,10 @@
-# Quick Start
+# Cardinal Documentation
 
-Ready to see how [Chip](https://cardinalhq.io) can get you from instrumentation to **incident-ready** in minutes? 🚀
+Hello, and welcome! 👋
 
-Chip is **OpenTelemetry-native**, so whether you're new to OTel, or using it already, you'll be able to get onboarded in under 30 minutes.
+ New to Cardinal? We've got you covered, with two simple Quick Starts to get you going. Select one to get started:
 
-### New to OpenTelemetry?
+- [LakeRunner](/lakerunner) - Turn an S3 bucket into a production-grade Observability stack in minutes.
+- [Chip](/chip) - The Zero-Config Monitoring Agent that gets you from instrumentation to incident-ready in minutes.
 
-For the fastest onboarding experience, we recommend auto-instrumenting your applications using the open-source, vendor-neutral OpenTelemetry SDKs. This gives you baseline telemetry out-of-the-box, with zero (or minimal) code changes.
-
-*(If you currently use vendor-specific SDKs or agents, like the Datadog Agent, DogStatsD, or dd-trace, you can still add the OpenTelemetry SDKs to try Chip without disrupting your existing vendor usage.)*
-
-Select your language:
-
-- [Node.js](/app-instrumentation/nodejs)
-- [Python](/app-instrumentation/python)
-- [Java](/app-instrumentation/java)
-- [Go](/app-instrumentation/go)
-- [React.js](/app-instrumentation/reactjs)
-
-
-### Existing OpenTelemetry users
-
-If your applications are already instrumented using OpenTelemetry SDKs, and you're running an OpenTelemetry Collector, getting onboarded to Chip is as simple as adding an OTLP Exporter to your Collector pipeline.
-
-Select your preferred option:
-
-[Add an OTLP Exporter to send data to Cardinal](/otel-collectors/export-to-cardinal) 
-  - Recommended for fast onboarding, PoCs, or if your telemetry data volume is low
-  - Sends raw telemetry data to Cardinal
-
-OR
-
-[Install the Cardinal OpenTelemetry Collector](/otel-collectors/cardinal-collector)
-  - Recommended if your telemetry data volume is high
-  - Runs downstream of your existing Collector, within your VPC/infrastructure
-  - Sends < 0.01% of your data to Cardinal (only exemplars and aggregates, not raw data)
+Existing Cardinal customers can find more detailed documentation in the sidebar.

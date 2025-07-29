@@ -1,0 +1,6 @@
+{
+  "index": "Quick Start",
+  "app-instrumentation": "App Instrumentation",
+  "otel-collectors": "OpenTelemetry Collectors",
+  "integrations": "Integrations"
+}
