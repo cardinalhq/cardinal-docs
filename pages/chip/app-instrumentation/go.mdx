@@ -37,14 +37,14 @@ Exercise the service by calling some API endpoints, or causing some logs or metr
 Set the environment variables outlined above in your Docker container runtime configuration.
 
 - Update `OTEL_RESOURCE_ATTRIBUTES` to set the `deployment.environment.name` value to your environment.
-- If you run an OpenTelemetry Collector, set the `OTEL_EXPORTER_OTLP_ENDPOINT` to your Collector's OTLP Receiver endpoint, and follow the steps in the [OTLP Export to Cardinal](/otel-collectors/export-to-cardinal) section to forward data to Cardinal.
+- If you run an OpenTelemetry Collector, set the `OTEL_EXPORTER_OTLP_ENDPOINT` to your Collector's OTLP Receiver endpoint, and follow the steps in the [OTLP Export to Cardinal](/chip/otel-collectors/export-to-cardinal) section to forward data to Cardinal.
 
 ### Kubernetes
 
 Set the environment variables outlined above in your `Deployment` or `StatefulSet` manifest.
 
 - Update `OTEL_RESOURCE_ATTRIBUTES` to set the `deployment.environment.name` value to your environment.
-- If you run an OpenTelemetry Collector, set the `OTEL_EXPORTER_OTLP_ENDPOINT` to your Collector's OTLP Receiver endpoint, and follow the steps in the [OTLP Export to Cardinal](/otel-collectors/export-to-cardinal) section to forward data to Cardinal.
+- If you run an OpenTelemetry Collector, set the `OTEL_EXPORTER_OTLP_ENDPOINT` to your Collector's OTLP Receiver endpoint, and follow the steps in the [OTLP Export to Cardinal](/chip/otel-collectors/export-to-cardinal) section to forward data to Cardinal.
 
 ## Instrumenting Your Application
 To instrument your Go application, you will need to set up the OpenTelemetry SDK and configure it to export data to Cardinal.

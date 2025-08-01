@@ -16,11 +16,11 @@ For the fastest onboarding experience, we recommend auto-instrumenting your appl
 
 Select your language:
 
-- [Node.js](/app-instrumentation/nodejs)
-- [Python](/app-instrumentation/python)
-- [Java](/app-instrumentation/java)
-- [Go](/app-instrumentation/go)
-- [React.js](/app-instrumentation/reactjs)
+- [Node.js](/chip/app-instrumentation/nodejs)
+- [Python](/chip/app-instrumentation/python)
+- [Java](/chip/app-instrumentation/java)
+- [Go](/chip/app-instrumentation/go)
+- [React.js](/chip/app-instrumentation/reactjs)
 
 
 ### Existing OpenTelemetry users
@@ -29,13 +29,13 @@ If your applications are already instrumented using OpenTelemetry SDKs, and you'
 
 Select your preferred option:
 
-[Add an OTLP Exporter to send data to Cardinal](/otel-collectors/export-to-cardinal) 
+[Add an OTLP Exporter to send data to Cardinal](/chip/otel-collectors/export-to-cardinal) 
   - Recommended for fast onboarding, PoCs, or if your telemetry data volume is low
   - Sends raw telemetry data to Cardinal
 
 OR
 
-[Install the Cardinal OpenTelemetry Collector](/otel-collectors/cardinal-collector)
+[Install the Cardinal OpenTelemetry Collector](/chip/otel-collectors/cardinal-collector)
   - Recommended if your telemetry data volume is high
   - Runs downstream of your existing Collector, within your VPC/infrastructure
   - Sends < 0.01% of your data to Cardinal (only exemplars and aggregates, not raw data)
