@@ -34,10 +34,12 @@ kubectl config use-context kind-kind
 3. Download and run the LakeRunner install script.
 
 ```bash copy
-curl -sSL -o install.sh https://raw.githubusercontent.com/cardinalhq/lakerunner-cli/main/scripts/install.sh
-chmod +x install.sh
-./install.sh
+curl -sSL -o lakerunner-standalone-poc.sh https://raw.githubusercontent.com/cardinalhq/charts/refs/heads/main/install-scripts/lakerunner-standalone-poc.sh
+chmod +x lakerunner-standalone-poc.sh
+./lakerunner-standalone-poc.sh --standalone
 ```
+
+By default, thsi will install support for metrics and logs.  You can specify which signal types: `--signals logs,metrics,traces`.
 
 4. Follow the on-screen prompts until the installation is complete.
 
