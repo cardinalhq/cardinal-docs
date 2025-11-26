@@ -1,0 +1,557 @@
+# Google Cloud Run Deployment Tracking
+
+Automatically track Cloud Run deployments and extract container image digests using a Cloud Function triggered by Eventarc.
+
+## Overview
+
+This guide shows you how to deploy a Cloud Function that:
+- Triggers automatically on Cloud Run service updates and creations
+- Extracts container image SHA256 digests from deployments
+- Posts deployment data to Cardinal for release correlation
+
+## How It Works
+
+```
+Cloud Run Service Updated
+    ↓
+Eventarc triggers Cloud Function
+    ↓
+Function fetches revision details
+    ↓
+Extracts image SHA256 digest
+    ↓
+POSTs to Cardinal API
+```
+
+The deployment uses:
+- **Cloud Function (2nd gen)** - Python function to process events
+- **Eventarc** - Event routing from Cloud Run audit logs
+- **Cloud Run API** - Fetch revision details and image digests
+- **Terraform** - Infrastructure as code for easy deployment
+
+## Prerequisites
+
+Before you begin, ensure you have:
+
+1. **GCP Project** with billing enabled
+2. **Terraform** installed (>= 1.0)
+3. **GCP Authentication** configured:
+   ```bash
+   gcloud auth application-default login
+   ```
+4. **Permissions** - Your GCP user needs one of:
+   - `roles/owner` OR
+   - `roles/resourcemanager.projectIamAdmin`
+   - `roles/iam.serviceAccountAdmin`
+   - `roles/cloudfunctions.admin`
+   - `roles/eventarc.admin`
+   - `roles/storage.admin`
+   - `roles/serviceusage.serviceUsageAdmin`
+
+5. **Cardinal API Key** - Get this from your Cardinal account settings
+
+## Quick Start
+
+The fastest way to deploy is using Terraform. See the full instructions below.
+
+## Reference Implementation
+
+All necessary files are available in a ready-to-use Terraform module.
+
+### Cloud Function Code
+
+The complete Cloud Function code (`main.py`):
+
+```python
+"""
+Cloud Function to track Cloud Run deployments.
+Triggered by Eventarc on Cloud Run service updates.
+Extracts image SHA256 digests and posts to configured endpoint.
+"""
+
+import functions_framework
+import json
+import os
+from google.cloud import run_v2
+from urllib import request, error
+
+revisions_client = run_v2.RevisionsClient()
+
+def get_image_with_digest(revision_name: str) -> tuple:
+    """
+    Get the full image URI with SHA256 digest from a Cloud Run revision.
+    """
+    print(f"Fetching revision: {revision_name}")
+
+    try:
+        revision = revisions_client.get_revision(name=revision_name)
+
+        if hasattr(revision, 'containers') and revision.containers:
+            full_image = revision.containers[0].image
+            print(f"Full image URI from revision: {full_image}")
+
+            if '@sha256:' in full_image:
+                digest = full_image.split('@')[1]
+                print(f"Extracted digest: {digest}")
+                return full_image, digest
+            else:
+                print(f"WARNING: No digest in image URI: {full_image}")
+                return full_image, None
+
+        if hasattr(revision, 'template') and revision.template and revision.template.containers:
+            full_image = revision.template.containers[0].image
+            print(f"Full image URI from revision (via template): {full_image}")
+
+            if '@sha256:' in full_image:
+                digest = full_image.split('@')[1]
+                print(f"Extracted digest: {digest}")
+                return full_image, digest
+            else:
+                print(f"WARNING: No digest in image URI: {full_image}")
+                return full_image, None
+
+        print("ERROR: No containers in revision")
+        return None, None
+
+    except Exception as e:
+        print(f"Error fetching revision: {e}")
+        return None, None
+
+def post_deployment(payload: dict) -> bool:
+    """Post deployment info to configured endpoint."""
+    endpoint = os.environ.get('DEPLOYMENT_ENDPOINT_URL')
+    if not endpoint:
+        print("WARNING: DEPLOYMENT_ENDPOINT_URL not set, skipping POST")
+        return False
+
+    try:
+        headers = {
+            'Content-Type': 'application/json',
+            'User-Agent': 'CloudRun-Deployment-Tracker/1.0'
+        }
+
+        api_key = os.environ.get('API_KEY')
+        if api_key:
+            headers['x-cardinalhq-api-key'] = api_key
+
+        data = json.dumps(payload).encode('utf-8')
+        req = request.Request(endpoint, data=data, headers=headers, method='POST')
+
+        print(f"Posting to endpoint: {endpoint}")
+
+        with request.urlopen(req, timeout=10) as response:
+            status = response.getcode()
+            body = response.read().decode('utf-8')
+            print(f"POST response: status={status}, body={body}")
+            return 200 <= status < 300
+
+    except error.HTTPError as e:
+        error_body = e.read().decode('utf-8')
+        print(f"HTTP error posting deployment: status={e.code}, error={error_body}")
+        return False
+    except Exception as e:
+        print(f"Error posting deployment: {e}")
+        return False
+
+@functions_framework.cloud_event
+def cloudrun_deployment_tracker(cloud_event):
+    """
+    Cloud Function triggered by Eventarc on Cloud Run deployment events.
+    """
+    print(f"Received event: {cloud_event['type']}")
+
+    event_data = cloud_event.data
+    proto_payload = event_data.get('protoPayload', {})
+    resource = event_data.get('resource', {})
+
+    if not proto_payload:
+        print("ERROR: No protoPayload in event")
+        return
+
+    method_name = proto_payload.get('methodName', '')
+    print(f"Method: {method_name}")
+
+    if 'ReplaceService' not in method_name and 'CreateService' not in method_name:
+        print(f"Ignoring method: {method_name}")
+        return
+
+    request_data = proto_payload.get('request', {})
+    service_spec = request_data.get('service', {})
+
+    if not service_spec:
+        print("ERROR: No service spec in request")
+        return
+
+    metadata = service_spec.get('metadata', {})
+    status = service_spec.get('status', {})
+
+    service_name = metadata.get('name')
+    namespace = metadata.get('namespace')
+
+    labels = resource.get('labels', {})
+    project_id = labels.get('project_id', namespace)
+    location = labels.get('location', 'us-central1')
+
+    print(f"Service: {service_name}, Project: {project_id}, Location: {location}")
+
+    revision_name = status.get('latestCreatedRevisionName', '')
+    service_url = status.get('url', '')
+
+    if not revision_name:
+        print("ERROR: No revision name in status")
+        return
+
+    revision_resource_name = f"projects/{project_id}/locations/{location}/services/{service_name}/revisions/{revision_name}"
+
+    full_image, digest = get_image_with_digest(revision_resource_name)
+
+    if not full_image:
+        print("ERROR: Could not fetch image from revision")
+        return
+
+    print(f"Image: {full_image}")
+    print(f"Digest: {digest}")
+
+    scope = f"{location}/{project_id}"
+
+    deployment_payload = {
+        "runtime": "cloudrun",
+        "scope": scope,
+        "workloads": [
+            {
+                "name": service_name,
+                "properties": {
+                    "revisionName": revision_name,
+                    "image": full_image,
+                    "project": project_id,
+                    "location": location,
+                    "serviceUrl": service_url,
+                    "eventType": method_name,
+                    "timestamp": event_data.get('timestamp')
+                },
+                "digests": [digest] if digest else []
+            }
+        ]
+    }
+
+    print(f"Deployment payload: {json.dumps(deployment_payload, indent=2)}")
+
+    success = post_deployment(deployment_payload)
+
+    if success:
+        print("Successfully posted deployment data")
+    else:
+        print("Failed to post deployment data")
+
+    return {"status": "ok" if success else "failed"}
+```
+
+Create a `requirements.txt` file:
+
+```txt
+functions-framework==3.*
+google-cloud-run==0.10.*
+```
+
+## Deployment Steps
+
+### 1. Create the Files
+
+Save the Cloud Function code and requirements to your local machine:
+
+```bash
+# Create directory
+mkdir gcp-cloudrun-tracker
+cd gcp-cloudrun-tracker
+
+# Save the files (copy content from above)
+# - main.py
+# - requirements.txt
+```
+
+### 2. Deploy Using Terraform (Recommended)
+
+The easiest way to deploy is using the provided Terraform configuration. Create a `terraform/` directory with the following files:
+
+**`terraform/variables.tf`:**
+
+```hcl
+variable "project_id" {
+  description = "The GCP project ID where resources will be created"
+  type        = string
+}
+
+variable "region" {
+  description = "The GCP region where the Cloud Function will be deployed"
+  type        = string
+  default     = "us-central1"
+}
+
+variable "deployment_endpoint_url" {
+  description = "The HTTPS endpoint URL where deployment notifications will be sent"
+  type        = string
+  sensitive   = true
+  default     = "https://app.cardinalhq.io/_/chip/workloads"
+}
+
+variable "api_key" {
+  description = "Cardinal API key for authentication (sent as x-cardinalhq-api-key header)"
+  type        = string
+  sensitive   = true
+}
+```
+
+**`terraform/terraform.tfvars`:**
+
+```hcl
+project_id = "your-gcp-project-id"
+region     = "us-central1"
+
+# Optional: defaults to https://app.cardinalhq.io/_/chip/workloads
+# deployment_endpoint_url = "https://app.cardinalhq.io/_/chip/workloads"
+
+api_key = "your-cardinal-api-key"
+```
+
+The complete Terraform configuration includes:
+- API enablement (Cloud Functions, Eventarc, Cloud Run)
+- Service account creation with minimal permissions
+- Cloud Function deployment
+- Eventarc trigger configuration
+- Audit logging setup
+
+### 3. Configure Variables
+
+Create a `terraform.tfvars` file with your settings:
+
+```hcl
+project_id = "your-gcp-project-id"
+region     = "us-central1"  # or your preferred region
+api_key    = "your-cardinal-api-key"
+```
+
+### 4. Deploy with Terraform
+
+```bash
+# Initialize Terraform
+terraform init
+
+# Review the deployment plan
+terraform plan
+
+# Deploy all resources
+terraform apply
+```
+
+The deployment takes 3-5 minutes and creates:
+- Cloud Function (`cloudrun-deployment-tracker`)
+- Service account with minimal permissions
+- GCS bucket for function source code
+- Eventarc triggers for service updates and creations
+- Audit logging configuration for Cloud Run
+- All necessary IAM bindings
+
+### 5. Verify Deployment
+
+After deployment, check the outputs:
+
+```bash
+terraform output
+```
+
+You should see:
+
+```
+cloud_function_name = "cloudrun-deployment-tracker"
+cloud_function_url = "https://cloudrun-deployment-tracker-xxxxx-uc.a.run.app"
+eventarc_trigger_names = [
+  "cloudrun-deployment-tracker-trigger",
+  "cloudrun-creation-tracker-trigger",
+]
+service_account_email = "cloudrun-deployment-tracker@your-project.iam.gserviceaccount.com"
+```
+
+### 6. Test the Integration
+
+Deploy or update a Cloud Run service to trigger the function:
+
+```bash
+gcloud run deploy test-service \
+  --image=gcr.io/cloudrun/hello \
+  --region=us-central1 \
+  --allow-unauthenticated
+```
+
+Check the Cloud Function logs to verify it captured the deployment:
+
+```bash
+gcloud functions logs read cloudrun-deployment-tracker \
+  --region=us-central1 \
+  --gen2 \
+  --limit=50
+```
+
+You should see logs showing:
+- Event received
+- Revision fetched
+- Image digest extracted (e.g., `sha256:abc123...`)
+- Successful POST to Cardinal endpoint
+
+## Payload Structure
+
+The Cloud Function sends this payload to Cardinal:
+
+```json
+{
+  "runtime": "cloudrun",
+  "scope": "us-central1/my-project",
+  "workloads": [{
+    "name": "my-service",
+    "digests": ["sha256:4ccf70c2320f8c1131a4c56781aefc4f1a06fcd50bd4a87c63f3325d5fe09985"],
+    "properties": {
+      "revisionName": "my-service-00009-xmb",
+      "image": "us-central1-docker.pkg.dev/my-project/repo/my-service@sha256:4ccf70c2...",
+      "project": "my-project",
+      "location": "us-central1",
+      "serviceUrl": "https://my-service-xxxxx.run.app",
+      "eventType": "google.cloud.run.v1.Services.ReplaceService",
+      "timestamp": "2024-01-15T10:30:45.123Z"
+    }
+  }]
+}
+```
+
+**Key Fields:**
+- `runtime`: Always `"cloudrun"`
+- `scope`: Format is `{location}/{project-id}`
+- `digests`: Array of SHA256 digests from all containers (Cloud Run typically has one)
+- `properties`: Cloud Run-specific metadata
+
+## Resources Created
+
+| Resource | Name | Purpose |
+|----------|------|---------|
+| Cloud Function | `cloudrun-deployment-tracker` | Processes deployment events |
+| Service Account | `cloudrun-deployment-tracker` | Runs function with minimal permissions |
+| GCS Bucket | `{project-id}-cloudrun-tracker-source` | Stores function source code |
+| Eventarc Trigger | `cloudrun-deployment-tracker-trigger` | Triggers on service updates |
+| Eventarc Trigger | `cloudrun-creation-tracker-trigger` | Triggers on service creations |
+| Audit Config | Cloud Run audit logs | Captures deployment events |
+
+## IAM Permissions
+
+The service account is granted only these permissions:
+- `roles/run.viewer` - Read Cloud Run resources to get revision details
+- `roles/eventarc.eventReceiver` - Receive events from Eventarc
+
+No overly broad permissions are required.
+
+## Troubleshooting
+
+### Deployment fails with "API not enabled"
+
+Wait 30-60 seconds after running `terraform apply` for APIs to fully activate, then retry:
+
+```bash
+terraform apply
+```
+
+### Function not receiving events
+
+Check Eventarc trigger status:
+
+```bash
+gcloud eventarc triggers list --location=us-central1
+```
+
+Verify audit logs are enabled:
+
+```bash
+gcloud projects get-iam-policy YOUR_PROJECT_ID \
+  --flatten="auditConfigs[].service" \
+  --filter="auditConfigs.service:run.googleapis.com"
+```
+
+### Events received but no POST to Cardinal
+
+Check if environment variables are set correctly:
+
+```bash
+gcloud functions describe cloudrun-deployment-tracker \
+  --region=us-central1 \
+  --gen2 \
+  --format="value(serviceConfig.environmentVariables)"
+```
+
+Check function logs for HTTP errors:
+
+```bash
+gcloud functions logs read cloudrun-deployment-tracker \
+  --region=us-central1 \
+  --gen2 \
+  --limit=50
+```
+
+### Permission errors in logs
+
+Verify the service account has the required roles:
+
+```bash
+gcloud projects get-iam-policy YOUR_PROJECT_ID \
+  --flatten="bindings[].members" \
+  --filter="bindings.members:cloudrun-deployment-tracker@"
+```
+
+## Customization
+
+### Change Region
+
+Edit `terraform.tfvars`:
+
+```hcl
+region = "us-east1"
+```
+
+Then run `terraform apply`.
+
+### Adjust Function Memory/Timeout
+
+Edit `terraform/main.tf`, find the `google_cloudfunctions2_function.cloudrun_tracker` resource:
+
+```hcl
+service_config {
+  available_memory = "512M"  # Increase from default 256M
+  timeout_seconds  = 120     # Increase from default 60s
+  # ...
+}
+```
+
+### Monitor Additional Methods
+
+The default triggers monitor:
+- `google.cloud.run.v1.Services.ReplaceService` (deployments)
+- `google.cloud.run.v1.Services.CreateService` (new services)
+
+To add more methods, duplicate the `google_eventarc_trigger` resource in `main.tf` with a different `methodName`.
+
+## Cleanup
+
+To remove all resources:
+
+```bash
+terraform destroy
+```
+
+This will delete:
+- Cloud Function
+- Eventarc triggers
+- Service account
+- GCS bucket
+- Audit logging configuration
+
+## Next Steps
+
+After setting up CloudRun tracking:
+1. Configure the [Release Agent](/agent-builder/release-agent) in Cardinal Agent Builder
+2. Set up [GitHub integration](/chip/integrations/github) to correlate deployments with releases
+3. Start asking your agent questions about deployments

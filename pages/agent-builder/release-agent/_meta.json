@@ -1,0 +1,10 @@
+{
+  "index": "Overview",
+  "kubernetes": "Kubernetes",
+  "cloudrun": "Google Cloud Run",
+  "cloudrun-function-code": "CloudRun Function Code",
+  "cloudrun-terraform-reference": "CloudRun Terraform Config",
+  "ecs": "AWS ECS",
+  "ecs-lambda-code": "ECS Lambda Code",
+  "ecs-cfn-reference": "ECS CloudFormation Template"
+}

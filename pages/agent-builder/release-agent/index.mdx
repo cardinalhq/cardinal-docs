@@ -1,0 +1,104 @@
+# Release Agent
+
+The Release Agent automatically tracks deployments across your cloud infrastructure and correlates them with GitHub releases, giving you complete visibility into what's running where.
+
+## What Problem Does It Solve?
+
+In 2 words: ship confidently
+
+You can ask the release watcher to follow steps to monitor the health of your service after every release (all in natural language!). It will follow them, and send you slack alerts or open up a GitHub issue with proof - telemetry data as well as exact code changes that caused the problem, and suggest a fix.
+
+In modern cloud environments, it's challenging to:
+- Know which version of your application is deployed in each environment
+- Correlate container deployments with GitHub releases and changelogs
+- Track deployment history across multiple services and regions
+- Get notified when deployments change
+- Answer questions like "What version is running in production?" or "When was service X last deployed?"
+
+The Release Agent solves these problems by automatically capturing deployment events and enriching them with release metadata.
+
+## How It Works
+
+```
+Your Cloud Platform (CloudRun/ECS)
+    ↓
+Deployment happens
+    ↓
+Cardinal captures the event
+    ↓
+Release Agent correlates with GitHub releases
+    ↓
+You get insights, alerts, and can ask questions
+```
+
+The Release Agent automatically:
+1. **Captures** deployment events from your cloud platform
+2. **Detects** when services are updated or deployed
+3. **Correlates** deployments with GitHub releases and code changes
+4. **Enriches** deployment data with release notes, changelogs, and metadata
+5. **Notifies** you and answers questions about what's running where
+
+## Supported Platforms
+
+- [Kubernetes](/agent-builder/release-agent/kubernetes) - Track Kubernetes workload deployments
+- [Google Cloud Run](/agent-builder/release-agent/cloudrun) - Track Cloud Run service deployments
+- [AWS ECS](/agent-builder/release-agent/ecs) - Track ECS service deployments
+
+## Prerequisites
+
+Before setting up deployment tracking, ensure you have:
+
+1. **Cardinal Account**
+   - Active Cardinal account
+   - API key for authentication
+
+2. **GitHub Integration**
+   - GitHub App installed on your repositories
+   - Release tracking enabled
+
+3. **Cloud Platform Access**
+   - Admin access to your GCP project or AWS account
+   - Permissions to deploy functions/lambdas and configure event triggers
+
+## Payload Structure
+
+**Use any platform you want!** As long as you can send deployment data in this format to Cardinal, the Release Agent will work. The CloudRun and ECS guides are just examples - you can integrate Kubernetes, Nomad, Docker Swarm, or any other platform.
+
+Send a POST request to `https://app.cardinalhq.io/_/chip/workloads` with this structure:
+
+```json
+{
+  "runtime": "cloudrun" | "ecs" | "k8s" | "your-platform",
+  "scope": "{location}/{project}" | "{region}/{cluster}" | "your-scope",
+  "workloads": [{
+    "name": "service-name",
+    "digests": ["sha256:abc123..."],
+    "properties": {
+      // Any metadata you want to track
+    }
+  }]
+}
+```
+
+**Required Fields:**
+- `runtime`: Identifier for your platform (e.g., `"k8s"`, `"ecs"`, `"cloudrun"`)
+- `scope`: Logical grouping for your deployments (e.g., `"us-east-1/prod"`, `"namespace/cluster"`)
+- `workloads[].name`: Service/workload name
+- `workloads[].digests`: Array of container image SHA256 digests (this is what gets correlated with GitHub releases)
+
+**Optional Fields:**
+- `workloads[].properties`: Any platform-specific metadata you want to store and query later
+
+**Authentication:**
+Include your Cardinal API key in the request header:
+```
+x-cardinalhq-api-key: your-cardinal-api-key
+```
+
+## Next Steps
+
+Choose your platform to get started:
+
+- [Set up Kubernetes deployment tracking →](/agent-builder/release-agent/kubernetes)
+- [Set up CloudRun deployment tracking →](/agent-builder/release-agent/cloudrun)
+- [Set up ECS deployment tracking →](/agent-builder/release-agent/ecs)

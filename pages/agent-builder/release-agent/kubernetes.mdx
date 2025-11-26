@@ -1,0 +1,61 @@
+# Kubernetes Deployment Tracking
+
+Automatically track Kubernetes workload deployments and correlate them with GitHub releases.
+
+## Installation
+
+Install the Cardinal K8s Watcher using Helm:
+
+```bash
+helm install chq-k8s-watcher \
+  oci://public.ecr.aws/cardinalhq.io/chq-k8s-watcher \
+  --set cardinal.apiKey="your-cardinalhq-api-key" \
+  --set cardinal.clusterName="your-cluster-name"
+```
+
+**Example:**
+```bash
+helm install chq-k8s-watcher \
+  oci://public.ecr.aws/cardinalhq.io/chq-k8s-watcher \
+  --set cardinal.apiKey="cdhq_abc123..." \
+  --set cardinal.clusterName="prod-gke-us-central1"
+```
+
+## Using a Values File
+
+Create `values.yaml`:
+
+```yaml
+cardinal:
+  apiKey: "cdhq_your_api_key_here"
+  clusterName: "prod-gke-us-central1"
+```
+
+Install:
+
+```bash
+helm install chq-k8s-watcher \
+  oci://public.ecr.aws/cardinalhq.io/chq-k8s-watcher \
+  --values values.yaml
+```
+
+## Verification
+
+Check that it's running:
+
+```bash
+kubectl get pods -l app.kubernetes.io/name=chq-k8s-watcher
+kubectl logs -l app.kubernetes.io/name=chq-k8s-watcher --tail=50
+```
+
+## Uninstall
+
+```bash
+helm uninstall chq-k8s-watcher
+```
+
+## What It Does
+
+The watcher monitors Deployments, StatefulSets, DaemonSets, Jobs, and CronJobs across your cluster. It extracts container image digests and sends them to Cardinal to correlate with GitHub releases.
+
+**Permissions:** Read-only access to workloads (cannot modify anything).
