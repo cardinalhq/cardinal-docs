@@ -2,5 +2,6 @@
   "index": "Welcome",
   "lakerunner": "LakeRunner",
   "chip": "Chip",
-  "agent-builder": "Cardinal Agent Builder"
+  "agent-builder": "Cardinal Agent Builder",
+  "connectors": "Connectors"
 }
