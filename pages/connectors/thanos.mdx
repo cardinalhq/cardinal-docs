@@ -1,0 +1,55 @@
+# Thanos
+
+Connect Cardinal Agent Builder to Thanos for querying and analyzing long-term metrics storage.
+
+## Overview
+
+Thanos is an open-source project that extends Prometheus with long-term storage capabilities and global query views. With the Thanos connector, your AI agents can:
+
+- **Query metrics** across multiple Prometheus instances
+- **Access long-term metric storage** and historical data
+- **Analyze time-series data** with high availability
+- **Track metric trends** over extended periods
+- **Identify patterns** in long-term metric data
+
+## Connection Details
+
+| Field | Description |
+|-------|-------------|
+| **Display Name** | Custom name for this Thanos connection |
+| **Thanos Query URL** | Base URL of your Thanos Query server |
+
+## Prerequisites
+
+- Thanos Query server deployed and running
+- Base URL for your Thanos Query server (e.g., `http://localhost:9090`)
+- Network access to the Thanos Query server
+- Metrics data available in Thanos storage
+
+## Setup Wizard
+
+### Step 1: Connection Configuration
+
+1. In Cardinal Agent Builder, go to **Connectors** and click **Browse Connectors**
+2. Select **Thanos**
+3. Enter a **Display Name** for this connection
+   - Example: "Thanos Prod", "Thanos Dev", "Thanos Staging"
+
+### Step 2: Thanos Configuration
+
+1. Enter your **Thanos Query URL**
+   - Example: `http://localhost:9090`
+   - The base URL of your Thanos Query server
+   - Include the protocol (http or https)
+   - Do not include a trailing slash
+
+### Step 3: Connect
+
+1. Click **Connect** to verify connectivity to your Thanos Query server
+2. Cardinal Agent Builder will test the connection to your Thanos instance
+
+Your AI agent can now query Thanos metrics.
+
+## Capabilities
+
+For more information on what your agents can do with this data, see the [Agents documentation](/agents).

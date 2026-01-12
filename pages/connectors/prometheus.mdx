@@ -1,0 +1,55 @@
+# Prometheus
+
+Connect Cardinal Agent Builder to Prometheus for monitoring and analyzing metrics.
+
+## Overview
+
+Prometheus is an open-source monitoring and alerting system that collects and stores time-series metrics. With the Prometheus connector, your AI agents can:
+
+- **Query Prometheus metrics** using PromQL
+- **Analyze time-series data** with aggregations and functions
+- **Monitor application performance** and infrastructure health
+- **Track metric trends** over time
+- **Identify anomalies** and performance issues
+
+## Connection Details
+
+| Field | Description |
+|-------|-------------|
+| **Display Name** | Custom name for this Prometheus connection |
+| **Prometheus URL** | Base URL of your Prometheus server |
+
+## Prerequisites
+
+- Prometheus server deployed and running
+- Base URL for your Prometheus server (e.g., `http://localhost:9090`)
+- Network access to the Prometheus server
+- Metrics data available in Prometheus
+
+## Setup Wizard
+
+### Step 1: Connection Configuration
+
+1. In Cardinal Agent Builder, go to **Connectors** and click **Browse Connectors**
+2. Select **Prometheus**
+3. Enter a **Display Name** for this connection
+   - Example: "Prometheus Prod", "Prometheus Dev", "Prometheus Staging"
+
+### Step 2: Prometheus Configuration
+
+1. Enter your **Prometheus URL**
+   - Example: `http://localhost:9090`
+   - The base URL of your Prometheus server
+   - Include the protocol (http or https)
+   - Do not include a trailing slash
+
+### Step 3: Connect
+
+1. Click **Connect** to verify connectivity to your Prometheus server
+2. Cardinal Agent Builder will test the connection to your Prometheus instance
+
+Your AI agent can now query Prometheus metrics.
+
+## Capabilities
+
+For more information on what your agents can do with this data, see the [Agents documentation](/agents).

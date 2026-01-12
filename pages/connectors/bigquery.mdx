@@ -1,0 +1,74 @@
+# BigQuery
+
+Connect Cardinal Agent Builder to Google BigQuery data warehouse.
+
+## Overview
+
+BigQuery is Google Cloud's fully managed, serverless data warehouse. With the BigQuery connector, your AI agents can:
+
+- **Query data** using standard SQL
+- **Discover schemas** and table structures automatically
+- **Analyze large datasets** with semantic search across tables
+- **Monitor query metrics** including bytes processed and execution time
+- **Analyze GCP costs** by project, service, and SKU
+- **Detect resource underutilization** across Compute Engine, Cloud SQL, GKE, and other services
+- **Generate optimization recommendations** for rightsizing and cost savings
+- **Identify expensive BigQuery queries** and explain cost drivers
+
+## Connection Details
+
+| Field              | Description                                            |
+| ------------------ | ------------------------------------------------------ |
+| **Project**        | Browse and select a Google Cloud project from the grid |
+| **Authentication** | Google OAuth 2.0                                       |
+| **Datasets**       | Browse and select specific datasets (optional)         |
+| **Tables**         | Browse and select specific tables (optional)           |
+
+## Prerequisites
+
+- A Google Cloud project with BigQuery enabled
+- A Google account with access to your BigQuery project
+- At least one BigQuery dataset with tables
+
+## Setup Wizard
+
+### Step 1: Authenticate with Google
+
+1. In Cardinal Agent Builder, go to **Connectors** and click **Browse Connectors**
+2. Select **BigQuery**
+3. Click **Authenticate with Google**
+4. You'll be redirected to Google's OAuth consent screen
+5. Grant Cardinal Agent Builder access to your BigQuery data
+6. Return to Cardinal Agent Builder — authentication is complete
+
+### Step 2: Select Your Project
+
+1. Browse the list of available Google Cloud projects
+   - Search for a specific project using the search box, or scroll through the grid
+   - Click on the project card containing your BigQuery datasets
+   - You can only select one project per datasource connection
+
+### Step 3: Select Datasets and Tables
+
+1. **Select datasets** from the available datasets in your project
+
+   - Browse the grid of available datasets in your selected project
+   - Click on the dataset cards to select one or more datasets
+   - If you skip this step, all datasets in the project are accessible
+
+2. **Select tables** to restrict access to specific tables (optional)
+   - Browse and click on specific table cards to select which tables the agent can query
+   - If you skip this step, all tables in the selected datasets are accessible
+   - Useful for security: limit agents to specific tables only
+
+### Step 4: Save Configuration
+
+1. Review your selected project, datasets, and tables
+2. Click **Save**
+3. Cardinal Agent Builder will verify connectivity and discover the schema for your selected datasets and tables
+
+Your AI agent can now query BigQuery and answer questions about your data.
+
+## Capabilities
+
+For more information on what your agents can do with this data, see the [Agents documentation](/agents).

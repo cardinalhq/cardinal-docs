@@ -1,0 +1,80 @@
+# GitHub
+
+Connect Cardinal Agent Builder to GitHub for accessing repositories, issues, and pull requests.
+
+## Overview
+
+GitHub is a platform for version control and collaborative development. With the GitHub connector, your AI agents can:
+
+- **Access GitHub repositories** and browse code
+- **Query issues and pull requests** for project tracking
+- **Analyze repository metadata** and structure
+- **Monitor project activity** and contributions
+- **Retrieve code insights** from your repositories
+
+## Connection Details
+
+| Field                            | Description                                    |
+| -------------------------------- | ---------------------------------------------- |
+| **Display Name**                 | Custom name for this GitHub connection         |
+| **GitHub MCP Server URL**        | URL of your GitHub MCP server endpoint         |
+| **GitHub Personal Access Token** | PAT for GitHub authentication                  |
+| **Share credentials**            | (Optional) Share credentials with organization |
+
+## Prerequisites
+
+- GitHub account with repository access
+- GitHub MCP (Model Context Protocol) server configured
+- GitHub Personal Access Token (PAT) with appropriate scopes
+- Network access to your GitHub MCP server
+
+## Getting Your GitHub Personal Access Token
+
+1. Go to [github.com/settings/tokens](https://github.com/settings/tokens)
+2. Click "Generate new token" → "Generate new token (classic)"
+3. Give your token a descriptive name
+4. Select the required scopes based on your MCP server requirements:
+   - **repo** - Full control of private repositories
+   - **read:org** - Read organization data
+   - **read:user** - Read user profile data
+5. Click "Generate token"
+6. Copy the token and paste it into Cardinal Agent Builder (tokens start with `ghp_`)
+
+## Setup Wizard
+
+### Step 1: Connection Configuration
+
+1. In Cardinal Agent Builder, go to **Connectors** and click **Browse Connectors**
+2. Select **GitHub**
+3. Enter a **Display Name** for this connection
+   - Example: "GitHub Prod", "GitHub Dev", "My GitHub"
+
+### Step 2: GitHub MCP Configuration
+
+1. Enter your **GitHub MCP Server URL**
+
+   - Example: `https://api.githubcopilot.com/mcp`
+   - The HTTP URL of your GitHub MCP server
+   - Include the protocol (http or https)
+
+2. Enter your **GitHub Personal Access Token (PAT)**
+   - Must start with `ghp_`
+   - Found at [github.com/settings/tokens](https://github.com/settings/tokens)
+   - Ensure token has required scopes: `repo`, `read:org`, `read:user`
+
+### Step 3: Credentials Storage (Optional)
+
+1. Check **Share credentials with organization** to securely share with your organization
+   - When disabled: credentials are stored locally on this device
+   - When enabled: credentials are securely shared with your organization members
+
+### Step 4: Save
+
+1. Click **Save** to complete the configuration
+2. Cardinal Agent Builder will verify connectivity to your GitHub MCP server
+
+Your AI agent can now access GitHub repositories, issues, and pull requests.
+
+## Capabilities
+
+For more information on what your agents can do with this data, see the [Agents documentation](/agents).

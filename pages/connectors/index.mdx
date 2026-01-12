@@ -4,34 +4,39 @@ Connectors allow the Cardinal Agent Builder to query and interact with your data
 
 ## Databases
 
-| Connector | Description |
-|-----------|-------------|
-| [**PostgreSQL**](/connectors/postgres) | PostgreSQL databases (Amazon RDS, Google Cloud SQL, self-hosted) |
-| **BigQuery** | Google BigQuery data warehouse |
-| **Athena** | AWS Athena serverless SQL queries |
-| **ClickHouse** | ClickHouse OLAP database |
-| **LakeRunner** | CardinalHQ's OSS data lake |
+| Connector                                              | Description                                                      |
+| ------------------------------------------------------ | ---------------------------------------------------------------- |
+| [**PostgreSQL**](/connectors/postgres)                 | PostgreSQL databases (Amazon RDS, Google Cloud SQL, self-hosted) |
+| [**BigQuery**](/connectors/bigquery)                   | Google BigQuery data warehouse                                   |
+| [**BigQuery Insights**](/connectors/bigquery-insights) | Google BigQuery query insights and performance metrics           |
+| [**AWS Athena**](/connectors/athena)                   | AWS Athena serverless SQL queries                                |
+| [**ClickHouse**](/connectors/clickhouse)               | ClickHouse fast columnar database                                |
+| [**Snowflake**](/connectors/snowflake)                 | Snowflake cloud data warehouse                                   |
 
 ## Observability
 
-| Connector | Description |
-|-----------|-------------|
-| **CloudWatch** | AWS CloudWatch Logs and Metrics |
-| **Datadog** | Datadog logs, metrics and traces |
-| **Grafana** |  Loki, Mimir and Tempo |
-| **Prometheus** | Prometheus metrics |
-| **Thanos** | Thanos metrics |
-| **GCP Monitoring** | Google Cloud Monitoring metrics and logs |
+| Connector                                        | Description                              |
+| ------------------------------------------------ | ---------------------------------------- |
+| [**CloudWatch**](/connectors/cloudwatch)         | AWS CloudWatch logs and metrics          |
+| [**Datadog**](/connectors/datadog)               | Datadog logs, metrics and traces         |
+| [**Elasticsearch**](/connectors/elasticsearch)   | Elasticsearch logs, metrics and search   |
+| [**Grafana**](/connectors/grafana)               | Grafana Loki, Tempo, and Mimir services  |
+| [**Prometheus**](/connectors/prometheus)         | Prometheus metrics and time-series data  |
+| [**Thanos**](/connectors/thanos)                 | Thanos long-term metrics storage         |
+| [**New Relic**](/connectors/newrelic)            | New Relic logs, metrics and traces       |
+| [**GCP Monitoring**](/connectors/gcp-monitoring) | Google Cloud Monitoring metrics and logs |
+| [**Lakerunner**](/connectors/lakerunner)         | Cardinal HQ's open-source data lake      |
 
 ## Integrations
 
-| Connector | Description |
-|-----------|-------------|
-| **GitHub** | GitHub repositories and releases |
-| **Slack** | Slack notifications and messaging |
-| **Lambda** | AWS Lambda function invocation |
+| Connector                                  | Description                                                   |
+| ------------------------------------------ | ------------------------------------------------------------- |
+| [**Slack**](/connectors/slack)             | Slack notifications and messaging                             |
+| [**GitHub**](/connectors/github)           | Access GitHub repositories, issues, and code                  |
+| [**HTTP MCP Server**](/connectors/httpmcp) | Connect to custom HTTP MCP servers for extended functionality |
+| [**AWS Lambda**](/connectors/lambda)       | AWS Lambda function invocation                                |
+| [**Cardinal Release Agent**](/agent-builder/release-agent) | Track and monitor service releases and deployments |
 
+## Coming Soon
 
-## Coming Soon 
-
-Support for Snowflake, HoneyComb and NewRelic
+Support for HoneyComb and AWS Redshift
