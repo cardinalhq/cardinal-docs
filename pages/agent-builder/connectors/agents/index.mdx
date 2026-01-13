@@ -1,3 +1,5 @@
+import ConnectorGrid from '../../../../components/ConnectorGrid';
+
 # Agents Overview
 
 AI agents are the core of Cardinal - autonomous assistants that can monitor your infrastructure, answer questions about your systems, and execute actions based on events and triggers.
@@ -56,6 +58,37 @@ Connectors you add are configured globally and shared within your organization. 
 - **Global Configuration** - Connectors are set up once and available to all team members in your organization
 - **Credential Sharing** - During connector setup, you can enable "Share with Org" for credentials, allowing other team members to use the same connector without needing separate authentication
 - **Credential Security** - Choose which credentials to share organizationally while keeping sensitive information restricted if needed
+
+**Available Connectors:**
+
+<ConnectorGrid
+  databases={[
+    { name: "PostgreSQL", description: "PostgreSQL databases (Amazon RDS, Google Cloud SQL, self-hosted)", href: "/agent-builder/connectors/postgres" },
+    { name: "BigQuery", description: "Google BigQuery data warehouse", href: "/agent-builder/connectors/bigquery" },
+    { name: "BigQuery Insights", description: "Google BigQuery query insights and performance metrics", href: "/agent-builder/connectors/bigquery-insights" },
+    { name: "AWS Athena", description: "AWS Athena serverless SQL queries", href: "/agent-builder/connectors/athena" },
+    { name: "ClickHouse", description: "ClickHouse fast columnar database", href: "/agent-builder/connectors/clickhouse" },
+    { name: "Snowflake", description: "Snowflake cloud data warehouse", href: "/agent-builder/connectors/snowflake" },
+  ]}
+  observability={[
+    { name: "CloudWatch", description: "AWS CloudWatch logs and metrics", href: "/agent-builder/connectors/cloudwatch" },
+    { name: "Datadog", description: "Datadog logs, metrics and traces", href: "/agent-builder/connectors/datadog" },
+    { name: "Elasticsearch", description: "Elasticsearch logs, metrics and search", href: "/agent-builder/connectors/elasticsearch" },
+    { name: "Grafana", description: "Grafana Loki, Tempo, and Mimir services", href: "/agent-builder/connectors/grafana" },
+    { name: "Prometheus", description: "Prometheus metrics and time-series data", href: "/agent-builder/connectors/prometheus" },
+    { name: "Thanos", description: "Thanos long-term metrics storage", href: "/agent-builder/connectors/thanos" },
+    { name: "New Relic", description: "New Relic logs, metrics and traces", href: "/agent-builder/connectors/newrelic" },
+    { name: "GCP Monitoring", description: "Google Cloud Monitoring metrics and logs", href: "/agent-builder/connectors/gcp-monitoring" },
+    { name: "Lakerunner", description: "Cardinal HQ's open-source data lake", href: "/agent-builder/connectors/lakerunner" },
+  ]}
+  integrations={[
+    { name: "Slack", description: "Slack notifications and messaging", href: "/agent-builder/connectors/slack" },
+    { name: "GitHub", description: "Access GitHub repositories, issues, and code", href: "/agent-builder/connectors/github" },
+    { name: "HTTP MCP Server", description: "Connect to custom HTTP MCP servers for extended functionality", href: "/agent-builder/connectors/httpmcp" },
+    { name: "AWS Lambda", description: "AWS Lambda function invocation", href: "/agent-builder/connectors/lambda" },
+    { name: "Cardinal Release Agent", description: "Track and monitor service releases and deployments", href: "/agent-builder/release-agent" },
+  ]}
+/>
 
 ---
 
