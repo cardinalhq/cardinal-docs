@@ -1,6 +1,5 @@
 {
   "index": "Overview",
-  "agents": "Agents",
   "postgres": "PostgreSQL",
   "bigquery": "Google BigQuery",
   "bigquery-insights": "BigQuery Insights",

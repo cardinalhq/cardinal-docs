@@ -32,9 +32,7 @@ export default function ConnectorCard({
             className={styles.icon}
           />
         ) : (
-          <span className={styles.emoji}>
-            {iconPath || '🔌'}
-          </span>
+          <span className={styles.emoji}>{iconPath || '🔌'}</span>
         )}
         <h3 className={styles.title}>{name}</h3>
         <p className={styles.description}>{description}</p>
