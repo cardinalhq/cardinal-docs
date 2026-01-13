@@ -1,0 +1,77 @@
+# AWS Athena
+
+Connect Cardinal Agent Builder to Amazon Athena for serverless SQL queries on S3 data.
+
+## Overview
+
+Amazon Athena is a serverless query service that allows you to analyze data stored in Amazon S3 using standard SQL. With the Athena connector, your AI agents can:
+
+- **Query data in S3** using standard SQL
+- **Analyze structured data** without managing infrastructure
+- **Access multiple databases** across your Athena catalog
+- **Query tables** with automatic schema discovery
+- **Support Parquet, CSV, JSON and ORC formats**
+
+## Connection Details
+
+| Field | Description |
+|-------|-------------|
+| **Display Name** | Custom name for this Athena connection |
+| **AWS Region** | AWS region where Athena is running |
+| **S3 Output Location** | S3 path where Athena query results are stored |
+| **AWS Profile** | (Optional) Named AWS profile for authentication |
+| **Catalog ID** | (Optional) Glue Data Catalog ID (defaults to account ID) |
+| **Workgroup** | (Optional) Athena workgroup name (defaults to primary) |
+
+## Prerequisites
+
+- AWS account with Athena service enabled
+- S3 bucket for Athena query results
+- IAM permissions for Athena and S3 access
+- AWS credentials configured (CLI, environment variables, or IAM role)
+
+## Setup Wizard
+
+### Step 1: Connection Configuration
+
+1. In Cardinal Agent Builder, go to **Connectors** and click **Browse Connectors**
+2. Select **AWS Athena**
+3. Enter a **Display Name** for this connection (e.g., "Athena Prod", "Athena Analytics")
+4. Select your **AWS Region** where Athena is running
+5. Enter the **S3 Output Location** where Athena will store query results
+   - Example: `s3://my-bucket/athena-results/`
+6. (Optional) Enter **AWS Profile** name if using named profiles
+7. (Optional) Enter **Catalog ID** for your Glue Data Catalog
+8. (Optional) Enter **Workgroup** name for your Athena workgroup
+9. Click **Next**
+
+### Step 2: Select Database
+
+1. Choose a **Database** from your Athena catalog
+   - This is the database (schema) you want to query
+   - You can only select one database per connection
+2. Click **Next**
+
+### Step 3: Select Tables
+
+1. Browse and select **Tables** from the selected database
+   - Click on table cards to select one or more tables
+   - If you skip this step, all tables in the database are accessible
+2. Click **Next**
+
+### Step 4: Review & Save
+
+1. Review your configuration:
+   - Display name
+   - AWS region
+   - S3 output location
+   - Selected database
+   - Selected tables
+2. Click **Save**
+3. Cardinal Agent Builder will verify connectivity and access to your Athena data
+
+Your AI agent can now query Athena and analyze S3 data.
+
+## Capabilities
+
+For more information on what your agents can do with this data, see the [Agents documentation](/connectors/agents).

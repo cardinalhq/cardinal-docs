@@ -1,7 +1,5 @@
 {
   "index": "Welcome",
   "lakerunner": "LakeRunner",
-  "chip": "Chip",
-  "agent-builder": "Cardinal Agent Builder",
-  "connectors": "Connectors"
+  "agent-builder": "Cardinal Agent Builder"
 }

@@ -1,0 +1,61 @@
+# Google BigQuery Insights
+
+Connect Cardinal Agent Builder to Google BigQuery Insights for query performance monitoring.
+
+## Overview
+
+Google BigQuery Insights provides detailed query performance metrics and insights for your BigQuery workloads. With the BigQuery Insights connector, your AI agents can:
+
+- **Get Query Insights** from Google BigQuery
+- **Retrieve Performance Metrics** for query analysis
+- **Monitor query execution** and performance trends
+- **Analyze query costs** and optimization opportunities
+- **Track query patterns** across your organization
+
+## Connection Details
+
+| Field | Description |
+|-------|-------------|
+| **Project** | Browse and select a Google Cloud project from the grid |
+| **Authentication** | Google OAuth 2.0 |
+
+## Prerequisites
+
+- A Google Cloud project with BigQuery enabled
+- A Google account with access to your BigQuery project
+- BigQuery API enabled
+- Query Insights data available in your project
+
+## Setup Wizard
+
+### Step 1: Display Name
+
+1. In Cardinal Agent Builder, go to **Connectors** and click **Browse Connectors**
+2. Select **Google BigQuery Insights**
+3. Enter a **Display Name** for this datasource connection (e.g., "BigQuery Insights Prod", "BigQuery Insights Dev")
+
+### Step 2: Authenticate with Google
+
+1. Click **Authenticate with Google**
+2. You'll be redirected to Google's OAuth consent screen
+3. Grant Cardinal Agent Builder access to your BigQuery data
+4. Return to Cardinal Agent Builder — authentication is complete
+
+### Step 3: Select Your Project
+
+1. Browse the list of available Google Cloud projects
+   - Search for a specific project using the search box, or scroll through the grid
+   - Click on the project card containing your BigQuery data
+   - You can only select one project per datasource connection
+
+### Step 4: Save Configuration
+
+1. Review your selected project and display name
+2. Click **Save**
+3. Cardinal Agent Builder will verify connectivity and access to Query Insights
+
+Your AI agent can now query BigQuery Insights and analyze query performance.
+
+## Capabilities
+
+For more information on what your agents can do with this data, see the [Agents documentation](/connectors/agents).
