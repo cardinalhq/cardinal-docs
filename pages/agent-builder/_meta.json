@@ -1,6 +1,7 @@
 {
   "index": "Overview",
+  "get_started": "Get Started",
   "product": "Product",
-  "release-agent": "Release Agent",
+  "agents": "Agents",
   "connectors": "Connectors"
 }

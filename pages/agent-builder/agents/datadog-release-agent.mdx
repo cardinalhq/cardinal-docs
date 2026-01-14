@@ -1,0 +1,16 @@
+# Datadog Release Agent
+
+Cardinal's Datadog Release Agent is an intelligent release monitoring agent that validates deployments by comparing Datadog logs, metrics, and APM data before vs. after a release to detect anomalies, identify regressions, and provide clear pass/fail assessments.
+
+## Capabilities 
+
+- **Runs analyses automatically on every release** via a simple webhook integration
+- **Compares logs** to detect material error pattern increases, new error patterns, and expected logs that stopped unexpectedly
+- **Compares system, custom, and APM RED (Request, Error, Duration) metrics** to detect anomalies
+- **Finds relevant dashboard charts**, and looks for anomalies
+- **Checks for any new alerts** that triggered post-release for the deployed service, or any of its dependencies
+- **Sends a report to Slack**, with a clear pass/fail assessment, and evidence in the form of inline charts, and links to alerts and dashboards
+
+## Get Started
+
+TBD
