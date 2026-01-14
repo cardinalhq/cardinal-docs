@@ -1,0 +1,68 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# Org Settings
+
+Organization settings are the control center for team access, shared configuration, and launch defaults. Use them to keep agents, workflows, and deployments consistent across the org.
+
+## At a Glance
+
+- **Members**: invite teammates, manage access, and review pending invites.
+- **Subscription**: manage plan, seats, and billing.
+- **Remote Repository**: connect a GitHub repo used to sync agent configurations.
+- **Launch Profiles**: set default cloud deployment profiles per provider.
+- **Launch Agents**: deploy and manage cloud agents.
+- **LLM Provider**: choose the org-wide model provider and defaults.
+
+## How Org Settings Are Used
+
+- **Chip Studio UI** exposes the settings tabs (Members, Subscription, Remote Repository, Launch Profiles, Launch Agents, LLM Provider).
+- **CardinalHQ MCP** stores org-level configuration like the selected LLM provider and workflow defaults.
+- **Agent Runner** uses org settings to clone and sync the workspace from the remote repo and to initialize model access.
+
+## Detailed Settings
+
+### Members
+
+- Invite one or more users at a time.
+- Search and filter members by name or email.
+- Remove members or disable pending invites.
+
+### Subscription
+
+- View current plan and status.
+- Change plan or manage seats.
+- Open the billing portal for payment updates.
+
+### Remote Repository
+
+- Connect a GitHub repository to sync agent configs across the org.
+- Review the selected repo, default branch, and visibility.
+- Update the repo as the single source of truth for shared agents.
+
+### Launch Profiles
+
+- Define default launch configs per cloud provider (GCP available; AWS/Azure coming soon).
+- Save reusable profiles for consistent deploy settings.
+- Use these defaults when launching new agents.
+
+### Launch Agents
+
+- Deploy agents to the cloud after authenticating with GCP.
+- Track launch status and unlaunch when needed.
+- Required for production workflows and scheduled runs.
+
+### LLM Provider
+
+- Pick the active provider (Cardinal, OpenAI, Anthropic, Google, Bedrock, or custom).
+- Configure default model and embeddings model.
+- Choose whether secrets are shared org-wide or kept local to your machine.
+
+### Org-Level Defaults (Platform)
+
+- **Organization settings** store the selected LLM provider and configuration.
+- **Workflow defaults** persist launch profiles per cloud provider.
+- **Connector credentials** can be global (shared) or scoped to specific agents.
+- **Organization API keys** are managed at the platform layer for service access.
+- **Local deployments** store org defaults in an `organization.json` config used by the local API.
+
+<SupportCallout />

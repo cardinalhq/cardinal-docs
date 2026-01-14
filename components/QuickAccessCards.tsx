@@ -47,9 +47,15 @@ const items = [
     icon: '📝',
   },
   {
+    title: 'Org Settings',
+    description: 'Team setup and controls',
+    href: '/agent-builder/product/org-settings',
+    icon: '🏢',
+  },
+  {
     title: 'Chat Modes',
     description: 'Single & Multi-Agent',
-    href: '/agent-builder/product/assets#8-chat-modes',
+    href: '/agent-builder/product/chat-modes',
     icon: '💬',
   },
 ];

@@ -1,0 +1,99 @@
+"use client";
+
+import Link from "next/link";
+import styles from "./ProductQuickAccess.module.css";
+
+const assets = [
+  { title: "Agents", desc: "AI-powered assistants", href: "/agent-builder/product/assets#1-agents", icon: "🤖" },
+  { title: "Connectors", desc: "Data source integration", href: "/agent-builder/product/assets#2-connectors", icon: "🔌" },
+  { title: "Knowledge", desc: "Custom context & runbooks", href: "/agent-builder/product/assets#3-knowledge", icon: "📚" },
+  { title: "Reports", desc: "Insights & analysis", href: "/agent-builder/product/assets#4-reports", icon: "📊" },
+  { title: "Queries", desc: "Natural language search", href: "/agent-builder/product/assets#5-queries", icon: "🔍" },
+  { title: "Workflows", desc: "Automation & logic", href: "/agent-builder/product/assets#6-workflows", icon: "⚙️" },
+  { title: "Scripts", desc: "Custom automation", href: "/agent-builder/product/assets#7-scripts", icon: "📝" },
+  { title: "Chat Modes", desc: "Single & Multi-Agent", href: "/agent-builder/product/assets#8-chat-modes", icon: "💬" },
+];
+
+const orgSettings = [
+  { title: "Members", desc: "Invite and manage access", href: "/agent-builder/product/org-settings#members", icon: "👥" },
+  { title: "Subscription", desc: "Plan and billing", href: "/agent-builder/product/org-settings#subscription", icon: "💳" },
+  { title: "Remote Repo", desc: "Sync agent configs", href: "/agent-builder/product/org-settings#remote-repository", icon: "🔗" },
+  { title: "Launch Profiles", desc: "Deployment defaults", href: "/agent-builder/product/org-settings#launch-profiles", icon: "🚀" },
+  { title: "Launch Agents", desc: "Cloud deployments", href: "/agent-builder/product/org-settings#launch-agents", icon: "☁️" },
+  { title: "LLM Provider", desc: "Org-wide model setup", href: "/agent-builder/product/org-settings#llm-provider", icon: "🧠" },
+];
+
+const chatModes = [
+  { title: "Single-Agent", desc: "Focused, direct chats", href: "/agent-builder/product/chat-modes#single-agent-mode", icon: "🎯" },
+  { title: "Multi-Agent", desc: "Coordinated problem solving", href: "/agent-builder/product/chat-modes#multi-agent-mode", icon: "🤝" },
+  { title: "Choosing a Mode", desc: "When to use each", href: "/agent-builder/product/chat-modes#choosing-the-right-mode", icon: "🧭" },
+];
+
+function Card({ title, desc, href, icon }: { title: string; desc: string; href: string; icon: string }) {
+  return (
+    <Link href={href} className={styles.card}>
+      <span className={styles.icon}>{icon}</span>
+      <div>
+        <div className={styles.title}>{title}</div>
+        <div className={styles.description}>{desc}</div>
+      </div>
+    </Link>
+  );
+}
+
+function Section({
+  title,
+  description,
+  linkLabel,
+  linkHref,
+  items,
+}: {
+  title: string;
+  description: string;
+  linkLabel: string;
+  linkHref: string;
+  items: Array<{ title: string; desc: string; href: string; icon: string }>;
+}) {
+  return (
+    <section className={styles.section}>
+      <h2 className={styles.sectionTitle}>{title}</h2>
+      <p className={styles.sectionDescription}>{description}</p>
+      <div className={styles.grid}>
+        {items.map((item) => (
+          <Card key={item.href} {...item} />
+        ))}
+      </div>
+      <Link className={styles.sectionLink} href={linkHref}>
+        {linkLabel}
+      </Link>
+    </section>
+  );
+}
+
+export default function ProductQuickAccess() {
+  return (
+    <div className={styles.wrapper}>
+      <Section
+        title="Assets"
+        description="Build your core operational blocks here: agents, connectors, knowledge, reports, queries, workflows, and scripts. These assets power everything your team automates and observes."
+        linkLabel="Explore Assets →"
+        linkHref="/agent-builder/product/assets"
+        items={assets}
+      />
+      <Section
+        title="Organization Settings"
+        description="Manage your team setup and shared defaults across the org. Configure billing, member access, repo sync, launch profiles, and LLM provider settings."
+        linkLabel="Open Org Settings →"
+        linkHref="/agent-builder/product/org-settings"
+        items={orgSettings}
+      />
+      <Section
+        title="Chat Modes"
+        description="Choose how you interact with agents. Build Mode is for creating assets and tuning behavior, while Chat Mode is for read-only, cross-agent visibility."
+        linkLabel="Read about Agent Chat →"
+        linkHref="/agent-builder/product/chat-modes"
+        items={chatModes}
+      />
+    </div>
+  );
+}

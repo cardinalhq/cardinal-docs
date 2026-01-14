@@ -1,6 +1,9 @@
 {
-  "index": "Overview",
-  "get_started": "Get Started",
+  "index": {
+    "title": "Overview",
+    "display": "hidden"
+  },
+  "overview": "Overview",
   "product": "Product",
   "agents": "Agents",
   "connectors": "Connectors"
