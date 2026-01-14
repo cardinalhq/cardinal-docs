@@ -1,3 +1,5 @@
+import SupportCallout from '../../../components/SupportCallout';
+
 # Kubernetes Deployment Tracking
 
 Automatically track Kubernetes workload deployments and correlate them with GitHub releases.
@@ -59,3 +61,5 @@ helm uninstall chq-k8s-watcher
 The watcher monitors Deployments, StatefulSets, DaemonSets, Jobs, and CronJobs across your cluster. It extracts container image digests and sends them to Cardinal to correlate with GitHub releases.
 
 **Permissions:** Read-only access to workloads (cannot modify anything).
+
+<SupportCallout />
