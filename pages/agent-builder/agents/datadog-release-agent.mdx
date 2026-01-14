@@ -2,6 +2,8 @@
 
 Cardinal's Datadog Release Agent is an intelligent release monitoring agent that validates deployments by comparing Datadog logs, metrics, and APM data before vs. after a release to detect anomalies, identify regressions, and provide clear pass/fail assessments.
 
+Invoke the release check workflow via a simple HTTP webhook as part of your GitHub Actions, or any other CI/CD pipeline, to validate your deployments.
+
 ## Capabilities 
 
 - **Runs analyses automatically on every release** via a simple webhook integration
@@ -53,8 +55,55 @@ Follow the steps in the [Launch Agents](/agent-builder/product/launch-agents) gu
 
 ### 6. Update GitHub Actions
 
-TBD
+Once the Agent is launched, you can update your GitHub Actions that deploy your service to invoke the release check workflow via a HTTP webhook. If you use a different CI/CD tool, adapt these instructions accordingly.
+
+In your GitHub Action yaml file, add a step **after** your deployment step to invoke the Agent's release check workflow.
+
+```yaml copy
+  release-check:
+    runs-on: ubuntu-latest
+    needs: deploy-step
+    steps:
+      - name: Trigger Cardinal Datadog Release Agent
+        run: |
+          DEPLOY_TIME=$(TZ="America/Los_Angeles" date +"%B %-d, %Y at %-I:%M %p PST")
+          curl -X POST "https://{your-agent-url}/invoke" \
+            -H "Content-Type: application/json" \
+            -d @- <<EOF
+          {
+            "agentName": "datadog-release-agent",
+            "message": "Execute the check-release workflow for paymentservice, deployed to the test environment on ${DEPLOY_TIME}. Check +/- 15 mins from the deploy time. Send the results to #alerts-demo via Slack.",
+            "delayInMinutes": 15
+          }
+          EOF
+```
+
+- Replace `{your-agent-url}` with the HTTP webhook URL for your Agent, which is displayed in the Launch Status card, as outlined in the [Launch Agents](/agent-builder/product/launch-agents#4-invoke-agents-via-http-webhook) guide.
+- Update the `message` to include the name of the service that was deployed, the environment it was deployed to, and any other context that is relevant to the release check.
+- Set the `delayInMinutes` to the number of minutes to delay the task execution so that sufficient post-deployment telemetry data is available in Datadog. We recommend setting this to **at least** 15 minutes, depending on the traffic patterns of your service.
 
 ### 7. Get Slack Notifications
 
-TBD
+Invite the Cardinal Slack bot to the channel where you want to receive notifications from the Datadog Release Agent.
+
+When the release check is executed downstream of your GitHub Action or CI/CD pipeline, you will receive a notification in Slack with the results of the release check.
+
+![Slack Notification 1](/datadog-release-agent/slack-notif-1.png)
+
+![Slack Notification 2](/datadog-release-agent/slack-notif-2.png)
+
+![Slack Notification 3](/datadog-release-agent/slack-notif-3.png)
+
+### 8. Customize your Release Check
+
+Congratulations! 🎉 You've successfully set up the Datadog Release Agent to run release checks on your deployments.
+
+You can now also customize the release check to fit your exact needs by updating the included [Workflows](/agent-builder/product/assets/workflows) and [Scripts](/agent-builder/product/assets/scripts), or adding your own.
+
+**Workflows:**
+
+![Workflows](/datadog-release-agent/workflows.png)
+
+**Scripts:**
+
+![Scripts](/datadog-release-agent/scripts.png)
