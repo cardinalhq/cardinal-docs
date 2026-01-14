@@ -1,9 +1,7 @@
 import ConnectorTitle from '../../../components/ConnectorTitle';
 import SupportCallout from '../../../components/SupportCallout';
 
-
 <ConnectorTitle name="Google BigQuery Insights" />
-
 
 Connect Cardinal Agent Builder to Google BigQuery Insights for query performance monitoring.
 
@@ -19,10 +17,10 @@ Google BigQuery Insights provides detailed query performance metrics and insight
 
 ## Connection Details
 
-| Field | Description |
-|-------|-------------|
-| **Project** | Browse and select a Google Cloud project from the grid |
-| **Authentication** | Google OAuth 2.0 |
+| Field              | Description                                            |
+| ------------------ | ------------------------------------------------------ |
+| **Project**        | Browse and select a Google Cloud project from the grid |
+| **Authentication** | Google OAuth 2.0                                       |
 
 ## Prerequisites
 
@@ -33,31 +31,119 @@ Google BigQuery Insights provides detailed query performance metrics and insight
 
 ## Setup Wizard
 
-### Step 1: Display Name
+Validate credentials either through ADC or Oauth.
+
+<div
+  style={{
+    border: '1px solid rgba(15, 23, 42, 0.08)',
+    borderRadius: '12px',
+    background: '#ffffff',
+    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
+    margin: '12px 0 24px',
+    maxWidth: '720px',
+    overflow: 'hidden',
+  }}
+>
+  <div
+    style={{
+      padding: '8px 16px',
+      background:
+        'linear-gradient(90deg, rgba(56, 189, 248, 0.12), rgba(16, 185, 129, 0.08), rgba(255, 255, 255, 0))',
+      borderBottom: '1px solid rgba(15, 23, 42, 0.06)',
+      color: '#0f172a',
+      fontSize: '13px',
+      letterSpacing: '0.08em',
+      textTransform: 'uppercase',
+      fontWeight: 600,
+    }}
+  >
+    Step 1 - Display Name
+  </div>
+  <div style={{ padding: '16px' }}>
 
 1. In Cardinal Agent Builder, go to **Connectors** and click **Browse Connectors**
 2. Select **Google BigQuery Insights**
 3. Enter a **Display Name** for this datasource connection (e.g., "BigQuery Insights Prod", "BigQuery Insights Dev")
 
-### Step 2: Authenticate with Google
+</div>
+</div>
 
-1. Click **Authenticate with Google**
-2. You'll be redirected to Google's OAuth consent screen
-3. Grant Cardinal Agent Builder access to your BigQuery data
-4. Return to Cardinal Agent Builder — authentication is complete
-
-### Step 3: Select Your Project
+<div
+  style={{
+    border: '1px solid rgba(15, 23, 42, 0.08)',
+    borderRadius: '12px',
+    background: '#ffffff',
+    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
+    margin: '12px 0 24px',
+    maxWidth: '720px',
+    overflow: 'hidden',
+  }}
+>
+  <div
+    style={{
+      padding: '8px 16px',
+      background:
+        'linear-gradient(90deg, rgba(56, 189, 248, 0.12), rgba(16, 185, 129, 0.08), rgba(255, 255, 255, 0))',
+      borderBottom: '1px solid rgba(15, 23, 42, 0.06)',
+      color: '#0f172a',
+      fontSize: '13px',
+      letterSpacing: '0.08em',
+      textTransform: 'uppercase',
+      fontWeight: 600,
+    }}
+  >
+    Step 2 - Select Your Project
+  </div>
+  <div style={{ padding: '16px' }}>
 
 1. Browse the list of available Google Cloud projects
    - Search for a specific project using the search box, or scroll through the grid
    - Click on the project card containing your BigQuery data
    - You can only select one project per datasource connection
 
-### Step 4: Save Configuration
+</div>
+</div>
+
+<div
+  style={{
+    border: '1px solid rgba(15, 23, 42, 0.08)',
+    borderRadius: '12px',
+    background: '#ffffff',
+    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
+    margin: '12px 0 24px',
+    maxWidth: '720px',
+    overflow: 'hidden',
+  }}
+>
+  <div
+    style={{
+      padding: '8px 16px',
+      background:
+        'linear-gradient(90deg, rgba(56, 189, 248, 0.12), rgba(16, 185, 129, 0.08), rgba(255, 255, 255, 0))',
+      borderBottom: '1px solid rgba(15, 23, 42, 0.06)',
+      color: '#0f172a',
+      fontSize: '13px',
+      letterSpacing: '0.08em',
+      textTransform: 'uppercase',
+      fontWeight: 600,
+    }}
+  >
+    Step 3 - Save Configuration
+  </div>
+  <div style={{ padding: '16px' }}>
 
 1. Review your selected project and display name
 2. Click **Save**
 3. Cardinal Agent Builder will verify connectivity and access to Query Insights
+
+<img
+  src="/bigquery-insights-step.png"
+  alt="BigQuery Insights setup wizard"
+  style={{ maxWidth: '520px', width: '100%', height: 'auto', margin: '0 auto' }}
+/>
+
+</div>
+</div>
 
 Your AI agent can now query BigQuery Insights and analyze query performance.
 
