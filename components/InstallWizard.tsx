@@ -5,6 +5,7 @@ import styles from './InstallWizard.module.css';
 
 type InstallType = 'kind' | 'poc' | 'production';
 type CloudProvider = 'aws' | 'gcp' | 'azure';
+type AWSCredentialMode = 'create' | 'existing' | 'eks';
 
 interface StorageConfig {
   bucket: string;
@@ -13,8 +14,10 @@ interface StorageConfig {
 }
 
 interface AWSConfig {
+  credentialMode: AWSCredentialMode;
   accessKeyId: string;
   secretAccessKey: string;
+  existingSecretName: string;
 }
 
 interface GCPConfig {
@@ -87,9 +90,14 @@ function isValidCollectorName(name: string): boolean {
   return trimmed !== '' && trimmed !== 'default';
 }
 
+function isValidUUID(uuid: string): boolean {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(uuid.trim());
+}
+
 function isBasicsConfigured(state: WizardState): boolean {
   if (!isValidCollectorName(state.collectorName)) return false;
-  if (!state.organizationId.trim()) return false;
+  if (!isValidUUID(state.organizationId)) return false;
   if (!state.apiKey.trim()) return false;
   if (state.enableGrafana && !state.grafanaApiKey.trim()) return false;
   return true;
@@ -103,7 +111,7 @@ const defaultState: WizardState = {
   apiKey: '',
   grafanaApiKey: '',
   storage: { bucket: '', region: 'us-east-1', endpoint: '' },
-  aws: { accessKeyId: '', secretAccessKey: '' },
+  aws: { credentialMode: 'create', accessKeyId: '', secretAccessKey: '', existingSecretName: '' },
   gcp: { serviceAccountJson: '', hmacAccessKey: '', hmacSecretKey: '' },
   azure: { storageAccountName: '', storageAccountKey: '', containerName: '' },
   lrdb: { host: '', port: '5432', database: 'lakerunner', username: '', password: '', sslMode: 'require' },
@@ -154,8 +162,22 @@ function generateValuesYaml(state: WizardState): string | null {
   if (state.cloudProvider === 'aws') {
     lines.push('aws:');
     lines.push(`  region: "${state.storage.region}"`);
-    lines.push(`  accessKeyId: "${state.aws.accessKeyId}"`);
-    lines.push(`  secretAccessKey: "${state.aws.secretAccessKey}"`);
+    if (state.aws.credentialMode === 'eks') {
+      // Use EKS-provided credentials (IRSA/Pod Identity)
+      lines.push('  inject: false');
+      lines.push('  create: false');
+    } else if (state.aws.credentialMode === 'existing') {
+      // Use existing secret
+      lines.push('  inject: true');
+      lines.push('  create: false');
+      lines.push(`  secretName: "${state.aws.existingSecretName}"`);
+    } else {
+      // Create new secret
+      lines.push('  inject: true');
+      lines.push('  create: true');
+      lines.push(`  accessKeyId: "${state.aws.accessKeyId}"`);
+      lines.push(`  secretAccessKey: "${state.aws.secretAccessKey}"`);
+    }
   } else if (state.cloudProvider === 'gcp') {
     lines.push('gcp:');
     lines.push(`  serviceAccountJson: |`);
@@ -299,7 +321,6 @@ export default function InstallWizard() {
   };
 
   const yaml = generateValuesYaml(state);
-  const basicsConfigured = isBasicsConfigured(state);
 
   return (
     <div className={styles.wizard}>
@@ -351,18 +372,24 @@ chmod +x lakerunner-standalone-poc.sh
             <h3 className={styles.sectionTitle}>Organization & API Keys</h3>
             <div className={styles.formGridTwoCol}>
               <div className={styles.formGroup}>
-                <label>Organization ID</label>
+                <label>Organization ID <span className={styles.required}>*</span></label>
                 <div className={styles.inputWithButton}>
                   <input
                     type="text"
                     value={state.organizationId}
                     onChange={(e) => updateState('organizationId', e.target.value)}
                     placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                    className={state.organizationId && !isValidUUID(state.organizationId) ? styles.inputError : ''}
                   />
                   <button onClick={handleGenerateOrgId} className={styles.generateBtn}>
                     Generate
                   </button>
                 </div>
+                {state.organizationId && !isValidUUID(state.organizationId) && (
+                  <span className={styles.errorText}>
+                    Must be a valid UUID format
+                  </span>
+                )}
               </div>
               <div className={styles.formGroup}>
                 <label>Collector Name <span className={styles.required}>*</span></label>
@@ -491,24 +518,71 @@ chmod +x lakerunner-standalone-poc.sh
                       placeholder="us-east-1"
                     />
                   </div>
-                  <div className={styles.formGroup}>
-                    <label>Access Key ID</label>
-                    <input
-                      type="text"
-                      value={state.aws.accessKeyId}
-                      onChange={(e) => updateNested('aws', 'accessKeyId', e.target.value)}
-                      placeholder="AKIA..."
-                    />
+                  <div className={`${styles.formGroup} ${styles.fullWidth}`}>
+                    <label>Credentials</label>
+                    <div className={styles.credentialModeSelect}>
+                      <button
+                        className={`${styles.credentialModeBtn} ${state.aws.credentialMode === 'create' ? styles.active : ''}`}
+                        onClick={() => updateNested('aws', 'credentialMode', 'create')}
+                      >
+                        Create Secret
+                      </button>
+                      <button
+                        className={`${styles.credentialModeBtn} ${state.aws.credentialMode === 'existing' ? styles.active : ''}`}
+                        onClick={() => updateNested('aws', 'credentialMode', 'existing')}
+                      >
+                        Use Existing Secret
+                      </button>
+                      <button
+                        className={`${styles.credentialModeBtn} ${state.aws.credentialMode === 'eks' ? styles.active : ''}`}
+                        onClick={() => updateNested('aws', 'credentialMode', 'eks')}
+                      >
+                        EKS (IRSA/Pod Identity)
+                      </button>
+                    </div>
                   </div>
-                  <div className={styles.formGroup}>
-                    <label>Secret Access Key</label>
-                    <input
-                      type="password"
-                      value={state.aws.secretAccessKey}
-                      onChange={(e) => updateNested('aws', 'secretAccessKey', e.target.value)}
-                      placeholder="••••••••"
-                    />
-                  </div>
+                  {state.aws.credentialMode === 'create' && (
+                    <>
+                      <div className={styles.formGroup}>
+                        <label>Access Key ID</label>
+                        <input
+                          type="text"
+                          value={state.aws.accessKeyId}
+                          onChange={(e) => updateNested('aws', 'accessKeyId', e.target.value)}
+                          placeholder="AKIA..."
+                        />
+                      </div>
+                      <div className={styles.formGroup}>
+                        <label>Secret Access Key</label>
+                        <input
+                          type="password"
+                          value={state.aws.secretAccessKey}
+                          onChange={(e) => updateNested('aws', 'secretAccessKey', e.target.value)}
+                          placeholder="••••••••"
+                        />
+                      </div>
+                    </>
+                  )}
+                  {state.aws.credentialMode === 'existing' && (
+                    <div className={styles.formGroup}>
+                      <label>Secret Name</label>
+                      <input
+                        type="text"
+                        value={state.aws.existingSecretName}
+                        onChange={(e) => updateNested('aws', 'existingSecretName', e.target.value)}
+                        placeholder="aws-credentials"
+                      />
+                      <span className={styles.hint}>Name of existing Kubernetes secret containing AWS credentials</span>
+                    </div>
+                  )}
+                  {state.aws.credentialMode === 'eks' && (
+                    <div className={`${styles.formGroup} ${styles.fullWidth}`}>
+                      <span className={styles.hint}>
+                        Credentials will be provided by EKS via IAM Roles for Service Accounts (IRSA) or EKS Pod Identity.
+                        Ensure your cluster and service account are configured appropriately.
+                      </span>
+                    </div>
+                  )}
                 </>
               )}
 
@@ -824,7 +898,7 @@ chmod +x lakerunner-standalone-poc.sh
             Complete the required fields above to generate your values.yaml configuration.
             <ul>
               {!isValidCollectorName(state.collectorName) && <li>Enter a valid Collector Name</li>}
-              {!state.organizationId.trim() && <li>Generate or enter an Organization ID</li>}
+              {!isValidUUID(state.organizationId) && <li>Enter a valid Organization ID (UUID format)</li>}
               {!state.apiKey.trim() && <li>Generate or enter an API Key</li>}
               {state.enableGrafana && !state.grafanaApiKey.trim() && <li>Generate or enter a Grafana API Key</li>}
             </ul>

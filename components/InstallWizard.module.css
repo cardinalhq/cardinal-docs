@@ -126,6 +126,40 @@
   color: white;
 }
 
+/* Credential Mode Selection */
+.credentialModeSelect {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.credentialModeBtn {
+  padding: 0.5rem 1rem;
+  border: 2px solid #e0e0e0;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+:global(.dark) .credentialModeBtn {
+  background: #1a1a1a;
+  border-color: #333;
+  color: #e5e5e5;
+}
+
+.credentialModeBtn:hover {
+  border-color: #ff5722;
+}
+
+.credentialModeBtn.active {
+  border-color: #ff5722;
+  background: #ff5722;
+  color: white;
+}
+
 /* Form Grid */
 .formGrid {
   display: grid;
@@ -380,10 +414,12 @@
 
 .inputError {
   border-color: #e74c3c !important;
+  outline: none;
 }
 
 .inputError:focus {
   border-color: #e74c3c !important;
+  outline: none;
   box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.2);
 }
 
