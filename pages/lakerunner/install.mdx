@@ -1,0 +1,67 @@
+import InstallWizard from '../../components/InstallWizard';
+import SupportCallout from '../../components/SupportCallout';
+
+# LakeRunner Installation Guide
+
+Use the interactive wizard below to generate a configuration for your LakeRunner deployment. Select your installation type and fill in the required details to generate a `values.yaml` file.
+
+## Installation Wizard
+
+<InstallWizard />
+
+For the complete list of configuration options, see the full [values.yaml reference on GitHub](https://github.com/cardinalhq/charts/blob/main/lakerunner/values.yaml).
+
+## Post-Installation
+
+### Verify the Installation
+
+After installation, verify all pods are running:
+
+```bash copy
+kubectl get pods -l app.kubernetes.io/name=lakerunner
+```
+
+### Access Grafana
+
+For local installations, Grafana is available at `http://localhost:3000` with default credentials:
+- **Username:** `admin`
+- **Password:** `admin`
+
+For POC and Production deployments, configure an Ingress or use port-forwarding:
+
+```bash copy
+kubectl port-forward svc/grafana 3000:3000
+```
+
+### Send Test Data
+
+The OpenTelemetry Collector endpoint is available for ingesting telemetry:
+
+```bash copy
+# For local installations
+curl -X POST http://localhost:4318/v1/logs \
+  -H "Content-Type: application/json" \
+  -d '{"resourceLogs":[{"resource":{},"scopeLogs":[{"scope":{},"logRecords":[{"body":{"stringValue":"test log"}}]}]}]}'
+```
+
+## Upgrading
+
+To upgrade an existing installation:
+
+```bash copy
+helm upgrade lakerunner oci://public.ecr.aws/cardinalhq.io/lakerunner \
+  --values values.yaml \
+  --namespace lakerunner
+```
+
+## Uninstalling
+
+To remove LakeRunner:
+
+```bash copy
+helm uninstall lakerunner --namespace lakerunner
+```
+
+**Note:** This does not delete your data in the cloud storage bucket.
+
+<SupportCallout />
