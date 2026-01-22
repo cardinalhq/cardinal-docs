@@ -216,54 +216,59 @@ function generateValuesYaml(state: WizardState): string | null {
 
   // Database configuration (POC and Production)
   if (state.installType === 'poc' || state.installType === 'production') {
-    lines.push('lrdb:');
+    lines.push('database:');
     if (state.lrdb.credentialMode === 'existing') {
-      lines.push('  inject: true');
       lines.push('  create: false');
       lines.push(`  secretName: "${state.lrdb.existingSecretName}"`);
     } else {
-      lines.push('  inject: true');
       lines.push('  create: true');
-      lines.push(`  host: "${state.lrdb.host}"`);
-      lines.push(`  port: ${state.lrdb.port}`);
-      lines.push(`  database: "${state.lrdb.database}"`);
-      lines.push(`  username: "${state.lrdb.username}"`);
-      lines.push(`  password: "${state.lrdb.password}"`);
-      lines.push(`  sslMode: "${state.lrdb.sslMode}"`);
     }
+    lines.push('  lrdb:');
+    lines.push(`    host: "${state.lrdb.host}"`);
+    lines.push(`    port: ${state.lrdb.port}`);
+    lines.push(`    name: "${state.lrdb.database}"`);
+    lines.push(`    username: "${state.lrdb.username}"`);
+    if (state.lrdb.credentialMode === 'create') {
+      lines.push(`    password: "${state.lrdb.password}"`);
+    }
+    lines.push(`    sslMode: "${state.lrdb.sslMode}"`);
     lines.push('');
 
     lines.push('configdb:');
     if (state.configdb.credentialMode === 'existing') {
-      lines.push('  inject: true');
       lines.push('  create: false');
       lines.push(`  secretName: "${state.configdb.existingSecretName}"`);
     } else {
-      lines.push('  inject: true');
       lines.push('  create: true');
-      lines.push(`  host: "${state.configdb.host}"`);
-      lines.push(`  port: ${state.configdb.port}`);
-      lines.push(`  database: "${state.configdb.database}"`);
-      lines.push(`  username: "${state.configdb.username}"`);
-      lines.push(`  password: "${state.configdb.password}"`);
-      lines.push(`  sslMode: "${state.configdb.sslMode}"`);
     }
+    lines.push('  lrdb:');
+    lines.push(`    host: "${state.configdb.host}"`);
+    lines.push(`    port: ${state.configdb.port}`);
+    lines.push(`    name: "${state.configdb.database}"`);
+    lines.push(`    username: "${state.configdb.username}"`);
+    if (state.configdb.credentialMode === 'create') {
+      lines.push(`    password: "${state.configdb.password}"`);
+    }
+    lines.push(`    sslMode: "${state.configdb.sslMode}"`);
     lines.push('');
 
     lines.push('kafka:');
     if (state.kafka.credentialMode === 'existing') {
-      lines.push('  inject: true');
       lines.push('  create: false');
       lines.push(`  secretName: "${state.kafka.existingSecretName}"`);
     } else {
-      lines.push('  inject: true');
       lines.push('  create: true');
-      lines.push(`  brokers: "${state.kafka.brokers}"`);
-      lines.push(`  saslMechanism: "${state.kafka.saslMechanism}"`);
-      lines.push(`  username: "${state.kafka.username}"`);
-      lines.push(`  password: "${state.kafka.password}"`);
-      lines.push(`  useTls: ${state.kafka.useTls}`);
     }
+    lines.push(`  brokers: "${state.kafka.brokers}"`);
+    lines.push('  sasl:');
+    lines.push('    enabled: true');
+    lines.push(`    mechanism: "${state.kafka.saslMechanism}"`);
+    if (state.kafka.credentialMode === 'create') {
+      lines.push(`    username: "${state.kafka.username}"`);
+      lines.push(`    password: "${state.kafka.password}"`);
+    }
+    lines.push('  tls:');
+    lines.push(`    enabled: ${state.kafka.useTls}`);
     lines.push('');
   }
 
@@ -729,66 +734,52 @@ chmod +x lakerunner-standalone-poc.sh
                   </button>
                 </div>
               </div>
+              <div className={styles.formGroup}>
+                <label>Host</label>
+                <input
+                  type="text"
+                  value={state.lrdb.host}
+                  onChange={(e) => updateNested('lrdb', 'host', e.target.value)}
+                  placeholder="lakerunner-db.example.com"
+                />
+              </div>
+              <div className={styles.formGroup}>
+                <label>Port</label>
+                <input
+                  type="text"
+                  value={state.lrdb.port}
+                  onChange={(e) => updateNested('lrdb', 'port', e.target.value)}
+                  placeholder="5432"
+                />
+              </div>
+              <div className={styles.formGroup}>
+                <label>Database</label>
+                <input
+                  type="text"
+                  value={state.lrdb.database}
+                  onChange={(e) => updateNested('lrdb', 'database', e.target.value)}
+                  placeholder="lakerunner"
+                />
+              </div>
+              <div className={styles.formGroup}>
+                <label>Username</label>
+                <input
+                  type="text"
+                  value={state.lrdb.username}
+                  onChange={(e) => updateNested('lrdb', 'username', e.target.value)}
+                  placeholder="lakerunner"
+                />
+              </div>
               {state.lrdb.credentialMode === 'create' ? (
-                <>
-                  <div className={styles.formGroup}>
-                    <label>Host</label>
-                    <input
-                      type="text"
-                      value={state.lrdb.host}
-                      onChange={(e) => updateNested('lrdb', 'host', e.target.value)}
-                      placeholder="lakerunner-db.example.com"
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>Port</label>
-                    <input
-                      type="text"
-                      value={state.lrdb.port}
-                      onChange={(e) => updateNested('lrdb', 'port', e.target.value)}
-                      placeholder="5432"
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>Database</label>
-                    <input
-                      type="text"
-                      value={state.lrdb.database}
-                      onChange={(e) => updateNested('lrdb', 'database', e.target.value)}
-                      placeholder="lakerunner"
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>Username</label>
-                    <input
-                      type="text"
-                      value={state.lrdb.username}
-                      onChange={(e) => updateNested('lrdb', 'username', e.target.value)}
-                      placeholder="lakerunner"
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>Password</label>
-                    <input
-                      type="password"
-                      value={state.lrdb.password}
-                      onChange={(e) => updateNested('lrdb', 'password', e.target.value)}
-                      placeholder="••••••••"
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>SSL Mode</label>
-                    <select
-                      value={state.lrdb.sslMode}
-                      onChange={(e) => updateNested('lrdb', 'sslMode', e.target.value)}
-                    >
-                      <option value="disable">disable</option>
-                      <option value="require">require</option>
-                      <option value="verify-ca">verify-ca</option>
-                      <option value="verify-full">verify-full</option>
-                    </select>
-                  </div>
-                </>
+                <div className={styles.formGroup}>
+                  <label>Password</label>
+                  <input
+                    type="password"
+                    value={state.lrdb.password}
+                    onChange={(e) => updateNested('lrdb', 'password', e.target.value)}
+                    placeholder="••••••••"
+                  />
+                </div>
               ) : (
                 <div className={styles.formGroup}>
                   <label>Secret Name</label>
@@ -796,11 +787,23 @@ chmod +x lakerunner-standalone-poc.sh
                     type="text"
                     value={state.lrdb.existingSecretName}
                     onChange={(e) => updateNested('lrdb', 'existingSecretName', e.target.value)}
-                    placeholder="lrdb-credentials"
+                    placeholder="pg-credentials"
                   />
-                  <span className={styles.hint}>Name of existing Kubernetes secret containing LakeRunner DB credentials</span>
+                  <span className={styles.hint}>Name of existing Kubernetes secret containing password (key: LRDB_PASSWORD)</span>
                 </div>
               )}
+              <div className={styles.formGroup}>
+                <label>SSL Mode</label>
+                <select
+                  value={state.lrdb.sslMode}
+                  onChange={(e) => updateNested('lrdb', 'sslMode', e.target.value)}
+                >
+                  <option value="disable">disable</option>
+                  <option value="require">require</option>
+                  <option value="verify-ca">verify-ca</option>
+                  <option value="verify-full">verify-full</option>
+                </select>
+              </div>
             </div>
           </section>
 
@@ -824,66 +827,52 @@ chmod +x lakerunner-standalone-poc.sh
                   </button>
                 </div>
               </div>
+              <div className={styles.formGroup}>
+                <label>Host</label>
+                <input
+                  type="text"
+                  value={state.configdb.host}
+                  onChange={(e) => updateNested('configdb', 'host', e.target.value)}
+                  placeholder="config-db.example.com"
+                />
+              </div>
+              <div className={styles.formGroup}>
+                <label>Port</label>
+                <input
+                  type="text"
+                  value={state.configdb.port}
+                  onChange={(e) => updateNested('configdb', 'port', e.target.value)}
+                  placeholder="5432"
+                />
+              </div>
+              <div className={styles.formGroup}>
+                <label>Database</label>
+                <input
+                  type="text"
+                  value={state.configdb.database}
+                  onChange={(e) => updateNested('configdb', 'database', e.target.value)}
+                  placeholder="configdb"
+                />
+              </div>
+              <div className={styles.formGroup}>
+                <label>Username</label>
+                <input
+                  type="text"
+                  value={state.configdb.username}
+                  onChange={(e) => updateNested('configdb', 'username', e.target.value)}
+                  placeholder="configdb"
+                />
+              </div>
               {state.configdb.credentialMode === 'create' ? (
-                <>
-                  <div className={styles.formGroup}>
-                    <label>Host</label>
-                    <input
-                      type="text"
-                      value={state.configdb.host}
-                      onChange={(e) => updateNested('configdb', 'host', e.target.value)}
-                      placeholder="config-db.example.com"
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>Port</label>
-                    <input
-                      type="text"
-                      value={state.configdb.port}
-                      onChange={(e) => updateNested('configdb', 'port', e.target.value)}
-                      placeholder="5432"
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>Database</label>
-                    <input
-                      type="text"
-                      value={state.configdb.database}
-                      onChange={(e) => updateNested('configdb', 'database', e.target.value)}
-                      placeholder="configdb"
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>Username</label>
-                    <input
-                      type="text"
-                      value={state.configdb.username}
-                      onChange={(e) => updateNested('configdb', 'username', e.target.value)}
-                      placeholder="configdb"
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>Password</label>
-                    <input
-                      type="password"
-                      value={state.configdb.password}
-                      onChange={(e) => updateNested('configdb', 'password', e.target.value)}
-                      placeholder="••••••••"
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>SSL Mode</label>
-                    <select
-                      value={state.configdb.sslMode}
-                      onChange={(e) => updateNested('configdb', 'sslMode', e.target.value)}
-                    >
-                      <option value="disable">disable</option>
-                      <option value="require">require</option>
-                      <option value="verify-ca">verify-ca</option>
-                      <option value="verify-full">verify-full</option>
-                    </select>
-                  </div>
-                </>
+                <div className={styles.formGroup}>
+                  <label>Password</label>
+                  <input
+                    type="password"
+                    value={state.configdb.password}
+                    onChange={(e) => updateNested('configdb', 'password', e.target.value)}
+                    placeholder="••••••••"
+                  />
+                </div>
               ) : (
                 <div className={styles.formGroup}>
                   <label>Secret Name</label>
@@ -893,9 +882,21 @@ chmod +x lakerunner-standalone-poc.sh
                     onChange={(e) => updateNested('configdb', 'existingSecretName', e.target.value)}
                     placeholder="configdb-credentials"
                   />
-                  <span className={styles.hint}>Name of existing Kubernetes secret containing Config DB credentials</span>
+                  <span className={styles.hint}>Name of existing Kubernetes secret containing password (key: CONFIGDB_PASSWORD)</span>
                 </div>
               )}
+              <div className={styles.formGroup}>
+                <label>SSL Mode</label>
+                <select
+                  value={state.configdb.sslMode}
+                  onChange={(e) => updateNested('configdb', 'sslMode', e.target.value)}
+                >
+                  <option value="disable">disable</option>
+                  <option value="require">require</option>
+                  <option value="verify-ca">verify-ca</option>
+                  <option value="verify-full">verify-full</option>
+                </select>
+              </div>
             </div>
           </section>
 
@@ -920,28 +921,28 @@ chmod +x lakerunner-standalone-poc.sh
                   </button>
                 </div>
               </div>
+              <div className={`${styles.formGroup} ${styles.fullWidth}`}>
+                <label>Broker Addresses</label>
+                <input
+                  type="text"
+                  value={state.kafka.brokers}
+                  onChange={(e) => updateNested('kafka', 'brokers', e.target.value)}
+                  placeholder="kafka-1:9092,kafka-2:9092,kafka-3:9092"
+                />
+              </div>
+              <div className={styles.formGroup}>
+                <label>SASL Mechanism</label>
+                <select
+                  value={state.kafka.saslMechanism}
+                  onChange={(e) => updateNested('kafka', 'saslMechanism', e.target.value)}
+                >
+                  <option value="PLAIN">PLAIN</option>
+                  <option value="SCRAM-SHA-256">SCRAM-SHA-256</option>
+                  <option value="SCRAM-SHA-512">SCRAM-SHA-512</option>
+                </select>
+              </div>
               {state.kafka.credentialMode === 'create' ? (
                 <>
-                  <div className={`${styles.formGroup} ${styles.fullWidth}`}>
-                    <label>Broker Addresses</label>
-                    <input
-                      type="text"
-                      value={state.kafka.brokers}
-                      onChange={(e) => updateNested('kafka', 'brokers', e.target.value)}
-                      placeholder="kafka-1:9092,kafka-2:9092,kafka-3:9092"
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>SASL Mechanism</label>
-                    <select
-                      value={state.kafka.saslMechanism}
-                      onChange={(e) => updateNested('kafka', 'saslMechanism', e.target.value)}
-                    >
-                      <option value="PLAIN">PLAIN</option>
-                      <option value="SCRAM-SHA-256">SCRAM-SHA-256</option>
-                      <option value="SCRAM-SHA-512">SCRAM-SHA-512</option>
-                    </select>
-                  </div>
                   <div className={styles.formGroup}>
                     <label>Username</label>
                     <input
@@ -960,16 +961,6 @@ chmod +x lakerunner-standalone-poc.sh
                       placeholder="••••••••"
                     />
                   </div>
-                  <div className={styles.formGroup}>
-                    <label className={styles.checkboxLabel}>
-                      <input
-                        type="checkbox"
-                        checked={state.kafka.useTls}
-                        onChange={(e) => updateNested('kafka', 'useTls', e.target.checked)}
-                      />
-                      Use TLS
-                    </label>
-                  </div>
                 </>
               ) : (
                 <div className={styles.formGroup}>
@@ -980,9 +971,19 @@ chmod +x lakerunner-standalone-poc.sh
                     onChange={(e) => updateNested('kafka', 'existingSecretName', e.target.value)}
                     placeholder="kafka-credentials"
                   />
-                  <span className={styles.hint}>Name of existing Kubernetes secret containing Kafka credentials</span>
+                  <span className={styles.hint}>Name of existing Kubernetes secret containing credentials (keys: KAFKA_USERNAME, KAFKA_PASSWORD)</span>
                 </div>
               )}
+              <div className={styles.formGroup}>
+                <label className={styles.checkboxLabel}>
+                  <input
+                    type="checkbox"
+                    checked={state.kafka.useTls}
+                    onChange={(e) => updateNested('kafka', 'useTls', e.target.checked)}
+                  />
+                  Use TLS
+                </label>
+              </div>
             </div>
           </section>
 
