@@ -1,77 +1,16 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import styles from './InstallWizard.module.css';
-
-type InstallType = 'kind' | 'poc' | 'production';
-type CloudProvider = 'aws' | 'gcp' | 'azure';
-type AWSCredentialMode = 'create' | 'existing' | 'eks';
-type SecretMode = 'create' | 'existing';
-
-interface StorageConfig {
-  bucket: string;
-  region: string;
-  endpoint?: string;
-}
-
-interface AWSConfig {
-  credentialMode: AWSCredentialMode;
-  accessKeyId: string;
-  secretAccessKey: string;
-  existingSecretName: string;
-}
-
-interface GCPConfig {
-  serviceAccountJson: string;
-  hmacAccessKey: string;
-  hmacSecretKey: string;
-}
-
-interface AzureConfig {
-  storageAccountName: string;
-  storageAccountKey: string;
-  containerName: string;
-}
-
-interface PostgresConfig {
-  credentialMode: SecretMode;
-  host: string;
-  port: string;
-  database: string;
-  username: string;
-  password: string;
-  sslMode: string;
-  existingSecretName: string;
-}
-
-interface KafkaConfig {
-  credentialMode: SecretMode;
-  brokers: string;
-  saslMechanism: string;
-  username: string;
-  password: string;
-  useTls: boolean;
-  existingSecretName: string;
-}
-
-interface WizardState {
-  installType: InstallType;
-  cloudProvider: CloudProvider;
-  organizationId: string;
-  collectorName: string;
-  apiKey: string;
-  grafanaApiKey: string;
-  storage: StorageConfig;
-  aws: AWSConfig;
-  gcp: GCPConfig;
-  azure: AzureConfig;
-  lrdb: PostgresConfig;
-  configdb: PostgresConfig;
-  kafka: KafkaConfig;
-  enableKeda: boolean;
-  enableGrafana: boolean;
-  enableCollector: boolean;
-}
+import styles from './LakerunnerHelmValuesWizard.module.css';
+import {
+  type InstallType,
+  type WizardState,
+  isValidCollectorName,
+  isValidUUID,
+  isValidPort,
+  createDefaultState,
+  generateValuesYaml,
+} from '../lib/generateValuesYaml';
 
 function generateUUID(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -90,269 +29,8 @@ function generateApiKey(): string {
   return result;
 }
 
-function isValidCollectorName(name: string): boolean {
-  const trimmed = name.trim().toLowerCase();
-  return trimmed !== '' && trimmed !== 'default';
-}
-
-function isValidUUID(uuid: string): boolean {
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  return uuidRegex.test(uuid.trim());
-}
-
-function isValidPort(port: string): boolean {
-  const portNum = parseInt(port, 10);
-  return !isNaN(portNum) && portNum >= 1 && portNum <= 65535;
-}
-
-function isBasicsConfigured(state: WizardState): boolean {
-  if (!isValidCollectorName(state.collectorName)) return false;
-  if (!isValidUUID(state.organizationId)) return false;
-  if (state.enableGrafana && !state.grafanaApiKey.trim()) return false;
-
-  // Validate storage configuration
-  if (!state.storage.bucket.trim()) return false;
-  if (!state.storage.region.trim()) return false;
-
-  // Validate cloud provider credentials
-  if (state.cloudProvider === 'aws') {
-    if (state.aws.credentialMode === 'create') {
-      if (!state.aws.accessKeyId.trim()) return false;
-      if (!state.aws.secretAccessKey.trim()) return false;
-    } else if (state.aws.credentialMode === 'existing') {
-      if (!state.aws.existingSecretName.trim()) return false;
-    }
-  }
-
-  // For POC and Production, validate database and Kafka configuration
-  if (state.installType === 'poc' || state.installType === 'production') {
-    // Validate lrdb
-    if (!state.lrdb.host.trim()) return false;
-    if (!isValidPort(state.lrdb.port)) return false;
-    if (!state.lrdb.database.trim()) return false;
-    if (!state.lrdb.username.trim()) return false;
-    if (state.lrdb.credentialMode === 'create' && !state.lrdb.password.trim()) return false;
-    if (state.lrdb.credentialMode === 'existing' && !state.lrdb.existingSecretName.trim()) return false;
-
-    // Validate configdb
-    if (!state.configdb.host.trim()) return false;
-    if (!isValidPort(state.configdb.port)) return false;
-    if (!state.configdb.database.trim()) return false;
-    if (!state.configdb.username.trim()) return false;
-    if (state.configdb.credentialMode === 'create' && !state.configdb.password.trim()) return false;
-    if (state.configdb.credentialMode === 'existing' && !state.configdb.existingSecretName.trim()) return false;
-
-    // Validate kafka
-    if (!state.kafka.brokers.trim()) return false;
-    if (state.kafka.credentialMode === 'create' && !state.kafka.username.trim()) return false;
-    if (state.kafka.credentialMode === 'create' && !state.kafka.password.trim()) return false;
-    if (state.kafka.credentialMode === 'existing' && !state.kafka.existingSecretName.trim()) return false;
-  }
-
-  return true;
-}
-
-const defaultState: WizardState = {
-  installType: 'kind',
-  cloudProvider: 'aws',
-  organizationId: '',
-  collectorName: '',
-  apiKey: '',
-  grafanaApiKey: '',
-  storage: { bucket: '', region: 'us-east-1', endpoint: '' },
-  aws: { credentialMode: 'create', accessKeyId: '', secretAccessKey: '', existingSecretName: '' },
-  gcp: { serviceAccountJson: '', hmacAccessKey: '', hmacSecretKey: '' },
-  azure: { storageAccountName: '', storageAccountKey: '', containerName: '' },
-  lrdb: { credentialMode: 'create', host: '', port: '5432', database: 'lakerunner', username: '', password: '', sslMode: 'require', existingSecretName: '' },
-  configdb: { credentialMode: 'create', host: '', port: '5432', database: 'configdb', username: '', password: '', sslMode: 'require', existingSecretName: '' },
-  kafka: { credentialMode: 'create', brokers: '', saslMechanism: 'PLAIN', username: '', password: '', useTls: true, existingSecretName: '' },
-  enableKeda: true,
-  enableGrafana: true,  // Will be adjusted based on install type
-  enableCollector: true, // Will be adjusted based on install type
-};
-
-function generateValuesYaml(state: WizardState): string | null {
-  if (state.installType === 'kind') {
-    return `# Lakerunner Kind/Local Install
-# Run with: ./lakerunner-standalone-poc.sh --standalone
-# No custom values.yaml needed for local development`;
-  }
-
-  // Check if basics are configured
-  if (!isBasicsConfigured(state)) {
-    return null;
-  }
-
-  const lines: string[] = ['# Lakerunner Values Configuration', '# Generated by Cardinal Install Wizard', ''];
-
-  // Global settings
-  lines.push('global:');
-  lines.push('  autoscaling:');
-  lines.push(`    mode: "${state.enableKeda ? 'keda' : 'disabled'}"`);
-  lines.push('');
-
-  // API Keys
-  lines.push('apiKeys:');
-  lines.push('  source: config');
-  lines.push('  secretName: "apikeys"');
-  lines.push('  create: true');
-  lines.push('  yaml:');
-  lines.push(`    - organization_id: "${state.organizationId}"`);
-  lines.push('      keys:');
-  lines.push(`        - "${state.apiKey}"`);
-  if (state.enableGrafana && state.grafanaApiKey) {
-    lines.push(`        - "${state.grafanaApiKey}"`);
-  }
-  lines.push('');
-
-  // Cloud provider credentials
-  lines.push('cloudProvider:');
-  lines.push(`  provider: "${state.cloudProvider}"`);
-  if (state.cloudProvider === 'aws') {
-    lines.push('  aws:');
-    lines.push(`    region: "${state.storage.region}"`);
-    if (state.aws.credentialMode === 'eks') {
-      // Use EKS-provided credentials (IRSA/Pod Identity)
-      lines.push('    inject: false');
-      lines.push('    create: false');
-    } else if (state.aws.credentialMode === 'existing') {
-      // Use existing secret
-      lines.push('    inject: true');
-      lines.push('    create: false');
-      lines.push(`    secretName: "${state.aws.existingSecretName}"`);
-    } else {
-      // Create new secret
-      lines.push('    inject: true');
-      lines.push('    create: true');
-      lines.push(`    accessKeyId: "${state.aws.accessKeyId}"`);
-      lines.push(`    secretAccessKey: "${state.aws.secretAccessKey}"`);
-    }
-  } else if (state.cloudProvider === 'gcp') {
-    lines.push('  gcp:');
-    lines.push(`    serviceAccountJson: |`);
-    state.gcp.serviceAccountJson.split('\n').forEach(line => {
-      lines.push(`      ${line}`);
-    });
-    lines.push(`    hmacAccessKey: "${state.gcp.hmacAccessKey}"`);
-    lines.push(`    hmacSecretKey: "${state.gcp.hmacSecretKey}"`);
-  } else if (state.cloudProvider === 'azure') {
-    lines.push('  azure:');
-    lines.push(`    storageAccountName: "${state.azure.storageAccountName}"`);
-    lines.push(`    storageAccountKey: "${state.azure.storageAccountKey}"`);
-  }
-  lines.push('');
-
-  // Storage profiles
-  lines.push('storageProfiles:');
-  lines.push('  source: config');
-  lines.push('  create: true');
-  lines.push('  yaml:');
-  lines.push(`    - organization_id: "${state.organizationId}"`);
-  lines.push(`      collector_name: "${state.collectorName}"`);
-  lines.push(`      cloud_provider: "${state.cloudProvider}"`);
-  lines.push(`      region: "${state.storage.region}"`);
-  if (state.cloudProvider === 'azure') {
-    lines.push(`      bucket: "${state.azure.containerName}"`);
-  } else {
-    lines.push(`      bucket: "${state.storage.bucket}"`);
-  }
-  if (state.storage.endpoint) {
-    lines.push(`      endpoint: "${state.storage.endpoint}"`);
-  }
-  lines.push('');
-
-  // Database configuration (POC and Production)
-  if (state.installType === 'poc' || state.installType === 'production') {
-    lines.push('database:');
-    if (state.lrdb.credentialMode === 'existing') {
-      lines.push('  create: false');
-      lines.push(`  secretName: "${state.lrdb.existingSecretName}"`);
-    } else {
-      lines.push('  create: true');
-    }
-    lines.push('  lrdb:');
-    lines.push(`    host: "${state.lrdb.host}"`);
-    lines.push(`    port: ${state.lrdb.port}`);
-    lines.push(`    name: "${state.lrdb.database}"`);
-    lines.push(`    username: "${state.lrdb.username}"`);
-    if (state.lrdb.credentialMode === 'create') {
-      lines.push(`    password: "${state.lrdb.password}"`);
-    }
-    lines.push(`    sslMode: "${state.lrdb.sslMode}"`);
-    lines.push('');
-
-    lines.push('configdb:');
-    if (state.configdb.credentialMode === 'existing') {
-      lines.push('  create: false');
-      lines.push(`  secretName: "${state.configdb.existingSecretName}"`);
-    } else {
-      lines.push('  create: true');
-    }
-    lines.push('  lrdb:');
-    lines.push(`    host: "${state.configdb.host}"`);
-    lines.push(`    port: ${state.configdb.port}`);
-    lines.push(`    name: "${state.configdb.database}"`);
-    lines.push(`    username: "${state.configdb.username}"`);
-    if (state.configdb.credentialMode === 'create') {
-      lines.push(`    password: "${state.configdb.password}"`);
-    }
-    lines.push(`    sslMode: "${state.configdb.sslMode}"`);
-    lines.push('');
-
-    lines.push('kafka:');
-    if (state.kafka.credentialMode === 'existing') {
-      lines.push('  create: false');
-      lines.push(`  secretName: "${state.kafka.existingSecretName}"`);
-    } else {
-      lines.push('  create: true');
-    }
-    lines.push(`  brokers: "${state.kafka.brokers}"`);
-    lines.push('  sasl:');
-    lines.push('    enabled: true');
-    lines.push(`    mechanism: "${state.kafka.saslMechanism}"`);
-    if (state.kafka.credentialMode === 'create') {
-      lines.push(`    username: "${state.kafka.username}"`);
-      lines.push(`    password: "${state.kafka.password}"`);
-    }
-    lines.push('  tls:');
-    lines.push(`    enabled: ${state.kafka.useTls}`);
-    lines.push('');
-  }
-
-  // Production-specific settings
-  if (state.installType === 'production') {
-    lines.push('# Production replica settings');
-    lines.push('ingestLogs:');
-    lines.push('  replicas: 3');
-    lines.push('ingestMetrics:');
-    lines.push('  replicas: 3');
-    lines.push('ingestTraces:');
-    lines.push('  replicas: 3');
-    lines.push('');
-    lines.push('queryApi:');
-    lines.push('  replicas: 2');
-    lines.push('');
-  }
-
-  // Grafana settings
-  lines.push('grafana:');
-  lines.push(`  enabled: ${state.enableGrafana}`);
-  if (state.enableGrafana && state.grafanaApiKey) {
-    lines.push('  cardinal:');
-    lines.push(`    apiKey: "${state.grafanaApiKey}"`);
-  }
-  lines.push('');
-
-  // Collector settings
-  lines.push('collector:');
-  lines.push(`  enabled: ${state.enableCollector}`);
-  lines.push('');
-
-  return lines.join('\n');
-}
-
-export default function InstallWizard() {
-  const [state, setState] = useState<WizardState>(defaultState);
+export default function LakerunnerHelmValuesWizard() {
+  const [state, setState] = useState<WizardState>(createDefaultState());
   const [copied, setCopied] = useState(false);
 
   const updateState = useCallback(<K extends keyof WizardState>(
@@ -595,11 +273,10 @@ chmod +x lakerunner-standalone-poc.sh
                 AWS
               </button>
               <button
-                className={`${styles.providerBtn} ${styles.disabled}`}
-                disabled
+                className={`${styles.providerBtn} ${state.cloudProvider === 'gcp' ? styles.active : ''}`}
+                onClick={() => updateState('cloudProvider', 'gcp')}
               >
                 GCP
-                <span className={styles.comingSoon}>Coming Soon</span>
               </button>
               <button
                 className={`${styles.providerBtn} ${styles.disabled}`}
@@ -637,10 +314,10 @@ chmod +x lakerunner-standalone-poc.sh
                     <label>Credentials</label>
                     <div className={styles.credentialModeSelect}>
                       <button
-                        className={`${styles.credentialModeBtn} ${state.aws.credentialMode === 'create' ? styles.active : ''}`}
-                        onClick={() => updateNested('aws', 'credentialMode', 'create')}
+                        className={`${styles.credentialModeBtn} ${state.aws.credentialMode === 'eks' ? styles.active : ''}`}
+                        onClick={() => updateNested('aws', 'credentialMode', 'eks')}
                       >
-                        Create Secret
+                        EKS (IRSA/Pod Identity)
                       </button>
                       <button
                         className={`${styles.credentialModeBtn} ${state.aws.credentialMode === 'existing' ? styles.active : ''}`}
@@ -649,13 +326,34 @@ chmod +x lakerunner-standalone-poc.sh
                         Use Existing Secret
                       </button>
                       <button
-                        className={`${styles.credentialModeBtn} ${state.aws.credentialMode === 'eks' ? styles.active : ''}`}
-                        onClick={() => updateNested('aws', 'credentialMode', 'eks')}
+                        className={`${styles.credentialModeBtn} ${state.aws.credentialMode === 'create' ? styles.active : ''}`}
+                        onClick={() => updateNested('aws', 'credentialMode', 'create')}
                       >
-                        EKS (IRSA/Pod Identity)
+                        Create Secret
                       </button>
                     </div>
                   </div>
+                  {state.aws.credentialMode === 'eks' && (
+                    <div className={`${styles.formGroup} ${styles.fullWidth}`}>
+                      <span className={styles.hint}>
+                        Credentials will be provided by EKS via IAM Roles for Service Accounts (IRSA) or EKS Pod Identity.
+                        Ensure your cluster and service account are configured appropriately.
+                      </span>
+                    </div>
+                  )}
+                  {state.aws.credentialMode === 'existing' && (
+                    <div className={styles.formGroup}>
+                      <label>Secret Name <span className={styles.required}>*</span></label>
+                      <input
+                        type="text"
+                        value={state.aws.existingSecretName}
+                        onChange={(e) => updateNested('aws', 'existingSecretName', e.target.value)}
+                        placeholder="aws-credentials"
+                        className={!state.aws.existingSecretName.trim() ? styles.inputError : ''}
+                      />
+                      <span className={styles.hint}>Name of existing Kubernetes secret containing AWS credentials</span>
+                    </div>
+                  )}
                   {state.aws.credentialMode === 'create' && (
                     <>
                       <div className={styles.formGroup}>
@@ -680,77 +378,86 @@ chmod +x lakerunner-standalone-poc.sh
                       </div>
                     </>
                   )}
-                  {state.aws.credentialMode === 'existing' && (
-                    <div className={styles.formGroup}>
-                      <label>Secret Name <span className={styles.required}>*</span></label>
-                      <input
-                        type="text"
-                        value={state.aws.existingSecretName}
-                        onChange={(e) => updateNested('aws', 'existingSecretName', e.target.value)}
-                        placeholder="aws-credentials"
-                        className={!state.aws.existingSecretName.trim() ? styles.inputError : ''}
-                      />
-                      <span className={styles.hint}>Name of existing Kubernetes secret containing AWS credentials</span>
-                    </div>
-                  )}
-                  {state.aws.credentialMode === 'eks' && (
-                    <div className={`${styles.formGroup} ${styles.fullWidth}`}>
-                      <span className={styles.hint}>
-                        Credentials will be provided by EKS via IAM Roles for Service Accounts (IRSA) or EKS Pod Identity.
-                        Ensure your cluster and service account are configured appropriately.
-                      </span>
-                    </div>
-                  )}
                 </>
               )}
 
               {state.cloudProvider === 'gcp' && (
                 <>
                   <div className={styles.formGroup}>
-                    <label>GCS Bucket Name</label>
+                    <label>GCS Bucket Name <span className={styles.required}>*</span></label>
                     <input
                       type="text"
                       value={state.storage.bucket}
                       onChange={(e) => updateNested('storage', 'bucket', e.target.value)}
                       placeholder="my-lakerunner-bucket"
+                      className={!state.storage.bucket.trim() ? styles.inputError : ''}
                     />
                   </div>
                   <div className={styles.formGroup}>
-                    <label>Region</label>
+                    <label>Region <span className={styles.required}>*</span></label>
                     <input
                       type="text"
                       value={state.storage.region}
                       onChange={(e) => updateNested('storage', 'region', e.target.value)}
                       placeholder="us-central1"
+                      className={!state.storage.region.trim() ? styles.inputError : ''}
                     />
                   </div>
                   <div className={`${styles.formGroup} ${styles.fullWidth}`}>
-                    <label>Service Account JSON</label>
-                    <textarea
-                      value={state.gcp.serviceAccountJson}
-                      onChange={(e) => updateNested('gcp', 'serviceAccountJson', e.target.value)}
-                      placeholder='{"type": "service_account", ...}'
-                      rows={4}
-                    />
+                    <label>Credentials</label>
+                    <div className={styles.credentialModeSelect}>
+                      <button
+                        className={`${styles.credentialModeBtn} ${state.gcp.credentialMode === 'workload_identity' ? styles.active : ''}`}
+                        onClick={() => updateNested('gcp', 'credentialMode', 'workload_identity')}
+                      >
+                        Workload Identity
+                      </button>
+                      <button
+                        className={`${styles.credentialModeBtn} ${state.gcp.credentialMode === 'existing' ? styles.active : ''}`}
+                        onClick={() => updateNested('gcp', 'credentialMode', 'existing')}
+                      >
+                        Use Existing Secret
+                      </button>
+                      <button
+                        className={`${styles.credentialModeBtn} ${state.gcp.credentialMode === 'service_account' ? styles.active : ''}`}
+                        onClick={() => updateNested('gcp', 'credentialMode', 'service_account')}
+                      >
+                        Service Account JSON
+                      </button>
+                    </div>
                   </div>
-                  <div className={styles.formGroup}>
-                    <label>HMAC Access Key</label>
-                    <input
-                      type="text"
-                      value={state.gcp.hmacAccessKey}
-                      onChange={(e) => updateNested('gcp', 'hmacAccessKey', e.target.value)}
-                      placeholder="GOOG..."
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>HMAC Secret Key</label>
-                    <input
-                      type="password"
-                      value={state.gcp.hmacSecretKey}
-                      onChange={(e) => updateNested('gcp', 'hmacSecretKey', e.target.value)}
-                      placeholder="••••••••"
-                    />
-                  </div>
+                  {state.gcp.credentialMode === 'workload_identity' && (
+                    <div className={`${styles.formGroup} ${styles.fullWidth}`}>
+                      <span className={styles.hint}>
+                        Credentials will be provided by GKE Workload Identity. Ensure your cluster and service account are configured appropriately.
+                      </span>
+                    </div>
+                  )}
+                  {state.gcp.credentialMode === 'existing' && (
+                    <div className={styles.formGroup}>
+                      <label>Secret Name <span className={styles.required}>*</span></label>
+                      <input
+                        type="text"
+                        value={state.gcp.existingSecretName}
+                        onChange={(e) => updateNested('gcp', 'existingSecretName', e.target.value)}
+                        placeholder="my-gcp-credentials"
+                        className={!state.gcp.existingSecretName.trim() ? styles.inputError : ''}
+                      />
+                      <span className={styles.hint}>Name of existing Kubernetes secret containing GOOGLE_APPLICATION_CREDENTIALS</span>
+                    </div>
+                  )}
+                  {state.gcp.credentialMode === 'service_account' && (
+                    <div className={`${styles.formGroup} ${styles.fullWidth}`}>
+                      <label>Service Account JSON <span className={styles.required}>*</span></label>
+                      <textarea
+                        value={state.gcp.serviceAccountJson}
+                        onChange={(e) => updateNested('gcp', 'serviceAccountJson', e.target.value)}
+                        placeholder='{"type": "service_account", ...}'
+                        rows={4}
+                        className={!state.gcp.serviceAccountJson.trim() ? styles.inputError : ''}
+                      />
+                    </div>
+                  )}
                 </>
               )}
 
