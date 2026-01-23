@@ -1,4 +1,5 @@
 {
   "index": "Overview",
-  "install": "Installation Guide"
+  "install": "Installation Guide",
+  "loki-comparison": "LakeRunner vs. Loki"
 }
