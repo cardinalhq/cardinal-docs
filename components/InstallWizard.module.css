@@ -126,6 +126,33 @@
   color: white;
 }
 
+.providerBtn.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  position: relative;
+}
+
+.providerBtn.disabled:hover {
+  border-color: #e0e0e0;
+}
+
+:global(.dark) .providerBtn.disabled:hover {
+  border-color: #333;
+}
+
+.comingSoon {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 400;
+  margin-top: 0.25rem;
+  font-style: italic;
+  color: #999;
+}
+
+:global(.dark) .comingSoon {
+  color: #666;
+}
+
 /* Credential Mode Selection */
 .credentialModeSelect {
   display: flex;
@@ -273,9 +300,17 @@
 }
 
 .hint {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: #888;
-  margin-top: 0.25rem;
+  margin-top: 0.4rem;
+  font-style: italic;
+  opacity: 0.8;
+  line-height: 1.4;
+}
+
+:global(.dark) .hint {
+  color: #555;
+  opacity: 0.9;
 }
 
 /* Optional Component Cards */
@@ -316,6 +351,22 @@
 
 :global(.dark) .componentSettings {
   border-top-color: #333;
+}
+
+.warningBox {
+  padding: 0.75rem 1rem;
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 6px;
+  color: #856404;
+  font-size: 0.9rem;
+  margin-top: 0.75rem;
+}
+
+:global(.dark) .warningBox {
+  background: rgba(255, 193, 7, 0.1);
+  border-color: rgba(255, 193, 7, 0.3);
+  color: #ffc107;
 }
 
 /* Output Section */
@@ -393,18 +444,20 @@
 
 .privacyNote {
   text-align: center;
-  font-size: 0.85rem;
-  color: #888;
-  margin-top: 1rem;
-  padding: 0.75rem;
-  background: rgba(0, 128, 0, 0.05);
-  border-radius: 6px;
-  border: 1px solid rgba(0, 128, 0, 0.1);
+  font-size: 0.95rem;
+  color: #2e7d32;
+  margin-bottom: 2rem;
+  padding: 1rem 1.5rem;
+  background: rgba(76, 175, 80, 0.1);
+  border-radius: 8px;
+  border: 2px solid rgba(76, 175, 80, 0.3);
+  font-weight: 500;
 }
 
 :global(.dark) .privacyNote {
-  background: rgba(0, 128, 0, 0.08);
-  border-color: rgba(0, 128, 0, 0.15);
+  background: rgba(76, 175, 80, 0.15);
+  border-color: rgba(76, 175, 80, 0.4);
+  color: #81c784;
 }
 
 /* Validation styles */
