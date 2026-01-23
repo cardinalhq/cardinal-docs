@@ -1,10 +1,10 @@
-# TCO: Loki vs. Cardinal LakeRunner
+# TCO: Loki vs. Cardinal Lakerunner
 
 ## Executive Summary
 
-Grafana Loki and Cardinal LakeRunner solve different classes of problems—even
-when they appear to overlap in log storage. Both Cardinal LakeRunner and Loki
-answer immediate operational questions ("What just broke?"). Cardinal LakeRunner
+Grafana Loki and Cardinal Lakerunner solve different classes of problems—even
+when they appear to overlap in log storage. Both Cardinal Lakerunner and Loki
+answer immediate operational questions ("What just broke?"). Cardinal Lakerunner
 adds long-term durable knowledge and provides a queryable decision system that
 answers *"what is happening in my business, systems, and customers over time?"*
 
@@ -12,11 +12,11 @@ This distinction has major cost implications.
 
 While Loki's initial deployment often looks inexpensive, its long-term TCO rises
 sharply as data volume, retention requirements, query complexity, and
-organizational usage grow. Cardinal LakeRunner, by contrast, is designed to
+organizational usage grow. Cardinal Lakerunner, by contrast, is designed to
 shift cost from expensive infrastructure to low-cost object storage and
 analytics-friendly formats to reduce marginal cost as data scales.
 
-Cardinal LakeRunner integrates with Grafana—teams keep their familiar dashboards
+Cardinal Lakerunner integrates with Grafana—teams keep their familiar dashboards
 while gaining long-term analytics. Combined with Cardinal's Agent Builder,
 observability data can drive automated workflows and cross-dataset insights.
 
@@ -32,7 +32,7 @@ observability data can drive automated workflows and cross-dataset insights.
 * Queries are fundamentally forensic and short-term analytical
 * Cost grows roughly linearly (or worse) with ingestion volume and retention
 
-### Cardinal LakeRunner: Observability as a Decision System
+### Cardinal Lakerunner: Observability as a Decision System
 
 * Optimized for short-term and long-term forensics and analytics
 * Treats logs, metrics, and traces as structured datasets
@@ -41,7 +41,7 @@ observability data can drive automated workflows and cross-dataset insights.
   economics
 
 **Bottom line:** Loki helps engineers resolve incidents.
-Cardinal LakeRunner helps organizations make better decisions—with the same
+Cardinal Lakerunner helps organizations make better decisions—with the same
 data.
 
 ---
@@ -57,11 +57,11 @@ Because Loki is designed for debugging:
 * Historical trend analysis is expensive and slow
 * Logs rarely influence product, finance, or operations decisions
 
-Cardinal LakeRunner changes the economic role of observability:
+Cardinal Lakerunner changes the economic role of observability:
 
 **Observability becomes a decision system, not just a debugging tool.**
 
-With Cardinal LakeRunner, teams can:
+With Cardinal Lakerunner, teams can:
 
 * Analyze customer behavior from logs
 * Correlate cost, performance, and reliability
@@ -76,7 +76,7 @@ These outcomes compound in value over time—while storage cost stays low.
 
 ### Storage Costs
 
-| Dimension | Loki | Cardinal LakeRunner |
+| Dimension | Loki | Cardinal Lakerunner |
 | - | - | - |
 | Primary storage | High cost SSD for speed | Low-cost Object storage (S3, Google Cloud Storage, etc) |
 | Storage format | Proprietary | Open: Apache Parquet |
@@ -87,7 +87,7 @@ These outcomes compound in value over time—while storage cost stays low.
 long-term value. Storing months or years of logs for analysis quickly becomes
 expensive.
 
-Cardinal LakeRunner stores data in analytics-optimized formats, allowing
+Cardinal Lakerunner stores data in analytics-optimized formats, allowing
 multi-year retention at a fraction of the cost—often orders of magnitude
 cheaper than traditional log systems.
 
@@ -101,21 +101,21 @@ Loki relies heavily on label indexes:
 * Teams are often forced to limit labels, which limits insight
 * Accidents where high-cardinality labels are added can quickly increase cost
 
-Cardinal LakeRunner takes a different approach:
+Cardinal Lakerunner takes a different approach:
 
-* Cardinal LakeRunner loves cardinality
+* Cardinal Lakerunner loves cardinality
 * Minimal ingest-time indexing
 * Only a lightweight overview index is maintained outside of object storage
 * Full detail lives in S3-compatible storage and is accessed only when needed
 
-**Result:** Cardinal LakeRunner dramatically reduces the amount of expensive
+**Result:** Cardinal Lakerunner dramatically reduces the amount of expensive
 non-S3 infrastructure while still enabling rich, flexible queries later.
 
 ---
 
 ### Compute Costs
 
-| Aspect | Loki | Cardinal LakeRunner |
+| Aspect | Loki | Cardinal Lakerunner |
 | - | - | - |
 | Compute Model | Reserved or On-Demand | Spot or Preemptable |
 | Storage Model | SSD recommended for query speed | Object Storage with minimal SQL index |
@@ -127,7 +127,7 @@ With Loki, every query competes with ingestion and indexing. As usage grows
 across teams, this leads to over-provisioning, query throttling, and rising
 infrastructure spend.
 
-Cardinal LakeRunner decouples ingestion from analysis: data is processed once,
+Cardinal Lakerunner decouples ingestion from analysis: data is processed once,
 queries spin up compute only when needed, and the system does not need to be
 sized for peak analytical demand 24/7.
 
@@ -142,7 +142,7 @@ sized for peak analytical demand 24/7.
 * Continuous tuning as usage grows
 * Debugging the debugger becomes a cost center
 
-#### Cardinal LakeRunner
+#### Cardinal Lakerunner
 
 * Ingest once, analyze many times
 * Fewer hot paths
@@ -163,9 +163,9 @@ Teams often begin with Loki when:
 
 ---
 
-## Cardinal LakeRunner Wins on TCO
+## Cardinal Lakerunner Wins on TCO
 
-Cardinal LakeRunner delivers lower total cost when:
+Cardinal Lakerunner delivers lower total cost when:
 
 * Logs are used beyond incident response
 * You want observability to inform business and operational decisions

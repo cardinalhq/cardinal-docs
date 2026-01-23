@@ -4,7 +4,7 @@ import * as path from 'path';
 import * as os from 'os';
 
 // These tests validate that the wizard generates YAML that can be successfully
-// templated with the actual LakeRunner helm chart using `helm template`
+// templated with the actual Lakerunner helm chart using `helm template`
 
 describe('Helm Template Validation', () => {
   const CHART_URL = 'oci://public.ecr.aws/cardinalhq.io/lakerunner';
@@ -37,7 +37,7 @@ describe('Helm Template Validation', () => {
   }
 
   test('POC configuration passes helm template validation', () => {
-    const valuesYaml = `# LakeRunner POC Configuration
+    const valuesYaml = `# Lakerunner POC Configuration
 global:
   autoscaling:
     mode: "keda"
@@ -123,7 +123,7 @@ collector:
   }, 60000); // 60 second timeout for helm operations
 
   test('Production with existing secrets passes helm template validation', () => {
-    const valuesYaml = `# LakeRunner Production Configuration
+    const valuesYaml = `# Lakerunner Production Configuration
 global:
   autoscaling:
     mode: "keda"
@@ -203,7 +203,7 @@ collector:
   }, 60000);
 
   test('EKS IRSA configuration passes helm template validation', () => {
-    const valuesYaml = `# LakeRunner EKS IRSA Configuration
+    const valuesYaml = `# Lakerunner EKS IRSA Configuration
 global:
   autoscaling:
     mode: "keda"
@@ -282,7 +282,7 @@ collector:
   }, 60000);
 
   test('Configuration without KEDA passes helm template validation', () => {
-    const valuesYaml = `# LakeRunner Configuration without KEDA
+    const valuesYaml = `# Lakerunner Configuration without KEDA
 global:
   autoscaling:
     mode: "disabled"

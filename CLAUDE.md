@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is the Cardinal product documentation site built with [Nextra](https://nextra.site/) (Next.js-based documentation framework) and TypeScript. The site documents two main products:
 - **Cardinal Agent Builder** - Platform for building and deploying custom ops agents
-- **LakeRunner** - S3-based observability stack
+- **Lakerunner** - S3-based observability stack
 
 ## Development Commands
 
@@ -27,7 +27,7 @@ pnpm build
 - `pages/` - MDX content files organized by product
   - `pages/_meta.json` - Navigation structure and page titles
   - `pages/agent-builder/` - Agent Builder docs (connectors, product guides, agents)
-  - `pages/lakerunner/` - LakeRunner docs
+  - `pages/lakerunner/` - Lakerunner docs
 - `components/` - React components used in MDX pages
 - `theme.config.tsx` - Nextra theme configuration (logo, SEO, footer)
 - `next.config.js` - Next.js configuration with Nextra plugin
