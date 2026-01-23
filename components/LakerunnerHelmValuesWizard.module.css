@@ -309,7 +309,7 @@
 }
 
 :global(.dark) .hint {
-  color: #555;
+  color: #999;
   opacity: 0.9;
 }
 

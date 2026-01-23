@@ -21,6 +21,10 @@ pnpm dev
 pnpm build
 ```
 
+## Git
+
+- Do not use --amend to modify history as we will squash at merge time.
+
 ## Architecture
 
 ### Documentation Structure
