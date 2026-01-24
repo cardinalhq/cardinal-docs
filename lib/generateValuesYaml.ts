@@ -249,6 +249,7 @@ export function generateValuesYaml(state: WizardState): string | null {
   lines.push('  create: true');
   lines.push('  yaml:');
   lines.push(`    - organization_id: "${state.organizationId}"`);
+  lines.push('      instance_num: 1');
   lines.push(`      collector_name: "${state.collectorName}"`);
   lines.push(`      cloud_provider: "${state.cloudProvider}"`);
   lines.push(`      region: "${state.storage.region}"`);
@@ -260,6 +261,7 @@ export function generateValuesYaml(state: WizardState): string | null {
   if (state.storage.endpoint) {
     lines.push(`      endpoint: "${state.storage.endpoint}"`);
   }
+  lines.push('      use_path_style: true');
   lines.push('');
 
   // Database configuration (POC and Production)

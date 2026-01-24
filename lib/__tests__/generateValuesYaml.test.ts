@@ -370,9 +370,11 @@ describe('generateValuesYaml', () => {
 
       expect(yaml).toContain('storageProfiles:');
       expect(yaml).toContain('organization_id: "b3a870ae-2c05-42b9-b073-572e718ad39d"');
+      expect(yaml).toContain('instance_num: 1');
       expect(yaml).toContain('collector_name: "test-collector"');
       expect(yaml).toContain('cloud_provider: "aws"');
       expect(yaml).toContain('bucket: "test-bucket"');
+      expect(yaml).toContain('use_path_style: true');
     });
   });
 });
