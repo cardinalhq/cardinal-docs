@@ -16,13 +16,16 @@ Lakerunner is an open-source observability data lake that stores logs, metrics, 
 - **Native Grafana integration** - Query your data lake directly from Grafana
 - **Kubernetes-native** - Deploy with Helm, scale with KEDA
 
+## Architecture
+
+![Lakerunner Architecture](/lakerunner-arch.jpeg)
+
 ## Deployment Options
 
-Lakerunner supports three deployment modes:
+Lakerunner supports two deployment modes:
 
 | Mode | Use Case | Infrastructure |
 |------|----------|----------------|
-| **Kind / Local** | Development and testing | Local Kubernetes (Kind/Minikube) |
 | **Kubernetes POC** | Proof of concept with real cloud resources | Any Kubernetes cluster |
 | **Production** | Full HA deployment | Production Kubernetes with autoscaling |
 

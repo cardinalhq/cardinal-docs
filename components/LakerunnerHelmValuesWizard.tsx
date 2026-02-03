@@ -96,13 +96,6 @@ export default function LakerunnerHelmValuesWizard() {
         <h3 className={styles.sectionTitle}>Installation Type</h3>
         <div className={styles.installTypes}>
           <button
-            className={`${styles.typeCard} ${state.installType === 'kind' ? styles.active : ''}`}
-            onClick={() => handleInstallTypeChange('kind')}
-          >
-            <strong>Kind / Local</strong>
-            <span>Single machine development setup using Kind or Minikube</span>
-          </button>
-          <button
             className={`${styles.typeCard} ${state.installType === 'poc' ? styles.active : ''}`}
             onClick={() => handleInstallTypeChange('poc')}
           >
@@ -119,22 +112,7 @@ export default function LakerunnerHelmValuesWizard() {
         </div>
       </section>
 
-      {state.installType === 'kind' ? (
-        <section className={styles.section}>
-          <h3 className={styles.sectionTitle}>Local Development Setup</h3>
-          <p className={styles.description}>
-            For local development, no custom configuration is needed. Simply run the install script:
-          </p>
-          <pre className={styles.codeBlock}>
-{`curl -sSL -o lakerunner-standalone-poc.sh \\
-  https://raw.githubusercontent.com/cardinalhq/charts/refs/heads/main/install-scripts/lakerunner-standalone-poc.sh
-chmod +x lakerunner-standalone-poc.sh
-./lakerunner-standalone-poc.sh --standalone`}
-          </pre>
-        </section>
-      ) : (
-        <>
-          {/* Organization & API Keys */}
+      {/* Organization & API Keys */}
           <section className={styles.section}>
             <h3 className={styles.sectionTitle}>Organization & API Keys</h3>
             <div className={styles.formGridTwoCol}>
@@ -796,9 +774,6 @@ chmod +x lakerunner-standalone-poc.sh
             </div>
           </section>
 
-        </>
-      )}
-
       {/* Generated YAML Output */}
       <section className={styles.section}>
         <div className={styles.outputHeader}>
@@ -817,7 +792,7 @@ chmod +x lakerunner-standalone-poc.sh
           </div>
         )}
 
-        {state.installType !== 'kind' && yaml && (
+        {yaml && (
           <div className={styles.installInstructions}>
             <h4>Installation Commands</h4>
             {state.enableKeda && (

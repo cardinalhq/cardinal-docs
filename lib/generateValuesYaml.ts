@@ -1,5 +1,5 @@
 // Types for the Install Wizard state
-export type InstallType = 'kind' | 'poc' | 'production';
+export type InstallType = 'poc' | 'production';
 export type CloudProvider = 'aws' | 'gcp' | 'azure';
 export type AWSCredentialMode = 'create' | 'existing' | 'eks';
 export type GCPCredentialMode = 'workload_identity' | 'service_account' | 'existing';
@@ -143,7 +143,7 @@ export function isBasicsConfigured(state: WizardState): boolean {
 // Default state factory
 export function createDefaultState(): WizardState {
   return {
-    installType: 'kind',
+    installType: 'poc',
     cloudProvider: 'aws',
     organizationId: '',
     collectorName: '',
@@ -164,12 +164,6 @@ export function createDefaultState(): WizardState {
 
 // YAML generator
 export function generateValuesYaml(state: WizardState): string | null {
-  if (state.installType === 'kind') {
-    return `# Lakerunner Kind/Local Install
-# Run with: ./lakerunner-standalone-poc.sh --standalone
-# No custom values.yaml needed for local development`;
-  }
-
   // Check if basics are configured
   if (!isBasicsConfigured(state)) {
     return null;
