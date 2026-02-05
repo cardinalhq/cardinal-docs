@@ -57,7 +57,6 @@ export interface WizardState {
   organizationId: string;
   collectorName: string;
   apiKey: string;
-  grafanaApiKey: string;
   storage: StorageConfig;
   aws: AWSConfig;
   gcp: GCPConfig;
@@ -89,7 +88,7 @@ export function isValidPort(port: string): boolean {
 export function isBasicsConfigured(state: WizardState): boolean {
   if (!isValidCollectorName(state.collectorName)) return false;
   if (!isValidUUID(state.organizationId)) return false;
-  if (state.enableGrafana && !state.grafanaApiKey.trim()) return false;
+  if (!state.apiKey.trim()) return false;
 
   // Validate storage configuration
   if (!state.storage.bucket.trim()) return false;
@@ -148,7 +147,6 @@ export function createDefaultState(): WizardState {
     organizationId: '',
     collectorName: '',
     apiKey: '',
-    grafanaApiKey: '',
     storage: { bucket: '', region: 'us-east-1', endpoint: '' },
     aws: { credentialMode: 'eks', accessKeyId: '', secretAccessKey: '', existingSecretName: '' },
     gcp: { credentialMode: 'workload_identity', serviceAccountJson: '', existingSecretName: '' },
@@ -186,9 +184,6 @@ export function generateValuesYaml(state: WizardState): string | null {
   lines.push(`    - organization_id: "${state.organizationId}"`);
   lines.push('      keys:');
   lines.push(`        - "${state.apiKey}"`);
-  if (state.enableGrafana && state.grafanaApiKey) {
-    lines.push(`        - "${state.grafanaApiKey}"`);
-  }
   lines.push('');
 
   // Cloud provider credentials
@@ -332,9 +327,9 @@ export function generateValuesYaml(state: WizardState): string | null {
   // Grafana settings
   lines.push('grafana:');
   lines.push(`  enabled: ${state.enableGrafana}`);
-  if (state.enableGrafana && state.grafanaApiKey) {
+  if (state.enableGrafana) {
     lines.push('  cardinal:');
-    lines.push(`    apiKey: "${state.grafanaApiKey}"`);
+    lines.push(`    apiKey: "${state.apiKey}"`);
   }
   lines.push('');
 

@@ -59,10 +59,6 @@ export default function LakerunnerHelmValuesWizard() {
     updateState('apiKey', generateApiKey());
   };
 
-  const handleGenerateGrafanaApiKey = () => {
-    updateState('grafanaApiKey', generateApiKey());
-  };
-
   const handleInstallTypeChange = (installType: InstallType) => {
     setState(prev => ({
       ...prev,
@@ -112,9 +108,9 @@ export default function LakerunnerHelmValuesWizard() {
         </div>
       </section>
 
-      {/* Organization & API Keys */}
+      {/* Organization Settings */}
           <section className={styles.section}>
-            <h3 className={styles.sectionTitle}>Organization & API Keys</h3>
+            <h3 className={styles.sectionTitle}>Organization Settings</h3>
             <div className={styles.formGridTwoCol}>
               <div className={styles.formGroup}>
                 <label>Organization ID <span className={styles.required}>*</span></label>
@@ -135,6 +131,10 @@ export default function LakerunnerHelmValuesWizard() {
                     Must be a valid UUID format
                   </span>
                 )}
+                <span className={styles.hint}>
+                  Lakerunner is multi-tenant. This will be the initial organization ID, and should not change after use.
+                  If you wish to have Cardinal monitor your deployment, sign up on <a href="https://app.cardinalhq.io" target="_blank" rel="noopener noreferrer">app.cardinalhq.io</a> and use the organization ID from that site.
+                </span>
               </div>
               <div className={styles.formGroup}>
                 <label>Collector Name <span className={styles.required}>*</span></label>
@@ -152,13 +152,14 @@ export default function LakerunnerHelmValuesWizard() {
                 )}
               </div>
               <div className={styles.formGroup}>
-                <label>API Key</label>
+                <label>API Key <span className={styles.required}>*</span></label>
                 <div className={styles.inputWithButton}>
                   <input
                     type="text"
                     value={state.apiKey}
                     onChange={(e) => updateState('apiKey', e.target.value)}
                     placeholder="chq_..."
+                    className={!state.apiKey.trim() ? styles.inputError : ''}
                   />
                   <button onClick={handleGenerateApiKey} className={styles.generateBtn}>
                     Generate
@@ -183,26 +184,6 @@ export default function LakerunnerHelmValuesWizard() {
                 <strong>Grafana</strong>
               </label>
               <span className={styles.hint}>Pre-configured Grafana with Lakerunner datasources</span>
-              {state.enableGrafana && (
-                <div className={styles.componentSettings}>
-                  <div className={styles.formGroup}>
-                    <label>Grafana API Key <span className={styles.required}>*</span></label>
-                    <div className={styles.inputWithButton}>
-                      <input
-                        type="text"
-                        value={state.grafanaApiKey}
-                        onChange={(e) => updateState('grafanaApiKey', e.target.value)}
-                        placeholder="chq_..."
-                        className={!state.grafanaApiKey.trim() ? styles.inputError : ''}
-                      />
-                      <button onClick={handleGenerateGrafanaApiKey} className={styles.generateBtn}>
-                        Generate
-                      </button>
-                    </div>
-                    <span className={styles.hint}>Dedicated API key for Grafana to query Lakerunner</span>
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Collector Component */}
