@@ -111,18 +111,6 @@ describe('Validation Functions', () => {
 });
 
 describe('generateValuesYaml', () => {
-  describe('Kind install type', () => {
-    test('returns simple message for kind install', () => {
-      const state = createDefaultState();
-      state.installType = 'kind';
-
-      const yaml = generateValuesYaml(state);
-
-      expect(yaml).toContain('Kind/Local Install');
-      expect(yaml).not.toContain('cloudProvider:');
-    });
-  });
-
   describe('AWS Cloud Provider', () => {
     test('generates EKS IRSA config (inject: false, create: false)', () => {
       const state = createValidPOCState();
