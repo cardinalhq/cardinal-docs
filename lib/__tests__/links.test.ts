@@ -1,8 +1,11 @@
 /**
- * Link validation tests using lychee
+ * Link validation tests using lychee against running dev server
  *
- * Requires lychee to be installed: brew install lychee
- * If lychee is not available, tests will skip with a warning.
+ * Prerequisites:
+ * - lychee installed: brew install lychee
+ * - Dev server running: pnpm dev
+ *
+ * Run with: pnpm test:links
  */
 
 import { spawnSync } from 'child_process';
@@ -10,16 +13,33 @@ import * as path from 'path';
 
 export {}; // Make this a module for TypeScript
 
+const PROJECT_ROOT = path.resolve(__dirname, '../..');
+const DEV_SERVER_URL = 'http://localhost:3000';
+
 function isLycheeInstalled(): boolean {
   const result = spawnSync('which', ['lychee'], { encoding: 'utf-8' });
   return result.status === 0;
 }
 
+function isServerRunning(): Promise<boolean> {
+  return new Promise((resolve) => {
+    const http = require('http');
+    const req = http.get(DEV_SERVER_URL, (res: { statusCode: number }) => {
+      resolve(res.statusCode === 200);
+    });
+    req.on('error', () => resolve(false));
+    req.setTimeout(5000, () => {
+      req.destroy();
+      resolve(false);
+    });
+  });
+}
+
 function runLychee(args: string[]): { success: boolean; output: string } {
   const result = spawnSync('lychee', args, {
-    cwd: path.resolve(__dirname, '../..'),
+    cwd: PROJECT_ROOT,
     encoding: 'utf-8',
-    timeout: 120000, // 2 minute timeout
+    timeout: 300000, // 5 minute timeout
   });
 
   return {
@@ -40,88 +60,56 @@ describe('Link Validation', () => {
     }
   });
 
-  describe('Internal Links', () => {
-    const skipMessage = 'lychee not installed - skipping link validation';
-
-    test('all internal links in MDX files are valid', () => {
+  describe('Site Links', () => {
+    test('all links are valid', async () => {
       if (!lycheeAvailable) {
-        console.warn(skipMessage);
+        console.warn('lychee not installed - skipping');
+        return;
+      }
+
+      const serverRunning = await isServerRunning();
+      if (!serverRunning) {
+        console.warn(
+          '\n⚠️  Dev server not running. Link validation test skipped.\n' +
+            '   Start with: pnpm dev\n' +
+            '   Then run: pnpm test:links\n'
+        );
         return;
       }
 
       const result = runLychee([
-        'pages/**/*.mdx',
-        '--offline', // Only check local/internal links
-        '--include-verbatim', // Check links in code blocks too
-        '--no-progress',
-        '--format',
-        'detailed',
-      ]);
-
-      if (!result.success) {
-        console.error('Broken links found:\n', result.output);
-      }
-
-      expect(result.success).toBe(true);
-    });
-
-    test('all internal links in TSX components are valid', () => {
-      if (!lycheeAvailable) {
-        console.warn(skipMessage);
-        return;
-      }
-
-      const result = runLychee([
-        'components/**/*.tsx',
-        '--offline',
-        '--no-progress',
-        '--format',
-        'detailed',
-      ]);
-
-      if (!result.success) {
-        console.error('Broken links found:\n', result.output);
-      }
-
-      expect(result.success).toBe(true);
-    });
-  });
-
-  describe('External Links', () => {
-    const skipMessage = 'lychee not installed - skipping link validation';
-
-    // External link checking is slower, so it's in a separate describe block
-    // Can be skipped in CI with: jest --testPathIgnorePatterns="links"
-    test('all external links are reachable', () => {
-      if (!lycheeAvailable) {
-        console.warn(skipMessage);
-        return;
-      }
-
-      const result = runLychee([
-        'pages/**/*.mdx',
-        'components/**/*.tsx',
+        DEV_SERVER_URL,
         '--no-progress',
         '--format',
         'detailed',
         '--timeout',
-        '30', // 30 second timeout per request
+        '30',
         '--max-retries',
         '2',
-        // Exclude common flaky/rate-limited domains
+        // Exclude flaky/dynamic URLs
         '--exclude',
-        'github.com/.*/edit', // GitHub edit links may not resolve without auth
+        'github.com/.*/edit',
         '--exclude',
-        'localhost',
-        '--exclude',
-        '127.0.0.1',
+        'github.com/.*/issues/new', // Dynamic issue creation links
       ]);
 
+      // Log summary
+      const summaryMatch = result.output.match(
+        /📝 Summary[\s\S]*?(?=\n\nErrors|\n\nRedirects|\n*$)/
+      );
+      if (summaryMatch) {
+        console.log('\n' + summaryMatch[0]);
+      }
+
       if (!result.success) {
-        console.error('Broken or unreachable links found:\n', result.output);
+        // Extract just the errors
+        const errorsMatch = result.output.match(/Errors in [\s\S]*/);
+        if (errorsMatch) {
+          console.error('\nBroken links found:\n', errorsMatch[0]);
+        }
       }
 
       expect(result.success).toBe(true);
-    }, 180000); // 3 minute timeout for external checks
+    }, 300000); // 5 minute timeout
   });
 });
