@@ -25,7 +25,6 @@ const connectors = [
   { name: 'GitHub', href: '/vibeshield/connectors/github' },
   { name: 'HTTP MCP Server', href: '/vibeshield/connectors/httpmcp' },
   { name: 'AWS Lambda', href: '/vibeshield/connectors/lambda' },
-  { name: 'Cardinal Release Agent', href: '/vibeshield/release-agent' },
 ];
 
 function ConnectorItem({ name, href }: { name: string; href: string }) {
