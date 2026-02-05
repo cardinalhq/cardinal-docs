@@ -10,4 +10,18 @@ module.exports = {
     unoptimized: true,
   },
   // basePath: '/cardinal-docs',
+  async redirects() {
+    return [
+      {
+        source: '/agent-builder/:path*',
+        destination: '/vibeshield/:path*',
+        permanent: true,
+      },
+      {
+        source: '/agent-builder',
+        destination: '/vibeshield',
+        permanent: true,
+      },
+    ];
+  },
 };

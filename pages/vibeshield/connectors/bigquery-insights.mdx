@@ -1,22 +1,19 @@
 import ConnectorTitle from '../../../components/ConnectorTitle';
 import SupportCallout from '../../../components/SupportCallout';
 
+<ConnectorTitle name="Google BigQuery Insights" />
 
-<ConnectorTitle name="Google Cloud Monitoring" />
-
-
-Connect Cardinal VibeShield to Google Cloud Platform's Cloud Monitoring and Cloud Logging.
+Connect Cardinal VibeShield to Google BigQuery Insights for query performance monitoring.
 
 ## Overview
 
-Google Cloud Monitoring and Cloud Logging provide comprehensive observability for GCP resources and applications. With the GCP connector, your AI agents can:
+Google BigQuery Insights provides detailed query performance metrics and insights for your BigQuery workloads. With the BigQuery Insights connector, your AI agents can:
 
-- **Query Cloud Monitoring metrics** using MQL
-- **Search Cloud Logging logs** with advanced filtering
-- **Analyze metric time-series data** with aggregations
-- **Trace distributed systems** via Cloud Trace
-- **Correlate logs and metrics** for root cause analysis
-- **Query multiple GCP projects** in a single setup
+- **Get Query Insights** from Google BigQuery
+- **Retrieve Performance Metrics** for query analysis
+- **Monitor query execution** and performance trends
+- **Analyze query costs** and optimization opportunities
+- **Track query patterns** across your organization
 
 ## Connection Details
 
@@ -27,45 +24,14 @@ Google Cloud Monitoring and Cloud Logging provide comprehensive observability fo
 
 ## Prerequisites
 
-- One or more Google Cloud projects
-- Cloud Monitoring and Cloud Logging APIs enabled
-- Google account or service account with monitoring access
-- Logs and metrics data in Cloud Logging/Monitoring
-
-## Finding Your Project ID
-
-Your GCP project ID is visible in:
-
-1. **Google Cloud Console**: Top-left shows project name/ID
-
-   - Go to [console.cloud.google.com](https://console.cloud.google.com)
-   - Click project dropdown
-   - Copy the **Project ID** (not the friendly name)
-
-2. **Or via gcloud CLI**:
-   ```bash
-   gcloud config get-value project
-   ```
-
-## Enabling Required APIs
-
-Cloud Monitoring and Cloud Logging APIs must be enabled:
-
-```bash
-gcloud services enable monitoring.googleapis.com
-gcloud services enable logging.googleapis.com
-gcloud services enable cloudtrace.googleapis.com
-```
-
-Or in Google Cloud Console:
-
-1. Go to **APIs & Services** → **Enabled APIs**
-2. Click **Enable APIs and Services**
-3. Search for "Cloud Monitoring"
-4. Click **Enable**
-5. Repeat for "Cloud Logging"
+- A Google Cloud project with BigQuery enabled
+- A Google account with access to your BigQuery project
+- BigQuery API enabled
+- Query Insights data available in your project
 
 ## Setup Wizard
+
+Validate credentials either through ADC or Oauth.
 
 <div
   style={{
@@ -91,17 +57,13 @@ Or in Google Cloud Console:
       fontWeight: 600,
     }}
   >
-    Step 1 - Authenticate with Google
+    Step 1 - Display Name
   </div>
   <div style={{ padding: '16px' }}>
 
 1. In Cardinal VibeShield, go to **Connectors** and click **Browse Connectors**
-2. Select **Google Cloud Monitoring**
-3. Click **Authenticate with Google**
-4. You'll be redirected to Google's OAuth consent screen
-5. Grant Cardinal VibeShield access to your GCP resources
-6. Return to Cardinal VibeShield — authentication is complete
-
+2. Select **Google BigQuery Insights**
+3. Enter a **Display Name** for this datasource connection (e.g., "BigQuery Insights Prod", "BigQuery Insights Dev")
 
 </div>
 </div>
@@ -136,9 +98,8 @@ Or in Google Cloud Console:
 
 1. Browse the list of available Google Cloud projects
    - Search for a specific project using the search box, or scroll through the grid
-   - Click on the project card containing your monitoring and logging data
+   - Click on the project card containing your BigQuery data
    - You can only select one project per datasource connection
-
 
 </div>
 </div>
@@ -171,18 +132,23 @@ Or in Google Cloud Console:
   </div>
   <div style={{ padding: '16px' }}>
 
-1. Review your selected project
+1. Review your selected project and display name
 2. Click **Save**
-3. Cardinal VibeShield will verify connectivity
+3. Cardinal VibeShield will verify connectivity and access to Query Insights
 
+<img
+  src="/bigquery-insights-step.png"
+  alt="BigQuery Insights setup wizard"
+  style={{ maxWidth: '520px', width: '100%', height: 'auto', margin: '0 auto' }}
+/>
 
 </div>
 </div>
 
-Your AI agent can now query GCP monitoring and logging data.
+Your AI agent can now query BigQuery Insights and analyze query performance.
 
 ---
 
-[Understand the assets and product features →](/agent-builder/product)
+[Understand the assets and product features →](/vibeshield/product)
 
 <SupportCallout />

@@ -2,35 +2,38 @@ import ConnectorTitle from '../../../components/ConnectorTitle';
 import SupportCallout from '../../../components/SupportCallout';
 
 
-<ConnectorTitle name="AWS Lambda" />
+<ConnectorTitle name="New Relic" />
 
 
-Connect Cardinal VibeShield to AWS Lambda for executing and integrating Lambda functions.
+Connect Cardinal VibeShield to New Relic for monitoring logs, metrics, and traces.
 
 ## Overview
 
-AWS Lambda is a serverless computing service. With the Lambda connector, your AI agents can:
+New Relic is a comprehensive observability platform that provides insights into your applications and infrastructure. With the New Relic connector, your AI agents can:
 
-- **Execute Lambda functions** from your agents
-- **Invoke serverless functions** on demand
-- **Integrate with AWS services** through Lambda
-- **Configure function arguments** and triggers
-- **Monitor function execution** and responses
+- **Query logs, metrics, and traces** from New Relic
+- **Analyze application performance** and user experience
+- **Monitor infrastructure health** across your systems
+- **Track errors and anomalies** in real-time
+- **Correlate data** across different observability signals
 
 ## Connection Details
 
-| Field | Description |
-|-------|-------------|
-| **Display Name** | Custom name for this Lambda connection |
-| **AWS Region** | (Optional) AWS region for Lambda functions |
-| **AWS Profile** | (Optional) Named AWS profile for authentication |
+| Field                 | Description                                    |
+| --------------------- | ---------------------------------------------- |
+| **Display Name**      | Custom name for this New Relic connection      |
+| **Account ID**        | Your New Relic account ID                      |
+| **Region**            | New Relic region (US or EU)                    |
+| **API Key**           | New Relic User API key for authentication      |
+| **Share credentials** | (Optional) Share credentials with organization |
 
 ## Prerequisites
 
-- AWS account with Lambda access
-- AWS credentials configured (CLI, environment variables, or IAM role)
-- Lambda functions deployed in your AWS account
-- IAM permissions to invoke Lambda functions
+- New Relic account with API access enabled
+- New Relic Account ID (found in Account Settings)
+- New Relic User API key (starts with NRAK-)
+- Data flowing into New Relic (logs, metrics, or traces)
+- Access to New Relic account settings for API key management
 
 ## Setup Wizard
 
@@ -58,27 +61,14 @@ AWS Lambda is a serverless computing service. With the Lambda connector, your AI
       fontWeight: 600,
     }}
   >
-    Step 1 - Configure AWS Connection
+    Step 1 - Connection Configuration
   </div>
   <div style={{ padding: '16px' }}>
 
 1. In Cardinal VibeShield, go to **Connectors** and click **Browse Connectors**
-2. Select **AWS Lambda**
-3. Enter a **Display Name** for this Lambda connection
-   - Example: `AWS Lambda`, `Serverless Functions`, `Lambda Prod`
-   - A friendly name to identify this connection
-
-4. (Optional) Select your **AWS Region**
-   - Example: `us-east-2`
-   - Leave empty to use AWS_REGION from environment or default region
-   - AWS SDK will use defaults from your environment if not specified
-
-5. (Optional) Enter your **AWS Profile**
-   - Example: `default`, `production`
-   - AWS profile from `~/.aws/config`
-   - Leave blank to use default credentials chain
-
-**Note:** Configure your AWS connection. Both region and profile are optional - AWS SDK will use defaults from your environment if not specified.
+2. Select **New Relic**
+3. Enter a **Display Name** for this connection
+   - Example: "New Relic Prod", "New Relic Dev", "New Relic Staging"
 
 
 </div>
@@ -108,13 +98,26 @@ AWS Lambda is a serverless computing service. With the Lambda connector, your AI
       fontWeight: 600,
     }}
   >
-    Step 2 - Select Functions
+    Step 2 - Account Configuration
   </div>
   <div style={{ padding: '16px' }}>
 
-1. Browse and select **Lambda Functions**
-   - Click to view available Lambda functions
-   - Choose one or more functions to make available to your agents
+1. Enter your **Account ID**
+
+   - Found in Account Settings → API Keys
+   - Numeric identifier for your New Relic account
+   - Example: `1234567`
+
+2. Select your **Region** from the dropdown
+
+   - **US (api.newrelic.com)** - For US-based accounts
+   - **EU (api.eu.newrelic.com)** - For EU-based accounts
+   - Choose the region where your New Relic account is hosted
+
+3. Enter your **API Key (User Key)**
+   - Must start with `NRAK-`
+   - Found in Account Settings → API Keys
+   - Use a User API key (not a License key or Ingest API key)
 
 
 </div>
@@ -144,14 +147,13 @@ AWS Lambda is a serverless computing service. With the Lambda connector, your AI
       fontWeight: 600,
     }}
   >
-    Step 3 - Configure
+    Step 3 - Credentials Storage (Optional)
   </div>
   <div style={{ padding: '16px' }}>
 
-1. For each selected function, configure:
-   - **Function Arguments** - Define what arguments your agents can pass
-   - **Triggers** - Set conditions for automatic function invocation
-   - Click to see function details and parameters
+1. Check **Share credentials with organization** to securely share with your organization
+   - When disabled: credentials are stored locally on this device
+   - When enabled: credentials are securely shared with your organization members
 
 
 </div>
@@ -181,23 +183,21 @@ AWS Lambda is a serverless computing service. With the Lambda connector, your AI
       fontWeight: 600,
     }}
   >
-    Step 4 - Review & Save
+    Step 4 - Save
   </div>
   <div style={{ padding: '16px' }}>
 
-1. Review your configuration
-2. Click **Next** to continue
-3. Click **Save** to complete the configuration
-4. Cardinal VibeShield will verify access to your Lambda functions
+1. Click **Save** to complete the configuration
+2. Cardinal VibeShield will verify connectivity to your New Relic account
 
 
 </div>
 </div>
 
-Your AI agent can now execute and invoke your Lambda functions.
+Your AI agent can now query New Relic logs, metrics, and traces.
 
 ---
 
-[Understand the assets and product features →](/agent-builder/product)
+[Understand the assets and product features →](/vibeshield/product)
 
 <SupportCallout />

@@ -2,37 +2,37 @@ import ConnectorTitle from '../../../components/ConnectorTitle';
 import SupportCallout from '../../../components/SupportCallout';
 
 
-<ConnectorTitle name="Slack" />
+<ConnectorTitle name="HTTP MCP Server" />
 
 
-Connect Cardinal VibeShield to Slack for sending notifications and messages to your Slack workspace.
+Connect Cardinal VibeShield to a custom HTTP MCP (Model Context Protocol) server for extended functionality.
 
 ## Overview
 
-Slack is a messaging platform for team collaboration. With the Slack connector, your AI agents can:
+HTTP MCP Server allows you to connect to custom Model Context Protocol servers over HTTP. With the HTTP MCP Server connector, your AI agents can:
 
-- **Send notifications** to Slack channels
-- **Post messages** from your agents
-- **Integrate with workflows** in your Slack workspace
-- **Deliver alerts** to team members
-- **Enable real-time communication** through your agents
+- **Access custom tools and resources** from your MCP server
+- **Extend agent capabilities** with domain-specific functionality
+- **Integrate external services** through MCP protocol
+- **Query custom data sources** via HTTP endpoints
+- **Leverage custom workflows** defined in your MCP server
 
 ## Connection Details
 
-| Field                    | Description                                    |
-| ------------------------ | ---------------------------------------------- |
-| **Display Name**         | Custom name for this Slack connection          |
-| **Bot User OAuth Token** | OAuth token for Slack app authentication       |
-| **Signing Secret**       | Signing secret for request verification        |
-| **Share credentials**    | (Optional) Share credentials with organization |
+| Field | Description |
+|-------|-------------|
+| **Name** | A unique identifier for this MCP server (e.g., `my-mcp-server`) |
+| **Display Name** | A friendly name to display in the UI (e.g., `MCP Server`) |
+| **MCP Server URL** | The HTTP URL of your MCP server endpoint |
+| **Authentication Type** | Authentication method for the MCP server connection |
+| **Share credentials** | (Optional) Share credentials with organization |
 
 ## Prerequisites
 
-- Slack workspace with app management access
-- Slack app created in your workspace
-- Bot User OAuth Token (starts with `xoxb-`)
-- Signing Secret from app credentials
-- Network access to Slack API
+- HTTP MCP server deployed and accessible
+- MCP server URL (e.g., `https://your-mcp-server.com/mcp`)
+- Network access to the MCP server
+- Appropriate authentication credentials if required
 
 ## Setup Wizard
 
@@ -60,20 +60,18 @@ Slack is a messaging platform for team collaboration. With the Slack connector, 
       fontWeight: 600,
     }}
   >
-    Step 1 - Create Your Slack App
+    Step 1 - Server Identification
   </div>
   <div style={{ padding: '16px' }}>
 
 1. In Cardinal VibeShield, go to **Connectors** and click **Browse Connectors**
-2. Select **Slack**
-3. Go to [api.slack.com/apps](https://api.slack.com/apps) to create a new Slack app
-4. Click **"Create New App"** → **"From an app manifest"**
-5. Select your workspace and click **Next**
-6. Select **JSON** and paste the app manifest provided in the setup wizard
-7. Review the summary and click **"Create"**
-8. Click **"Install to Workspace"** and authorize the app
-
-**Note:** After launching your agent, update the `request_url` in Event Subscriptions with your actual agent URL.
+2. Select **HTTP MCP Server**
+3. Enter a **Name** for this MCP server
+   - Example: `my-mcp-server`, `custom-tools`, `external-api`
+   - This is a unique identifier used internally
+4. Enter a **Display Name** for this connection
+   - Example: `MCP Server`, `Custom Tools`, `External API`
+   - This is displayed in the Cardinal VibeShield UI
 
 
 </div>
@@ -103,29 +101,18 @@ Slack is a messaging platform for team collaboration. With the Slack connector, 
       fontWeight: 600,
     }}
   >
-    Step 2 - Enter Your Credentials
+    Step 2 - Server Configuration
   </div>
   <div style={{ padding: '16px' }}>
 
-1. Enter a **Display Name** for this Slack connection
+1. Enter your **MCP Server URL**
+   - Example: `https://your-mcp-server.com/mcp`
+   - The HTTP URL of your MCP server endpoint
+   - Include the protocol (http or https)
 
-   - Example: `Slack`, `Team Notifications`, `Slack Workspace`
-   - A friendly name to identify this connection
-
-2. Enter your **Bot User OAuth Token**
-
-   - Format: `xoxb-your-token-here`
-   - Find this in OAuth & Permissions → Bot User OAuth Token
-
-3. Enter your **Signing Secret**
-   - Format: `your-signing-secret`
-   - Find this in Basic Information → App Credentials → Signing Secret
-   - Used to verify that requests from Slack are authentic
-
-**Quick Reference:**
-
-- **Bot Token:** OAuth & Permissions → "Bot User OAuth Token" (starts with xoxb-)
-- **Signing Secret:** Basic Information → App Credentials → Signing Secret
+2. Select your **Authentication Type** from the dropdown
+   - **No Authentication** - For public or locally accessible servers
+   - Additional authentication methods available based on your MCP server requirements
 
 
 </div>
@@ -196,16 +183,16 @@ Slack is a messaging platform for team collaboration. With the Slack connector, 
   <div style={{ padding: '16px' }}>
 
 1. Click **Save** to complete the configuration
-2. Cardinal VibeShield will verify your Slack app credentials
+2. Cardinal VibeShield will verify connectivity to your HTTP MCP server
 
 
 </div>
 </div>
 
-Your AI agent can now send notifications and messages to Slack.
+Your AI agent can now access tools and resources from your custom MCP server.
 
 ---
 
-[Understand the assets and product features →](/agent-builder/product)
+[Understand the assets and product features →](/vibeshield/product)
 
 <SupportCallout />

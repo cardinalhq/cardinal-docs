@@ -2,37 +2,36 @@ import ConnectorTitle from '../../../components/ConnectorTitle';
 import SupportCallout from '../../../components/SupportCallout';
 
 
-<ConnectorTitle name="HTTP MCP Server" />
+<ConnectorTitle name="Lakerunner" />
 
 
-Connect Cardinal VibeShield to a custom HTTP MCP (Model Context Protocol) server for extended functionality.
+Connect Cardinal VibeShield to Cardinal HQ's open-source data lake.
 
 ## Overview
 
-HTTP MCP Server allows you to connect to custom Model Context Protocol servers over HTTP. With the HTTP MCP Server connector, your AI agents can:
+Lakerunner is CardinalHQ's open-source data lake solution that allows you to query and analyze structured data. With the Lakerunner connector, your AI agents can:
 
-- **Access custom tools and resources** from your MCP server
-- **Extend agent capabilities** with domain-specific functionality
-- **Integrate external services** through MCP protocol
-- **Query custom data sources** via HTTP endpoints
-- **Leverage custom workflows** defined in your MCP server
+- **Query data** in your Lakerunner instance
+- **Access structured tables** with schema discovery
+- **Analyze data** with natural language queries
+- **Integrate with your data lake** seamlessly
+- **Manage data sources** through a unified interface
 
 ## Connection Details
 
-| Field | Description |
-|-------|-------------|
-| **Name** | A unique identifier for this MCP server (e.g., `my-mcp-server`) |
-| **Display Name** | A friendly name to display in the UI (e.g., `MCP Server`) |
-| **MCP Server URL** | The HTTP URL of your MCP server endpoint |
-| **Authentication Type** | Authentication method for the MCP server connection |
+| Field                 | Description                                    |
+| --------------------- | ---------------------------------------------- |
+| **Display Name**      | Custom name for this Lakerunner connection     |
+| **API URL**           | URL of your Lakerunner API endpoint            |
+| **API Key**           | API key for Lakerunner authentication          |
 | **Share credentials** | (Optional) Share credentials with organization |
 
 ## Prerequisites
 
-- HTTP MCP server deployed and accessible
-- MCP server URL (e.g., `https://your-mcp-server.com/mcp`)
-- Network access to the MCP server
-- Appropriate authentication credentials if required
+- Lakerunner instance deployed and running
+- API URL for your Lakerunner instance
+- Valid API key for authentication
+- Access to data tables in Lakerunner
 
 ## Setup Wizard
 
@@ -60,18 +59,13 @@ HTTP MCP Server allows you to connect to custom Model Context Protocol servers o
       fontWeight: 600,
     }}
   >
-    Step 1 - Server Identification
+    Step 1 - Connection Configuration
   </div>
   <div style={{ padding: '16px' }}>
 
 1. In Cardinal VibeShield, go to **Connectors** and click **Browse Connectors**
-2. Select **HTTP MCP Server**
-3. Enter a **Name** for this MCP server
-   - Example: `my-mcp-server`, `custom-tools`, `external-api`
-   - This is a unique identifier used internally
-4. Enter a **Display Name** for this connection
-   - Example: `MCP Server`, `Custom Tools`, `External API`
-   - This is displayed in the Cardinal VibeShield UI
+2. Select **Lakerunner**
+3. Enter a **Display Name** for this connection (e.g., "Lakerunner Prod", "Lakerunner Dev")
 
 
 </div>
@@ -101,18 +95,15 @@ HTTP MCP Server allows you to connect to custom Model Context Protocol servers o
       fontWeight: 600,
     }}
   >
-    Step 2 - Server Configuration
+    Step 2 - Lakerunner Configuration
   </div>
   <div style={{ padding: '16px' }}>
 
-1. Enter your **MCP Server URL**
-   - Example: `https://your-mcp-server.com/mcp`
-   - The HTTP URL of your MCP server endpoint
-   - Include the protocol (http or https)
-
-2. Select your **Authentication Type** from the dropdown
-   - **No Authentication** - For public or locally accessible servers
-   - Additional authentication methods available based on your MCP server requirements
+1. Enter your **API URL**
+   - Example: `https://app.cardinalhq.io`
+   - The URL of your Lakerunner API endpoint
+2. Enter your **API Key**
+   - Your authentication key for accessing Lakerunner
 
 
 </div>
@@ -183,16 +174,16 @@ HTTP MCP Server allows you to connect to custom Model Context Protocol servers o
   <div style={{ padding: '16px' }}>
 
 1. Click **Save** to complete the configuration
-2. Cardinal VibeShield will verify connectivity to your HTTP MCP server
+2. Cardinal VibeShield will verify connectivity to your Lakerunner instance
 
 
 </div>
 </div>
 
-Your AI agent can now access tools and resources from your custom MCP server.
+Your AI agent can now query your Lakerunner data lake.
 
 ---
 
-[Understand the assets and product features →](/agent-builder/product)
+[Understand the assets and product features →](/vibeshield/product)
 
 <SupportCallout />

@@ -2,34 +2,34 @@ import ConnectorTitle from '../../../components/ConnectorTitle';
 import SupportCallout from '../../../components/SupportCallout';
 
 
-<ConnectorTitle name="Prometheus" />
+<ConnectorTitle name="Thanos" />
 
 
-Connect Cardinal VibeShield to Prometheus for monitoring and analyzing metrics.
+Connect Cardinal VibeShield to Thanos for querying and analyzing long-term metrics storage.
 
 ## Overview
 
-Prometheus is an open-source monitoring and alerting system that collects and stores time-series metrics. With the Prometheus connector, your AI agents can:
+Thanos is an open-source project that extends Prometheus with long-term storage capabilities and global query views. With the Thanos connector, your AI agents can:
 
-- **Query Prometheus metrics** using PromQL
-- **Analyze time-series data** with aggregations and functions
-- **Monitor application performance** and infrastructure health
-- **Track metric trends** over time
-- **Identify anomalies** and performance issues
+- **Query metrics** across multiple Prometheus instances
+- **Access long-term metric storage** and historical data
+- **Analyze time-series data** with high availability
+- **Track metric trends** over extended periods
+- **Identify patterns** in long-term metric data
 
 ## Connection Details
 
 | Field | Description |
 |-------|-------------|
-| **Display Name** | Custom name for this Prometheus connection |
-| **Prometheus URL** | Base URL of your Prometheus server |
+| **Display Name** | Custom name for this Thanos connection |
+| **Thanos Query URL** | Base URL of your Thanos Query server |
 
 ## Prerequisites
 
-- Prometheus server deployed and running
-- Base URL for your Prometheus server (e.g., `http://localhost:9090`)
-- Network access to the Prometheus server
-- Metrics data available in Prometheus
+- Thanos Query server deployed and running
+- Base URL for your Thanos Query server (e.g., `http://localhost:9090`)
+- Network access to the Thanos Query server
+- Metrics data available in Thanos storage
 
 ## Setup Wizard
 
@@ -62,9 +62,9 @@ Prometheus is an open-source monitoring and alerting system that collects and st
   <div style={{ padding: '16px' }}>
 
 1. In Cardinal VibeShield, go to **Connectors** and click **Browse Connectors**
-2. Select **Prometheus**
+2. Select **Thanos**
 3. Enter a **Display Name** for this connection
-   - Example: "Prometheus Prod", "Prometheus Dev", "Prometheus Staging"
+   - Example: "Thanos Prod", "Thanos Dev", "Thanos Staging"
 
 
 </div>
@@ -94,13 +94,13 @@ Prometheus is an open-source monitoring and alerting system that collects and st
       fontWeight: 600,
     }}
   >
-    Step 2 - Prometheus Configuration
+    Step 2 - Thanos Configuration
   </div>
   <div style={{ padding: '16px' }}>
 
-1. Enter your **Prometheus URL**
+1. Enter your **Thanos Query URL**
    - Example: `http://localhost:9090`
-   - The base URL of your Prometheus server
+   - The base URL of your Thanos Query server
    - Include the protocol (http or https)
    - Do not include a trailing slash
 
@@ -136,17 +136,17 @@ Prometheus is an open-source monitoring and alerting system that collects and st
   </div>
   <div style={{ padding: '16px' }}>
 
-1. Click **Connect** to verify connectivity to your Prometheus server
-2. Cardinal VibeShield will test the connection to your Prometheus instance
+1. Click **Connect** to verify connectivity to your Thanos Query server
+2. Cardinal VibeShield will test the connection to your Thanos instance
 
 
 </div>
 </div>
 
-Your AI agent can now query Prometheus metrics.
+Your AI agent can now query Thanos metrics.
 
 ---
 
-[Understand the assets and product features →](/agent-builder/product)
+[Understand the assets and product features →](/vibeshield/product)
 
 <SupportCallout />

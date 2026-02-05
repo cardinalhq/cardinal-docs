@@ -30,7 +30,7 @@ pnpm build
 ### Documentation Structure
 - `pages/` - MDX content files organized by product
   - `pages/_meta.json` - Navigation structure and page titles
-  - `pages/agent-builder/` - VibeShield docs (connectors, product guides, agents)
+  - `pages/vibeshield/` - VibeShield docs (connectors, product guides, agents)
   - `pages/lakerunner/` - Lakerunner docs
 - `components/` - React components used in MDX pages
 - `theme.config.tsx` - Nextra theme configuration (logo, SEO, footer)
