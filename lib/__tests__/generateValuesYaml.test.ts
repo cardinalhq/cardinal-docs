@@ -15,7 +15,6 @@ function createValidPOCState(): WizardState {
   state.organizationId = 'b3a870ae-2c05-42b9-b073-572e718ad39d';
   state.collectorName = 'test-collector';
   state.apiKey = 'chq_test123456789012345678901234';
-  state.grafanaApiKey = 'chq_grafana123456789012345678901';
   state.storage = { bucket: 'test-bucket', region: 'us-east-1' };
   state.aws = {
     credentialMode: 'create',
@@ -111,18 +110,6 @@ describe('Validation Functions', () => {
 });
 
 describe('generateValuesYaml', () => {
-  describe('Kind install type', () => {
-    test('returns simple message for kind install', () => {
-      const state = createDefaultState();
-      state.installType = 'kind';
-
-      const yaml = generateValuesYaml(state);
-
-      expect(yaml).toContain('Kind/Local Install');
-      expect(yaml).not.toContain('cloudProvider:');
-    });
-  });
-
   describe('AWS Cloud Provider', () => {
     test('generates EKS IRSA config (inject: false, create: false)', () => {
       const state = createValidPOCState();
@@ -254,19 +241,18 @@ describe('generateValuesYaml', () => {
     test('includes grafana apiKey when enabled', () => {
       const state = createValidPOCState();
       state.enableGrafana = true;
-      state.grafanaApiKey = 'chq_grafana_key';
 
       const yaml = generateValuesYaml(state);
 
       expect(yaml).toContain('grafana:');
       expect(yaml).toContain('enabled: true');
-      expect(yaml).toContain('apiKey: "chq_grafana_key"');
+      // Grafana uses the main apiKey
+      expect(yaml).toContain(`apiKey: "${state.apiKey}"`);
     });
 
     test('does not include apiKey when grafana disabled', () => {
       const state = createValidPOCState();
       state.enableGrafana = false;
-      state.grafanaApiKey = '';
 
       const yaml = generateValuesYaml(state);
 

@@ -7,43 +7,43 @@ const assets = [
   {
     title: 'Agents',
     desc: 'AI-powered assistants',
-    href: '/agent-builder/product/assets/agents',
+    href: '/vibeshield/product/assets/agents',
     icon: '🤖',
   },
   {
     title: 'Connectors',
     desc: 'Data source integration',
-    href: '/agent-builder/product/assets/connectors',
+    href: '/vibeshield/product/assets/connectors',
     icon: '🔌',
   },
   {
     title: 'Knowledge',
     desc: 'Custom context & runbooks',
-    href: '/agent-builder/product/assets/knowledge',
+    href: '/vibeshield/product/assets/knowledge',
     icon: '📚',
   },
   {
     title: 'Reports',
     desc: 'Insights & analysis',
-    href: '/agent-builder/product/assets/reports',
+    href: '/vibeshield/product/assets/reports',
     icon: '📊',
   },
   {
     title: 'Queries',
     desc: 'Natural language search',
-    href: '/agent-builder/product/assets/queries',
+    href: '/vibeshield/product/assets/queries',
     icon: '🔍',
   },
   {
     title: 'Workflows',
     desc: 'Automation & logic',
-    href: '/agent-builder/product/assets/workflows',
+    href: '/vibeshield/product/assets/workflows',
     icon: '⚙️',
   },
   {
     title: 'Scripts',
     desc: 'Custom automation',
-    href: '/agent-builder/product/assets/scripts',
+    href: '/vibeshield/product/assets/scripts',
     icon: '📝',
   },
 ];
@@ -52,37 +52,37 @@ const orgSettings = [
   {
     title: 'Members',
     desc: 'Invite and manage access',
-    href: '/agent-builder/product/org-settings#members',
+    href: '/vibeshield/product/org-settings#members',
     icon: '👥',
   },
   {
     title: 'Subscription',
     desc: 'Plan and billing',
-    href: '/agent-builder/product/org-settings#subscription',
+    href: '/vibeshield/product/org-settings#subscription',
     icon: '💳',
   },
   {
     title: 'Remote Repo',
     desc: 'Sync agent configs',
-    href: '/agent-builder/product/org-settings#remote-repository',
+    href: '/vibeshield/product/org-settings#remote-repository',
     icon: '🔗',
   },
   {
     title: 'Launch Profiles',
     desc: 'Deployment defaults',
-    href: '/agent-builder/product/org-settings#launch-profiles',
+    href: '/vibeshield/product/org-settings#launch-profiles',
     icon: '🚀',
   },
   {
     title: 'Launch Agents',
     desc: 'Cloud deployments',
-    href: '/agent-builder/product/org-settings#launch-agents',
+    href: '/vibeshield/product/org-settings#launch-agents',
     icon: '☁️',
   },
   {
     title: 'LLM Provider',
     desc: 'Org-wide model setup',
-    href: '/agent-builder/product/org-settings#llm-provider',
+    href: '/vibeshield/product/org-settings#llm-provider',
     icon: '🧠',
   },
 ];
@@ -91,19 +91,19 @@ const chatModes = [
   {
     title: 'Single-Agent',
     desc: 'Focused, direct chats',
-    href: '/agent-builder/product/chat-modes#single-agent-mode',
+    href: '/vibeshield/product/chat-modes#single-agent-mode',
     icon: '🎯',
   },
   {
     title: 'Multi-Agent',
     desc: 'Coordinated problem solving',
-    href: '/agent-builder/product/chat-modes#multi-agent-mode',
+    href: '/vibeshield/product/chat-modes#multi-agent-mode',
     icon: '🤝',
   },
   {
     title: 'Choosing a Mode',
     desc: 'When to use each',
-    href: '/agent-builder/product/chat-modes#choosing-the-right-mode',
+    href: '/vibeshield/product/chat-modes#choosing-the-right-mode',
     icon: '🧭',
   },
 ];
@@ -166,21 +166,21 @@ export default function ProductQuickAccess() {
         title="Asset Types"
         description="Build your core operational blocks here: agents, connectors, knowledge, reports, queries, workflows, and scripts. These assets power everything your team automates and observes."
         linkLabel="Explore Assets →"
-        linkHref="/agent-builder/product/assets/agents"
+        linkHref="/vibeshield/product/assets/agents"
         items={assets}
       />
       <Section
         title="Organization Settings"
         description="Manage your team setup and shared defaults across the org. Configure billing, member access, repo sync, launch profiles, and LLM provider settings."
         linkLabel="Open Org Settings →"
-        linkHref="/agent-builder/product/org-settings"
+        linkHref="/vibeshield/product/org-settings"
         items={orgSettings}
       />
       <Section
         title="Chat Modes"
         description="Choose how you interact with agents. Build Mode is for creating assets and tuning behavior, while Chat Mode is for read-only, cross-agent visibility."
         linkLabel="Read about Agent Chat →"
-        linkHref="/agent-builder/product/chat-modes"
+        linkHref="/vibeshield/product/chat-modes"
         items={chatModes}
       />
     </div>
