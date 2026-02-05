@@ -7,7 +7,8 @@
     "build": "next build && next export",
     "start": "next start",
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "test:links": "jest lib/__tests__/links.test.ts"
   },
   "license": "MIT",
   "dependencies": {
