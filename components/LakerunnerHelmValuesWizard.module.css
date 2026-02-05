@@ -429,17 +429,64 @@
 }
 
 .installInstructions {
-  margin-top: 1.5rem;
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background: rgba(33, 150, 243, 0.08);
+  border: 2px solid rgba(33, 150, 243, 0.3);
+  border-radius: 8px;
+}
+
+:global(.dark) .installInstructions {
+  background: rgba(33, 150, 243, 0.1);
+  border-color: rgba(33, 150, 243, 0.4);
+}
+
+.installInstructions > h4:first-child {
+  margin: 0 0 1.25rem 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #1565c0;
+}
+
+:global(.dark) .installInstructions > h4:first-child {
+  color: #64b5f6;
 }
 
 .installInstructions h4 {
-  margin: 0 0 0.75rem 0;
+  margin: 1.5rem 0 0.75rem 0;
   font-size: 1rem;
+  font-weight: 600;
   color: #333;
+}
+
+.installInstructions h4:first-child {
+  margin-top: 0;
 }
 
 :global(.dark) .installInstructions h4 {
   color: #e5e5e5;
+}
+
+.installInstructions p {
+  margin: 0 0 1rem 0;
+  color: #555;
+}
+
+:global(.dark) .installInstructions p {
+  color: #bbb;
+}
+
+.installInstructions a {
+  color: #1976d2;
+  text-decoration: underline;
+}
+
+:global(.dark) .installInstructions a {
+  color: #64b5f6;
+}
+
+.installInstructions pre {
+  margin-bottom: 0;
 }
 
 .privacyNote {
