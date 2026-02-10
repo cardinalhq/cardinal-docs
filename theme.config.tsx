@@ -31,7 +31,7 @@ const config: DocsThemeConfig = {
   },
   docsRepositoryBase: 'https://github.com/cardinalhq/cardinal-docs',
   footer: {
-    text: '© 2025 Cardinal HQ, Inc. All rights reserved.',
+    text: '© 2025-2026 Cardinal HQ, Inc. All rights reserved.',
   },
 };
 

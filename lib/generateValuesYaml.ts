@@ -67,6 +67,8 @@ export interface WizardState {
   enableKeda: boolean;
   enableGrafana: boolean;
   enableCollector: boolean;
+  enableCardinalMonitoring: boolean;
+  cardinalApiKey: string;
 }
 
 // Validation functions
@@ -89,6 +91,9 @@ export function isBasicsConfigured(state: WizardState): boolean {
   if (!isValidCollectorName(state.collectorName)) return false;
   if (!isValidUUID(state.organizationId)) return false;
   if (!state.apiKey.trim()) return false;
+
+  // Validate Cardinal monitoring API key if enabled
+  if (state.enableCardinalMonitoring && state.cardinalApiKey.trim().length < 10) return false;
 
   // Validate storage configuration
   if (!state.storage.bucket.trim()) return false;
@@ -157,6 +162,8 @@ export function createDefaultState(): WizardState {
     enableKeda: true,
     enableGrafana: true,
     enableCollector: true,
+    enableCardinalMonitoring: true,
+    cardinalApiKey: '',
   };
 }
 
@@ -173,6 +180,13 @@ export function generateValuesYaml(state: WizardState): string | null {
   lines.push('global:');
   lines.push('  autoscaling:');
   lines.push(`    mode: "${state.enableKeda ? 'keda' : 'disabled'}"`);
+  if (state.enableCardinalMonitoring && state.cardinalApiKey.trim()) {
+    lines.push('  env:');
+    lines.push('    - name: OTEL_EXPORTER_OTLP_ENDPOINT');
+    lines.push('      value: "https://otelhttp.intake.us-east-2.aws.cardinalhq.io"');
+    lines.push('    - name: OTEL_EXPORTER_OTLP_HEADERS');
+    lines.push(`      value: "x-cardinalhq-api-key=${state.cardinalApiKey}"`);
+  }
   lines.push('');
 
   // API Keys
@@ -333,9 +347,9 @@ export function generateValuesYaml(state: WizardState): string | null {
   }
   lines.push('');
 
-  // Collector settings
+  // Collector settings (disabled - use external collector)
   lines.push('collector:');
-  lines.push(`  enabled: ${state.enableCollector}`);
+  lines.push('  enabled: false');
   lines.push('');
 
   return lines.join('\n');

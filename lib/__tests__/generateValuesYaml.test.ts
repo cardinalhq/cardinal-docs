@@ -54,6 +54,8 @@ function createValidPOCState(): WizardState {
   state.enableKeda = true;
   state.enableGrafana = true;
   state.enableCollector = true;
+  state.enableCardinalMonitoring = false;
+  state.cardinalApiKey = '';
   return state;
 }
 
@@ -359,6 +361,67 @@ describe('generateValuesYaml', () => {
       expect(yaml).toContain('collector_name: "test-collector"');
       expect(yaml).toContain('cloud_provider: "aws"');
       expect(yaml).toContain('bucket: "test-bucket"');
+    });
+  });
+
+  describe('Cardinal Monitoring Configuration', () => {
+    test('includes OTEL env vars when Cardinal monitoring enabled with valid API key', () => {
+      const state = createValidPOCState();
+      state.enableCardinalMonitoring = true;
+      state.cardinalApiKey = 'test-cardinal-api-key-12345';
+
+      const yaml = generateValuesYaml(state);
+
+      expect(yaml).not.toBeNull();
+      expect(yaml).toContain('env:');
+      expect(yaml).toContain('- name: OTEL_EXPORTER_OTLP_ENDPOINT');
+      expect(yaml).toContain('value: "https://otelhttp.intake.us-east-2.aws.cardinalhq.io"');
+      expect(yaml).toContain('- name: OTEL_EXPORTER_OTLP_HEADERS');
+      expect(yaml).toContain('value: "x-cardinalhq-api-key=test-cardinal-api-key-12345"');
+    });
+
+    test('does not include OTEL env vars when Cardinal monitoring disabled', () => {
+      const state = createValidPOCState();
+      state.enableCardinalMonitoring = false;
+      state.cardinalApiKey = '';
+
+      const yaml = generateValuesYaml(state);
+
+      expect(yaml).not.toBeNull();
+      expect(yaml).not.toContain('OTEL_EXPORTER_OTLP_ENDPOINT');
+      expect(yaml).not.toContain('OTEL_EXPORTER_OTLP_HEADERS');
+    });
+
+    test('returns null when Cardinal monitoring enabled but API key too short', () => {
+      const state = createValidPOCState();
+      state.enableCardinalMonitoring = true;
+      state.cardinalApiKey = 'short';  // Less than 10 characters
+
+      const yaml = generateValuesYaml(state);
+
+      expect(yaml).toBeNull();
+    });
+
+    test('generates valid YAML when Cardinal monitoring enabled with 10+ char API key', () => {
+      const state = createValidPOCState();
+      state.enableCardinalMonitoring = true;
+      state.cardinalApiKey = '1234567890';  // Exactly 10 characters
+
+      const yaml = generateValuesYaml(state);
+
+      expect(yaml).not.toBeNull();
+      expect(yaml).toContain('OTEL_EXPORTER_OTLP_ENDPOINT');
+    });
+  });
+
+  describe('Collector Configuration', () => {
+    test('collector is always disabled in generated YAML', () => {
+      const state = createValidPOCState();
+
+      const yaml = generateValuesYaml(state);
+
+      expect(yaml).toContain('collector:');
+      expect(yaml).toContain('enabled: false');
     });
   });
 });

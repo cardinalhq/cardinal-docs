@@ -49,7 +49,6 @@ describe('Helm Template Validation', () => {
     state.organizationId = 'b3a870ae-2c05-42b9-b073-572e718ad39d';
     state.collectorName = 'test-collector';
     state.apiKey = 'chq_test123456789012345678901234';
-    state.grafanaApiKey = 'chq_grafana123456789012345678901';
     state.storage = { bucket: 'test-bucket', region: 'us-east-1' };
     state.aws = {
       credentialMode: 'create',
@@ -89,6 +88,8 @@ describe('Helm Template Validation', () => {
     state.enableKeda = true;
     state.enableGrafana = true;
     state.enableCollector = true;
+    state.enableCardinalMonitoring = false;
+    state.cardinalApiKey = '';
     return state;
   }
 
@@ -260,6 +261,77 @@ describe('Helm Template Validation', () => {
       expect(result.success).toBe(true);
       // Should not contain ScaledObject when KEDA disabled
       expect(result.output).not.toContain('kind: ScaledObject');
+    }, 60000);
+  });
+
+  describe('Cardinal Monitoring Configuration', () => {
+    test('POC without Cardinal monitoring passes helm template', () => {
+      const state = createValidPOCState();
+      state.enableCardinalMonitoring = false;
+      state.cardinalApiKey = '';
+
+      const yaml = generateValuesYaml(state);
+      expect(yaml).not.toBeNull();
+      expect(yaml).not.toContain('OTEL_EXPORTER_OTLP_ENDPOINT');
+
+      const result = validateWithHelm(yaml!, 'no-monitoring-test');
+
+      if (!result.success) {
+        console.error('Helm template error:', result.error);
+      }
+
+      expect(result.success).toBe(true);
+      expect(result.output).toContain('kind: Deployment');
+    }, 60000);
+
+    test('POC with Cardinal monitoring passes helm template and includes env vars', () => {
+      const state = createValidPOCState();
+      state.enableCardinalMonitoring = true;
+      state.cardinalApiKey = 'test-cardinal-api-key-12345';
+
+      const yaml = generateValuesYaml(state);
+      expect(yaml).not.toBeNull();
+      expect(yaml).toContain('OTEL_EXPORTER_OTLP_ENDPOINT');
+      expect(yaml).toContain('x-cardinalhq-api-key=test-cardinal-api-key-12345');
+
+      const result = validateWithHelm(yaml!, 'with-monitoring-test');
+
+      if (!result.success) {
+        console.error('Helm template error:', result.error);
+      }
+
+      expect(result.success).toBe(true);
+      expect(result.output).toContain('kind: Deployment');
+      // Verify env vars are attached to deployments
+      expect(result.output).toContain('OTEL_EXPORTER_OTLP_ENDPOINT');
+      expect(result.output).toContain('otelhttp.intake.us-east-2.aws.cardinalhq.io');
+    }, 60000);
+
+    test('Production with Cardinal monitoring passes helm template', () => {
+      const state = createValidPOCState();
+      state.installType = 'production';
+      state.aws.credentialMode = 'existing';
+      state.aws.existingSecretName = 'aws-credentials';
+      state.lrdb.credentialMode = 'existing';
+      state.lrdb.existingSecretName = 'lrdb-credentials';
+      state.configdb.credentialMode = 'existing';
+      state.configdb.existingSecretName = 'configdb-credentials';
+      state.kafka.credentialMode = 'existing';
+      state.kafka.existingSecretName = 'kafka-credentials';
+      state.enableCardinalMonitoring = true;
+      state.cardinalApiKey = 'prod-cardinal-api-key-12345';
+
+      const yaml = generateValuesYaml(state);
+      expect(yaml).not.toBeNull();
+
+      const result = validateWithHelm(yaml!, 'production-monitoring-test');
+
+      if (!result.success) {
+        console.error('Helm template error:', result.error);
+      }
+
+      expect(result.success).toBe(true);
+      expect(result.output).toContain('OTEL_EXPORTER_OTLP_ENDPOINT');
     }, 60000);
   });
 });

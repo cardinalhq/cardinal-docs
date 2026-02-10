@@ -63,10 +63,9 @@ export default function LakerunnerHelmValuesWizard() {
     setState(prev => ({
       ...prev,
       installType,
-      // POC: Grafana and Collector enabled by default
-      // Production: Both disabled by default
+      // POC: Grafana enabled by default
+      // Production: Grafana disabled by default
       enableGrafana: installType === 'poc',
-      enableCollector: installType === 'poc',
     }));
   };
 
@@ -111,6 +110,9 @@ export default function LakerunnerHelmValuesWizard() {
       {/* Organization Settings */}
           <section className={styles.section}>
             <h3 className={styles.sectionTitle}>Organization Settings</h3>
+            <p className={styles.hint}>
+              Lakerunner is multi-tenant. Each tenant is an organization, and the collector and API key are used by that organization.
+            </p>
             <div className={styles.formGridTwoCol}>
               <div className={styles.formGroup}>
                 <label>Organization ID <span className={styles.required}>*</span></label>
@@ -132,8 +134,7 @@ export default function LakerunnerHelmValuesWizard() {
                   </span>
                 )}
                 <span className={styles.hint}>
-                  Lakerunner is multi-tenant. This will be the initial organization ID, and should not change after use.
-                  If you wish to have Cardinal monitor your deployment, sign up on <a href="https://app.cardinalhq.io" target="_blank" rel="noopener noreferrer">app.cardinalhq.io</a> and use the organization ID from that site.
+                  Click "Generate" to make a random ID, or enter one you have previously used.
                 </span>
               </div>
               <div className={styles.formGroup}>
@@ -165,6 +166,9 @@ export default function LakerunnerHelmValuesWizard() {
                     Generate
                   </button>
                 </div>
+                <span className={styles.hint}>
+                  This will be used by Grafana and other tools to query telemetry for this organization.
+                </span>
               </div>
             </div>
           </section>
@@ -186,17 +190,41 @@ export default function LakerunnerHelmValuesWizard() {
               <span className={styles.hint}>Pre-configured Grafana with Lakerunner datasources</span>
             </div>
 
-            {/* Collector Component */}
+            {/* Cardinal Monitoring Component */}
             <div className={styles.optionalComponent}>
               <label className={styles.checkboxLabel}>
                 <input
                   type="checkbox"
-                  checked={state.enableCollector}
-                  onChange={(e) => updateState('enableCollector', e.target.checked)}
+                  checked={state.enableCardinalMonitoring}
+                  onChange={(e) => updateState('enableCardinalMonitoring', e.target.checked)}
                 />
-                <strong>OpenTelemetry Collector</strong>
+                <strong>Monitoring by Cardinal</strong>
               </label>
-              <span className={styles.hint}>Deploys an OTel Collector for ingesting telemetry data</span>
+              <span className={styles.hint}>Send Lakerunner telemetry to Cardinal for monitoring. Cardinal will monitor your Lakerunner deployment and provide a dashboard for performance monitoring. We will not see your organization's data, just Lakerunner performance.</span>
+              {state.enableCardinalMonitoring && (
+                <div className={styles.componentSettings}>
+                  <div className={styles.formGroup}>
+                    <label>Cardinal Cloud API Key <span className={styles.required}>*</span></label>
+                    <input
+                      type="text"
+                      value={state.cardinalApiKey}
+                      onChange={(e) => updateState('cardinalApiKey', e.target.value)}
+                      placeholder="your-cardinal-cloud-api-key"
+                      className={!state.cardinalApiKey.trim() ? styles.inputError : ''}
+                    />
+                    <span className={styles.hint}>
+                      This is different from the Lakerunner API key above. Sign up at <a href="https://app.cardinalhq.io" target="_blank" rel="noopener noreferrer">app.cardinalhq.io</a> and copy your API key from the dashboard.
+                    </span>
+                  </div>
+                </div>
+              )}
+              {!state.enableCardinalMonitoring && (
+                <div className={styles.componentSettings}>
+                  <div className={styles.warningBox}>
+                    <strong>⚠️ Warning:</strong> Without Cardinal monitoring, ensure your Lakerunner deployment is properly monitored by another observability solution.
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* KEDA Component */}
