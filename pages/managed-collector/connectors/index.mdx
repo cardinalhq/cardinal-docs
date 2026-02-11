@@ -1,0 +1,34 @@
+# Connectors
+
+Cardinal Managed Collectors support a variety of telemetry connectors that enable you to receive data from multiple sources and forward it to various destinations.
+
+## Sources (Receivers)
+
+Sources define how telemetry data enters your collector pipeline.
+
+| Source | Description |
+|--------|-------------|
+| [OTLP](./sources#otlp) | OpenTelemetry Protocol (gRPC and HTTP) |
+| [Prometheus](./sources#prometheus) | Prometheus scrape endpoint |
+| [Prometheus Remote Write](./sources#prometheus-remote-write) | Prometheus remote write receiver |
+| [StatsD](./sources#statsd) | StatsD metrics receiver |
+| [Logstash](./sources#logstash) | Elastic Logstash log receiver |
+| [Filelog](./sources#filelog) | File-based log collection |
+| [AWS Firehose Metrics](./sources#aws-firehose-metrics) | Amazon Kinesis Data Firehose metrics |
+| [Kubernetes Metrics](./sources#kubernetes-metrics) | Kubernetes pod and container metrics |
+| [Kubernetes Cluster Metrics](./sources#kubernetes-cluster-metrics) | Kubernetes cluster-level metrics |
+| [Kubernetes Events](./sources#kubernetes-events) | Kubernetes cluster events |
+| [CHQ IPC](./sources#chq-ipc) | Cardinal internal pipeline communication |
+
+## Destinations (Exporters)
+
+Destinations define where your processed telemetry data is sent after passing through the pipeline.
+
+| Destination | Description |
+|-------------|-------------|
+| [OTLP](./destinations#otlp) | OpenTelemetry Protocol (gRPC) |
+| [OTLP HTTP](./destinations#otlp-http) | OpenTelemetry Protocol (HTTP) |
+| [Debug Exporter](./destinations#debug-exporter) | Debug output for testing |
+| [CHQ IPC](./destinations#chq-ipc) | Cardinal internal pipeline communication |
+
+If you're looking for a connector that isn't listed here, please [email us](mailto:support@cardinalhq.io) and let us know!
