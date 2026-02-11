@@ -4,105 +4,116 @@ const ManagedCollectorDiagram: React.FC = () => {
   return (
     <div className="collector-diagram-container">
       <svg
-        viewBox="0 0 800 500"
+        viewBox="0 0 900 520"
         xmlns="http://www.w3.org/2000/svg"
         className="collector-diagram"
       >
         {/* Background */}
-        <rect width="800" height="500" className="diagram-bg" />
+        <rect width="900" height="520" className="diagram-bg" />
 
         {/* Kubernetes Cluster boundary */}
         <rect
-          x="30"
-          y="30"
-          width="540"
-          height="440"
+          x="20"
+          y="20"
+          width="580"
+          height="480"
           rx="12"
           className="cluster-boundary"
         />
-        <text x="50" y="58" className="cluster-label">Kubernetes Cluster</text>
+        <text x="40" y="48" className="cluster-label">Kubernetes Cluster</text>
+
+        {/* === LEFT COLUMN: Nodes with Agent Collectors === */}
 
         {/* Node 1 */}
-        <rect x="50" y="80" width="230" height="180" rx="8" className="node-box" />
-        <text x="70" y="105" className="node-label">Node 1</text>
+        <rect x="40" y="70" width="200" height="190" rx="8" className="node-box" />
+        <text x="60" y="95" className="node-label">Node 1</text>
 
-        {/* Pods on Node 1 */}
-        <rect x="70" y="120" width="60" height="40" rx="4" className="pod-box" />
-        <text x="100" y="145" className="pod-label">Pod</text>
-        <rect x="140" y="120" width="60" height="40" rx="4" className="pod-box" />
-        <text x="170" y="145" className="pod-label">Pod</text>
-        <rect x="70" y="170" width="60" height="40" rx="4" className="pod-box" />
-        <text x="100" y="195" className="pod-label">Pod</text>
+        {/* Items on Node 1 */}
+        <rect x="55" y="110" width="50" height="35" rx="4" className="pod-box" />
+        <text x="80" y="125" className="pod-label">Node</text>
+        <text x="80" y="137" className="pod-label">Metrics</text>
+        <rect x="115" y="110" width="50" height="35" rx="4" className="pod-box" />
+        <text x="140" y="132" className="pod-label">Pod</text>
+        <rect x="175" y="110" width="50" height="35" rx="4" className="pod-box" />
+        <text x="200" y="132" className="pod-label">Pod</text>
 
         {/* Agent Collector on Node 1 */}
-        <rect x="150" y="170" width="110" height="50" rx="6" className="agent-box" />
-        <text x="205" y="192" className="collector-label">Agent</text>
-        <text x="205" y="208" className="collector-label">Collector</text>
+        <rect x="80" y="165" width="120" height="50" rx="6" className="agent-box" />
+        <text x="140" y="187" className="collector-label">Agent</text>
+        <text x="140" y="203" className="collector-label">Collector</text>
 
         {/* Arrows from pods to agent */}
-        <path d="M130 140 L160 185" className="arrow-line" markerEnd="url(#arrowhead)" />
-        <path d="M170 160 L185 175" className="arrow-line" markerEnd="url(#arrowhead)" />
-        <path d="M130 190 L150 195" className="arrow-line" markerEnd="url(#arrowhead)" />
+        <path d="M80 145 L100 165" className="arrow-line" markerEnd="url(#arrowhead)" />
+        <path d="M140 145 L140 165" className="arrow-line" markerEnd="url(#arrowhead)" />
+        <path d="M200 145 L180 165" className="arrow-line" markerEnd="url(#arrowhead)" />
 
         {/* Node 2 */}
-        <rect x="50" y="280" width="230" height="180" rx="8" className="node-box" />
-        <text x="70" y="305" className="node-label">Node 2</text>
+        <rect x="40" y="290" width="200" height="190" rx="8" className="node-box" />
+        <text x="60" y="315" className="node-label">Node 2</text>
 
-        {/* Pods on Node 2 */}
-        <rect x="70" y="320" width="60" height="40" rx="4" className="pod-box" />
-        <text x="100" y="345" className="pod-label">Pod</text>
-        <rect x="140" y="320" width="60" height="40" rx="4" className="pod-box" />
-        <text x="170" y="345" className="pod-label">Pod</text>
+        {/* Items on Node 2 */}
+        <rect x="55" y="330" width="50" height="35" rx="4" className="pod-box" />
+        <text x="80" y="345" className="pod-label">Node</text>
+        <text x="80" y="357" className="pod-label">Metrics</text>
+        <rect x="115" y="330" width="50" height="35" rx="4" className="pod-box" />
+        <text x="140" y="352" className="pod-label">Pod</text>
+        <rect x="175" y="330" width="50" height="35" rx="4" className="pod-box" />
+        <text x="200" y="352" className="pod-label">Pod</text>
 
         {/* Agent Collector on Node 2 */}
-        <rect x="150" y="370" width="110" height="50" rx="6" className="agent-box" />
-        <text x="205" y="392" className="collector-label">Agent</text>
-        <text x="205" y="408" className="collector-label">Collector</text>
+        <rect x="80" y="385" width="120" height="50" rx="6" className="agent-box" />
+        <text x="140" y="407" className="collector-label">Agent</text>
+        <text x="140" y="423" className="collector-label">Collector</text>
 
         {/* Arrows from pods to agent on node 2 */}
-        <path d="M130 360 L175 375" className="arrow-line" markerEnd="url(#arrowhead)" />
-        <path d="M170 360 L190 375" className="arrow-line" markerEnd="url(#arrowhead)" />
+        <path d="M80 365 L100 385" className="arrow-line" markerEnd="url(#arrowhead)" />
+        <path d="M140 365 L140 385" className="arrow-line" markerEnd="url(#arrowhead)" />
+        <path d="M200 365 L180 385" className="arrow-line" markerEnd="url(#arrowhead)" />
+
+        {/* === MIDDLE COLUMN: Polling Collector === */}
+
+        {/* Data sources for Polling - horizontal layout */}
+        <rect x="270" y="70" width="100" height="50" rx="4" className="source-box" />
+        <text x="320" y="100" className="source-label">K8s API</text>
+
+        <rect x="390" y="70" width="100" height="50" rx="4" className="source-box" />
+        <text x="440" y="92" className="source-label">Prometheus</text>
+        <text x="440" y="107" className="source-label-small">targets</text>
 
         {/* Polling Collector */}
-        <rect x="320" y="120" width="120" height="70" rx="6" className="polling-box" />
-        <text x="380" y="150" className="collector-label">Polling</text>
-        <text x="380" y="168" className="collector-label">Collector</text>
-
-        {/* K8s API, Prometheus targets */}
-        <rect x="330" y="220" width="100" height="35" rx="4" className="source-box" />
-        <text x="380" y="242" className="source-label">K8s API</text>
-        <rect x="330" y="265" width="100" height="35" rx="4" className="source-box" />
-        <text x="380" y="287" className="source-label">Prometheus</text>
-        <text x="380" y="300" className="source-label-small">targets</text>
+        <rect x="305" y="160" width="130" height="65" rx="6" className="polling-box" />
+        <text x="370" y="188" className="collector-label">Polling</text>
+        <text x="370" y="206" className="collector-label">Collector</text>
 
         {/* Arrows from sources to polling */}
-        <path d="M380 220 L380 190" className="arrow-line" markerEnd="url(#arrowhead)" />
-        <path d="M380 265 L380 190" className="arrow-line" markerEnd="url(#arrowhead)" />
+        <path d="M320 120 L350 160" className="arrow-line" markerEnd="url(#arrowhead)" />
+        <path d="M440 120 L390 160" className="arrow-line" markerEnd="url(#arrowhead)" />
 
-        {/* Gateway Collector */}
-        <rect x="320" y="360" width="120" height="80" rx="6" className="gateway-box" />
-        <text x="380" y="395" className="gateway-label">Gateway</text>
-        <text x="380" y="415" className="gateway-label">Collector</text>
+        {/* === GATEWAY COLLECTOR (center bottom) === */}
+        <rect x="305" y="380" width="130" height="75" rx="6" className="gateway-box" />
+        <text x="370" y="412" className="gateway-label">Gateway</text>
+        <text x="370" y="432" className="gateway-label">Collector</text>
 
         {/* Arrows to Gateway */}
-        <path d="M260 195 L320 395" className="arrow-line-thick" markerEnd="url(#arrowhead)" />
-        <path d="M260 395 L320 400" className="arrow-line-thick" markerEnd="url(#arrowhead)" />
-        <path d="M380 190 L380 360" className="arrow-line-thick" markerEnd="url(#arrowhead)" />
+        <path d="M200 190 L305 405" className="arrow-line-thick" markerEnd="url(#arrowhead)" />
+        <path d="M200 410 L305 418" className="arrow-line-thick" markerEnd="url(#arrowhead)" />
+        <path d="M370 225 L370 380" className="arrow-line-thick" markerEnd="url(#arrowhead)" />
 
-        {/* External destinations */}
-        {/* Lakerunner / Object Storage */}
-        <rect x="600" y="300" width="160" height="60" rx="8" className="destination-box" />
-        <text x="680" y="325" className="destination-label">Lakerunner</text>
-        <text x="680" y="345" className="destination-label-small">(Object Storage)</text>
+        {/* === RIGHT SIDE: Destinations (outside cluster) === */}
+
+        {/* Lakerunner */}
+        <rect x="640" y="320" width="160" height="60" rx="8" className="destination-box" />
+        <text x="720" y="345" className="destination-label">Lakerunner</text>
+        <text x="720" y="363" className="destination-label-small">(Object Storage)</text>
 
         {/* OTLP Destination */}
-        <rect x="600" y="400" width="160" height="60" rx="8" className="destination-box" />
-        <text x="680" y="425" className="destination-label">OTLP</text>
-        <text x="680" y="445" className="destination-label-small">Destination</text>
+        <rect x="640" y="410" width="160" height="60" rx="8" className="destination-box" />
+        <text x="720" y="435" className="destination-label">OTLP</text>
+        <text x="720" y="453" className="destination-label-small">Destination</text>
 
         {/* Arrows from Gateway to destinations */}
-        <path d="M440 385 L600 330" className="arrow-line-thick" markerEnd="url(#arrowhead)" />
-        <path d="M440 410 L600 430" className="arrow-line-thick" markerEnd="url(#arrowhead)" />
+        <path d="M435 400 L640 350" className="arrow-line-thick" markerEnd="url(#arrowhead)" />
+        <path d="M435 430 L640 440" className="arrow-line-thick" markerEnd="url(#arrowhead)" />
 
         {/* Arrow definitions */}
         <defs>
@@ -128,7 +139,7 @@ const ManagedCollectorDiagram: React.FC = () => {
         }
         .collector-diagram {
           width: 100%;
-          max-width: 800px;
+          max-width: 900px;
           height: auto;
         }
         .diagram-bg {
@@ -181,13 +192,13 @@ const ManagedCollectorDiagram: React.FC = () => {
           stroke-width: 2;
         }
         .collector-label {
-          font-size: 11px;
+          font-size: 12px;
           font-weight: 600;
           fill: var(--collector-text);
           text-anchor: middle;
         }
         .gateway-label {
-          font-size: 13px;
+          font-size: 14px;
           font-weight: 700;
           fill: var(--gateway-text);
           text-anchor: middle;
@@ -195,15 +206,15 @@ const ManagedCollectorDiagram: React.FC = () => {
         .source-box {
           fill: var(--source-bg);
           stroke: var(--source-stroke);
-          stroke-width: 1;
+          stroke-width: 1.5;
         }
         .source-label {
-          font-size: 10px;
+          font-size: 11px;
           fill: var(--text-secondary);
           text-anchor: middle;
         }
         .source-label-small {
-          font-size: 8px;
+          font-size: 9px;
           fill: var(--text-muted);
           text-anchor: middle;
         }
@@ -213,7 +224,7 @@ const ManagedCollectorDiagram: React.FC = () => {
           stroke-width: 2;
         }
         .destination-label {
-          font-size: 12px;
+          font-size: 13px;
           font-weight: 600;
           fill: var(--destination-text);
           text-anchor: middle;
