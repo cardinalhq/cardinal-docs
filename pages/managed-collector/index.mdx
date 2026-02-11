@@ -1,58 +1,82 @@
-import ExpandableImage from "../../components/ExpandableImage"
+import ManagedCollectorDiagram from "../../components/ManagedCollectorDiagram"
 
 # Managed Collector
 
 Cardinal Managed Collectors are a remotely configurable layer on top of the OpenTelemetry Collector, designed to simplify and streamline how you gather, process, and send telemetry data. By leveraging the Cardinal Managed Collector, you gain operational visibility and control over every stage of your telemetry pipeline—without manually configuring or maintaining collectors across your environment.
 
-## Pipeline Telemetry & Remote Management
+## Architecture
 
-At the heart of Cardinal's Managed Collectors are **Collector Pipelines**, which define how telemetry flows from sources to destinations through a series of processors and rules. With the Managed Collector, you can:
+The Managed Collector uses a distributed architecture designed for Kubernetes environments, with three collector types working together:
 
-- **Add or Remove OpenTelemetry Sources (Receivers):** Dynamically introduce new data streams (e.g., from applications, infrastructure, or services) or stop unwanted ones—all without touching the underlying infrastructure.
-- **Manage Sinks (Exporters):** Seamlessly re-route telemetry data to different backends (e.g., logging services, metrics storage, or trace analysis tools) at any time. Quickly respond to business needs, compliance requirements, or cost considerations.
-- **Utilize Managed Processors (Rules):** Apply powerful transformations, enrichments, or filters to your telemetry data with simple configuration changes. Whether you're masking PII, dropping noisy metrics, extracting tags from logs, or sampling traces, these rules ensure that only the most valuable data reaches your destinations.
+<ManagedCollectorDiagram />
 
-All of these changes are made via the [Cardinal UI](https://app.cardinalhq.io), ensuring that collectors remain up-to-date and aligned with your current observability strategy. There's no need to redeploy or manually reconfigure collectors at the host level—the Managed Collector handles it all remotely.
+### Collector Types
 
-## Node and Rule-Level Statistics
+**Gateway Collector**
 
-Cardinal doesn't just orchestrate the pipeline; it also provides granular insights into its operation:
+The Gateway Collector is the central aggregation point for all telemetry within a Kubernetes cluster. It receives data from Agent and Polling collectors, applies pipeline rules, and forwards processed telemetry to external destinations. The Gateway can simultaneously write to:
+- **Lakerunner** (object storage) for long-term retention and analytics
+- **OTLP destinations** for real-time monitoring and alerting
 
-- **Node Stats:** Keep track of system-level metrics (CPU usage, memory consumption) and understand collector health in real-time. This ensures you have the operational transparency needed to maintain performance and reliability.
+**Agent Collector**
 
-- **Rule Stats & Pipeline Telemetry:** Monitor how rules affect your data. For example, track how much data is being filtered out, how often tags are being extracted, or how effective your sampling strategies are. This data helps you fine-tune your pipelines for cost savings, compliance, and meaningful analytics.
+Agent Collectors run as a DaemonSet, with one instance on every node in the cluster. They are responsible for:
+- Receiving telemetry from pods running on the node (distributing collection workload)
+- Monitoring node-level metrics (CPU, memory, disk, network)
+- Collecting container logs and system logs
+- Forwarding all collected data to the Gateway Collector
 
-## Collector Telemetry Insights
+By running on each node, Agent Collectors ensure that telemetry collection is distributed and that pods communicate with a local collector, minimizing network overhead.
 
-In addition to managing and transforming data, Cardinal's managed collectors emit telemetry about themselves. This includes information on:
+**Polling Collector**
 
-- **Pipeline Behavior:** Understand how data moves through sources, rules, and destinations.
-- **Resource Utilization:** Gain visibility into CPU, memory, and network usage, ensuring collectors run smoothly and cost-effectively.
-- **Rule Efficacy:** See the impact of each rule, quantifying how many data points are dropped, tagged, masked, or transformed.
+The Polling Collector handles centralized data collection tasks that should only run once per cluster:
+- Scraping Prometheus endpoints
+- Querying the Kubernetes API server for cluster metrics
+- Collecting Kubernetes events
+- Any other polling-based data sources
 
-By capturing and exposing these operational metrics, the Managed Collector empowers you to adopt a data-driven approach to collector management, helping you adapt quickly as your environment, data volume, or compliance requirements evolve.
+This prevents duplicate data collection that would occur if every Agent Collector performed these tasks.
+
+## Remote Management
+
+All collector configuration is managed remotely through the [Cardinal UI](https://app.cardinalhq.io). With the Managed Collector, you can:
+
+- **Add or Remove Sources:** Dynamically introduce new data streams or stop unwanted ones—all without touching the underlying infrastructure.
+- **Manage Destinations:** Seamlessly re-route telemetry data to different backends at any time.
+- **Apply Processing Rules:** Configure transformations, enrichments, or filters with simple configuration changes.
+
+There's no need to redeploy or manually reconfigure collectors—the Managed Collector handles it all remotely and collectors continuously stay up-to-date with the latest configurations.
 
 ## Pipeline Rules
 
-Pipeline rules are flexible, user-defined transformations and filters applied to your telemetry data as it passes through the pipeline. By shaping and refining data before it lands in your storage or monitoring tools, rules help you:
+Pipeline rules are flexible, user-defined transformations and filters applied to your telemetry data as it passes through the pipeline. Rules help you:
 
 - Control costs by removing unnecessary data
-- Enhance data quality and context by adding tags or extracting metrics
+- Enhance data quality by adding tags or extracting metrics
 - Improve privacy by masking or dropping sensitive information
-- Streamline observability efforts, making it easier to investigate and understand system behavior
+- Streamline observability by filtering noise
 
 ### Available Rule Types
 
 | Rule Type | Description |
 |-----------|-------------|
-| **PII Removal/Masking** | Remove or obscure sensitive Personally Identifiable Information from your telemetry |
-| **Extract Metrics** | Convert log fields into metrics on the fly for easier aggregation and alerting |
-| **Custom OTTL** | Write custom conditions and statements using OpenTelemetry Transformation Language |
-| **Filter** | Completely remove certain telemetry items based on defined conditions |
-| **Drop Tags** | Remove high-cardinality tags or dimensions that inflate cost and complexity |
-| **Add Tags** | Enrich telemetry by adding tags (key-value pairs) based on conditions |
-| **Sampling** | Reduce telemetry volume by sampling logs—either randomly or proportionally |
-| **Extract Tags** | Parse unstructured log messages to extract variable parts into structured tags |
+| **PII Removal/Masking** | Remove or obscure sensitive Personally Identifiable Information |
+| **Extract Metrics** | Convert log fields into metrics for aggregation and alerting |
+| **Custom OTTL** | Write custom logic using OpenTelemetry Transformation Language |
+| **Filter** | Remove telemetry items based on defined conditions |
+| **Drop Tags** | Remove high-cardinality tags that inflate cost |
+| **Add Tags** | Enrich telemetry with additional context |
+| **Sampling** | Reduce volume by sampling logs randomly or proportionally |
+| **Extract Tags** | Parse log messages to extract structured tags |
+
+## Observability
+
+The Managed Collector provides granular insights into its own operation:
+
+- **Node Stats:** Track CPU usage, memory consumption, and collector health in real-time
+- **Rule Stats:** Monitor how rules affect your data—how much is filtered, how often tags are extracted, sampling effectiveness
+- **Pipeline Telemetry:** Understand how data moves through sources, rules, and destinations
 
 ## Getting Started
 
@@ -61,6 +85,4 @@ To get started with Managed Collectors:
 1. Navigate to **Collector Pipelines** in the [Cardinal UI](https://app.cardinalhq.io)
 2. Add your desired [Connectors](/managed-collector/connectors) (sources and destinations)
 3. Configure processing rules to shape your telemetry data
-4. Deploy or update your collector using the provided Helm chart
-
-Pipelines are fully managed through the Cardinal UI, and Collectors continuously stay up-to-date with the latest Pipeline configurations.
+4. Deploy collectors using the provided Helm chart
