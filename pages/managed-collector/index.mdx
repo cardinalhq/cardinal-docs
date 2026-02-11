@@ -1,0 +1,66 @@
+import ExpandableImage from "../../components/ExpandableImage"
+
+# Managed Collector
+
+Cardinal Managed Collectors are a remotely configurable layer on top of the OpenTelemetry Collector, designed to simplify and streamline how you gather, process, and send telemetry data. By leveraging the Cardinal Managed Collector, you gain operational visibility and control over every stage of your telemetry pipeline—without manually configuring or maintaining collectors across your environment.
+
+## Pipeline Telemetry & Remote Management
+
+At the heart of Cardinal's Managed Collectors are **Collector Pipelines**, which define how telemetry flows from sources to destinations through a series of processors and rules. With the Managed Collector, you can:
+
+- **Add or Remove OpenTelemetry Sources (Receivers):** Dynamically introduce new data streams (e.g., from applications, infrastructure, or services) or stop unwanted ones—all without touching the underlying infrastructure.
+- **Manage Sinks (Exporters):** Seamlessly re-route telemetry data to different backends (e.g., logging services, metrics storage, or trace analysis tools) at any time. Quickly respond to business needs, compliance requirements, or cost considerations.
+- **Utilize Managed Processors (Rules):** Apply powerful transformations, enrichments, or filters to your telemetry data with simple configuration changes. Whether you're masking PII, dropping noisy metrics, extracting tags from logs, or sampling traces, these rules ensure that only the most valuable data reaches your destinations.
+
+All of these changes are made via the [Cardinal UI](https://app.cardinalhq.io), ensuring that collectors remain up-to-date and aligned with your current observability strategy. There's no need to redeploy or manually reconfigure collectors at the host level—the Managed Collector handles it all remotely.
+
+## Node and Rule-Level Statistics
+
+Cardinal doesn't just orchestrate the pipeline; it also provides granular insights into its operation:
+
+- **Node Stats:** Keep track of system-level metrics (CPU usage, memory consumption) and understand collector health in real-time. This ensures you have the operational transparency needed to maintain performance and reliability.
+
+- **Rule Stats & Pipeline Telemetry:** Monitor how rules affect your data. For example, track how much data is being filtered out, how often tags are being extracted, or how effective your sampling strategies are. This data helps you fine-tune your pipelines for cost savings, compliance, and meaningful analytics.
+
+## Collector Telemetry Insights
+
+In addition to managing and transforming data, Cardinal's managed collectors emit telemetry about themselves. This includes information on:
+
+- **Pipeline Behavior:** Understand how data moves through sources, rules, and destinations.
+- **Resource Utilization:** Gain visibility into CPU, memory, and network usage, ensuring collectors run smoothly and cost-effectively.
+- **Rule Efficacy:** See the impact of each rule, quantifying how many data points are dropped, tagged, masked, or transformed.
+
+By capturing and exposing these operational metrics, the Managed Collector empowers you to adopt a data-driven approach to collector management, helping you adapt quickly as your environment, data volume, or compliance requirements evolve.
+
+## Pipeline Rules
+
+Pipeline rules are flexible, user-defined transformations and filters applied to your telemetry data as it passes through the pipeline. By shaping and refining data before it lands in your storage or monitoring tools, rules help you:
+
+- Control costs by removing unnecessary data
+- Enhance data quality and context by adding tags or extracting metrics
+- Improve privacy by masking or dropping sensitive information
+- Streamline observability efforts, making it easier to investigate and understand system behavior
+
+### Available Rule Types
+
+| Rule Type | Description |
+|-----------|-------------|
+| **PII Removal/Masking** | Remove or obscure sensitive Personally Identifiable Information from your telemetry |
+| **Extract Metrics** | Convert log fields into metrics on the fly for easier aggregation and alerting |
+| **Custom OTTL** | Write custom conditions and statements using OpenTelemetry Transformation Language |
+| **Filter** | Completely remove certain telemetry items based on defined conditions |
+| **Drop Tags** | Remove high-cardinality tags or dimensions that inflate cost and complexity |
+| **Add Tags** | Enrich telemetry by adding tags (key-value pairs) based on conditions |
+| **Sampling** | Reduce telemetry volume by sampling logs—either randomly or proportionally |
+| **Extract Tags** | Parse unstructured log messages to extract variable parts into structured tags |
+
+## Getting Started
+
+To get started with Managed Collectors:
+
+1. Navigate to **Collector Pipelines** in the [Cardinal UI](https://app.cardinalhq.io)
+2. Add your desired [Connectors](/managed-collector/connectors) (sources and destinations)
+3. Configure processing rules to shape your telemetry data
+4. Deploy or update your collector using the provided Helm chart
+
+Pipelines are fully managed through the Cardinal UI, and Collectors continuously stay up-to-date with the latest Pipeline configurations.
