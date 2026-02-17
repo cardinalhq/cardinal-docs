@@ -1,5 +1,6 @@
 {
   "index": "Overview",
   "install": "Installation Guide",
+  "cli": "CLI Reference",
   "loki-comparison": "Lakerunner vs. Loki"
 }
