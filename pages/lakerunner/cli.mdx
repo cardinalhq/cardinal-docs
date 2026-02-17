@@ -95,10 +95,12 @@ lakerunner-cli logs get
 | `--limit` | | Maximum number of results | `1000` |
 | `--start` | `-s` | Start time (e.g., `e-1h`, `2024-01-01T00:00:00Z`) | 1 hour ago |
 | `--end` | `-e` | End time (e.g., `now`, `2024-01-01T23:59:59Z`) | now |
-| `--app` | `-a` | Filter by application/service name | |
+| `--app` | `-a` | Filter by application/service name (comma-separated for multiple; regex supported) | |
 | `--level` | `-l` | Filter by log level (`ERROR`, `WARN`, `INFO`, `DEBUG`, `TRACE`) | |
 | `--filter` | `-f` | Filter as `key:value` (repeatable) | |
 | `--preset` | `-p` | Use a named filter preset from config | |
+| `--order` | | Sort order for results (`newest` or `oldest`) | `newest` |
+| `--output` | `-o` | Output format (`text`, `json`, `csv`, `tsv`) | `text` |
 | `--contains` | `-M` | Message contains string | |
 | `--not-contains` | `-N` | Message does not contain string | |
 | `--msg-regex` | `-R` | Message matches regex | |
@@ -163,8 +165,33 @@ lakerunner-cli logs get --start "e-30m" --columns "timestamp,level,service,messa
 ```
 
 ```bash copy
-# Export logs as JSON for a specific time window
-lakerunner-cli logs get --start "2024-06-01T00:00:00Z" --end "2024-06-01T01:00:00Z" --columns "timestamp,level,message"
+# Export logs as JSON
+lakerunner-cli logs get -o json
+```
+
+```bash copy
+# Export daily logs to CSV
+lakerunner-cli logs get --start "2024-06-01T00:00:00Z" --end "2024-06-02T00:00:00Z" -o csv
+```
+
+```bash copy
+# Get oldest logs first
+lakerunner-cli logs get --order oldest
+```
+
+```bash copy
+# Filter multiple services (comma-separated)
+lakerunner-cli logs get -a "api-server,auth-service"
+```
+
+```bash copy
+# Filter services by regex pattern
+lakerunner-cli logs get -a "api-.*"
+```
+
+```bash copy
+# Raw LogQL query
+lakerunner-cli logs get --query '{resource_service_name="my-service"} |= "error"'
 ```
 
 ```bash copy
