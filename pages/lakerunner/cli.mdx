@@ -17,12 +17,6 @@ Download the Lakerunner CLI binary from the [latest release](https://github.com/
 
 Unpack the archive, then move the binary to a location on your `PATH`.
 
-### Homebrew (macOS/Linux)
-
-```bash copy
-brew install cardinalhq/tap/lakerunner-cli
-```
-
 ## Configuration
 
 ### Environment Variables
@@ -95,7 +89,7 @@ lakerunner-cli logs get
 | `--limit` | | Maximum number of results | `1000` |
 | `--start` | `-s` | Start time (e.g., `e-1h`, `2024-01-01T00:00:00Z`) | 1 hour ago |
 | `--end` | `-e` | End time (e.g., `now`, `2024-01-01T23:59:59Z`) | now |
-| `--app` | `-a` | Filter by application/service name (comma-separated for multiple; regex supported) | |
+| `--app` | `-a` | Filter by application/service name (comma-separated for multiple) | |
 | `--level` | `-l` | Filter by log level (`ERROR`, `WARN`, `INFO`, `DEBUG`, `TRACE`) | |
 | `--filter` | `-f` | Filter as `key:value` (repeatable) | |
 | `--preset` | `-p` | Use a named filter preset from config | |
@@ -182,11 +176,6 @@ lakerunner-cli logs get --order oldest
 ```bash copy
 # Filter multiple services (comma-separated)
 lakerunner-cli logs get -a "api-server,auth-service"
-```
-
-```bash copy
-# Filter services by regex pattern
-lakerunner-cli logs get -a "api-.*"
 ```
 
 ```bash copy
@@ -281,7 +270,7 @@ lakerunner-cli aliases list
 
 ## Quick Start
 
-1. **Download** the CLI from the [releases page](https://github.com/cardinalhq/lakerunner-cli/releases) or install via Homebrew.
+1. **Download** the CLI from the [releases page](https://github.com/cardinalhq/lakerunner-cli/releases).
 
 2. **Configure** your environment:
 
