@@ -100,7 +100,7 @@ lakerunner-cli logs get
 | `--msg-regex` | `-R` | Message matches regex | |
 | `--msg-not-regex` | `-X` | Message does not match regex | |
 | `--columns` | `-c` | Columns to display (comma-separated) | |
-| `--query` | | Raw LogQL query (bypasses other filters) | |
+| `--query` | | Raw [LogQL query](/lakerunner/query-language) (bypasses other filters) | |
 
 #### Time Ranges
 
@@ -179,7 +179,7 @@ lakerunner-cli logs get -a "api-server,auth-service"
 ```
 
 ```bash copy
-# Raw LogQL query
+# Raw LogQL query (see Query Language docs for syntax)
 lakerunner-cli logs get --query '{resource_service_name="my-service"} |= "error"'
 ```
 
