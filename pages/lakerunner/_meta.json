@@ -1,6 +1,7 @@
 {
   "index": "Overview",
   "install": "Installation Guide",
+  "architecture": "Architecture",
   "cli": "CLI Reference",
   "query-language": "Query Language",
   "loki-comparison": "Lakerunner vs. Loki"
