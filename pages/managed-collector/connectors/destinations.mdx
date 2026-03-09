@@ -1,0 +1,35 @@
+# Destinations
+
+Destinations (exporters) define where your processed telemetry data is sent after passing through the pipeline.
+
+---
+
+## OTLP
+
+Sends telemetry data to [OpenTelemetry](https://opentelemetry.io/) compatible endpoints using gRPC. This is the recommended exporter for most OpenTelemetry backends.
+
+**Supports:** Metrics, Logs, Traces
+
+---
+
+## OTLP HTTP
+
+Sends telemetry data to [OpenTelemetry](https://opentelemetry.io/) compatible endpoints using HTTP/JSON. Use this when gRPC is not available or when sending through HTTP proxies.
+
+**Supports:** Metrics, Logs, Traces
+
+---
+
+## Debug Exporter
+
+Outputs telemetry data for debugging and testing purposes. Useful during pipeline development to verify data is flowing correctly.
+
+**Supports:** Metrics, Logs, Traces
+
+---
+
+## CHQ IPC
+
+Cardinal internal pipeline communication. Used for routing telemetry between pipeline components within the Cardinal infrastructure.
+
+**Supports:** Metrics, Logs, Traces

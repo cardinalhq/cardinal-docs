@@ -1,0 +1,91 @@
+# Sources
+
+Sources (receivers) define how telemetry data enters your collector pipeline. Configure these to receive data from your applications and infrastructure.
+
+---
+
+## OTLP
+
+Receives telemetry data via gRPC or HTTP in the [OpenTelemetry Protocol (OTLP)](https://opentelemetry.io/docs/specs/otlp/) format. This is the recommended receiver for OpenTelemetry-instrumented applications.
+
+**Supports:** Metrics, Logs, Traces
+
+---
+
+## Prometheus
+
+Scrapes metrics from [Prometheus](https://prometheus.io/) endpoints. Use this to collect metrics from applications that expose Prometheus-format metrics.
+
+**Supports:** Metrics
+
+---
+
+## Prometheus Remote Write
+
+Receives metrics from [Prometheus](https://prometheus.io/) servers using Remote Write forwarding. Configure your Prometheus server to send metrics to the collector.
+
+**Supports:** Metrics
+
+---
+
+## StatsD
+
+Receives metrics in [StatsD](https://github.com/statsd/statsd) format. Compatible with applications using StatsD client libraries.
+
+**Supports:** Metrics
+
+---
+
+## Logstash
+
+Receives logs from [Elastic Logstash](https://www.elastic.co/logstash) pipelines via TCP.
+
+**Supports:** Logs
+
+---
+
+## Filelog
+
+Collects logs from files on the local filesystem. Useful for collecting application logs written to disk, container logs, and system logs.
+
+**Supports:** Logs
+
+---
+
+## AWS Firehose Metrics
+
+Receives metrics from [Amazon Kinesis Data Firehose](https://aws.amazon.com/firehose/). Use this to ingest CloudWatch metrics or other AWS telemetry data.
+
+**Supports:** Metrics
+
+---
+
+## Kubernetes Metrics
+
+Collects pod and container-level metrics from Kubernetes. Automatically discovers and scrapes metrics from pods running in the cluster.
+
+**Supports:** Metrics
+
+---
+
+## Kubernetes Cluster Metrics
+
+Collects cluster-level metrics from Kubernetes, including node metrics, resource quotas, and cluster state information.
+
+**Supports:** Metrics
+
+---
+
+## Kubernetes Events
+
+Captures Kubernetes cluster events such as pod scheduling, container starts/stops, and other cluster activities. Useful for correlating infrastructure events with application telemetry.
+
+**Supports:** Logs (Events)
+
+---
+
+## CHQ IPC
+
+Cardinal internal pipeline communication. Used for routing telemetry between pipeline components within the Cardinal infrastructure.
+
+**Supports:** Metrics, Logs, Traces
