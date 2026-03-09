@@ -1,0 +1,439 @@
+/* ── Diagram wrapper ─────────────────────────────────── */
+.diagram {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  padding: 32px 16px;
+  margin: 24px 0;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  background: linear-gradient(180deg, #fafbfc 0%, #f1f5f9 100%);
+  overflow-x: auto;
+}
+
+:global(.dark) .diagram {
+  border-color: #1e293b;
+  background: linear-gradient(180deg, #0f172a 0%, #0b1120 100%);
+}
+
+/* ── Row / Column layout helpers ────────────────────── */
+.row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 32px;
+  width: 100%;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+
+.sideColumn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  flex: 1;
+  max-width: 340px;
+}
+
+/* ── Node base ──────────────────────────────────────── */
+.node {
+  position: relative;
+  min-width: 220px;
+  max-width: 340px;
+  padding: 14px 20px;
+  border-radius: 10px;
+  border: 2px solid;
+  text-align: center;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.nodeTitle {
+  font-weight: 700;
+  font-size: 0.9rem;
+  margin-bottom: 4px;
+}
+
+.nodeLine {
+  color: #4b5563;
+  font-size: 0.8rem;
+}
+
+:global(.dark) .nodeLine {
+  color: #94a3b8;
+}
+
+.nodeWide {
+  max-width: 520px;
+  min-width: 320px;
+}
+
+/* ── Node types ─────────────────────────────────────── */
+
+/* storage — blue */
+.nodeStorage {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.08);
+  color: #1e3a5f;
+}
+:global(.dark) .nodeStorage {
+  border-color: #60a5fa;
+  background: rgba(59, 130, 246, 0.15);
+  color: #bfdbfe;
+}
+
+/* kafka — violet */
+.nodeKafka {
+  border-color: #8b5cf6;
+  background: rgba(139, 92, 246, 0.08);
+  color: #4c1d95;
+}
+:global(.dark) .nodeKafka {
+  border-color: #a78bfa;
+  background: rgba(139, 92, 246, 0.15);
+  color: #ddd6fe;
+}
+
+/* worker — orange (Cardinal brand) */
+.nodeWorker {
+  border-color: #ea580c;
+  background: rgba(234, 88, 12, 0.08);
+  color: #7c2d12;
+}
+:global(.dark) .nodeWorker {
+  border-color: #fb923c;
+  background: rgba(234, 88, 12, 0.15);
+  color: #fed7aa;
+}
+
+/* client — emerald */
+.nodeClient {
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.08);
+  color: #064e3b;
+}
+:global(.dark) .nodeClient {
+  border-color: #34d399;
+  background: rgba(16, 185, 129, 0.15);
+  color: #a7f3d0;
+}
+
+/* gateway — amber */
+.nodeGateway {
+  border-color: #d97706;
+  background: rgba(217, 119, 6, 0.08);
+  color: #78350f;
+}
+:global(.dark) .nodeGateway {
+  border-color: #fbbf24;
+  background: rgba(217, 119, 6, 0.15);
+  color: #fde68a;
+}
+
+/* database — cyan */
+.nodeDatabase {
+  border-color: #0891b2;
+  background: rgba(8, 145, 178, 0.08);
+  color: #164e63;
+}
+:global(.dark) .nodeDatabase {
+  border-color: #22d3ee;
+  background: rgba(8, 145, 178, 0.15);
+  color: #a5f3fc;
+}
+
+/* ── Arrow ──────────────────────────────────────────── */
+.arrow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
+.arrowLine {
+  width: 2px;
+  background: #94a3b8;
+  min-height: 32px;
+}
+
+:global(.dark) .arrowLine {
+  background: #475569;
+}
+
+.arrowHead {
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 8px solid #94a3b8;
+}
+
+:global(.dark) .arrowHead {
+  border-top-color: #475569;
+}
+
+.arrowLabel {
+  position: absolute;
+  left: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  font-size: 0.75rem;
+  color: #64748b;
+  font-style: italic;
+}
+
+:global(.dark) .arrowLabel {
+  color: #94a3b8;
+}
+
+/* horizontal arrow */
+.arrowHorizontal {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  position: relative;
+}
+
+.arrowLineHorizontal {
+  height: 2px;
+  width: 60px;
+  background: #94a3b8;
+}
+
+:global(.dark) .arrowLineHorizontal {
+  background: #475569;
+}
+
+.arrowHeadRight {
+  width: 0;
+  height: 0;
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+  border-left: 8px solid #94a3b8;
+}
+
+:global(.dark) .arrowHeadRight {
+  border-left-color: #475569;
+}
+
+.arrowLabelHorizontal {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 0.75rem;
+  color: #64748b;
+  font-style: italic;
+}
+
+:global(.dark) .arrowLabelHorizontal {
+  color: #94a3b8;
+}
+
+/* ── Fan-out / fan-in connector ─────────────────────── */
+.fanBar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  position: relative;
+}
+
+.fanHorizontalLine {
+  position: absolute;
+  top: 0;
+  height: 2px;
+  background: #94a3b8;
+}
+
+:global(.dark) .fanHorizontalLine {
+  background: #475569;
+}
+
+.fanStub {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.fanStubLine {
+  width: 2px;
+  height: 20px;
+  background: #94a3b8;
+}
+
+:global(.dark) .fanStubLine {
+  background: #475569;
+}
+
+/* ── Split row (e.g. S3 + PostgreSQL side-by-side) ─── */
+.splitRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.splitConnector {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* ── Two-column grid (main flow + side nodes) ───────── */
+.gridRow {
+  display: grid;
+  grid-template-columns: auto auto auto;
+  align-items: center;
+  justify-content: center;
+  column-gap: 20px;
+  width: 100%;
+}
+
+.gridMain {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.gridConnector {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gridSide {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ── Section divider ────────────────────────────────── */
+.divider {
+  display: flex;
+  align-items: center;
+  width: 80%;
+  margin: 24px 0;
+  gap: 12px;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #cbd5e1;
+}
+
+:global(.dark) .divider::before,
+:global(.dark) .divider::after {
+  background: #334155;
+}
+
+.dividerLabel {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+:global(.dark) .dividerLabel {
+  color: #64748b;
+}
+
+/* ── Parallel paths (deployment model diagrams) ────── */
+.parallelPaths {
+  display: flex;
+  justify-content: center;
+  gap: 40px;
+  width: 100%;
+}
+
+.parallelPath {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  flex: 1;
+  max-width: 220px;
+}
+
+/* ── Responsive ─────────────────────────────────────── */
+@media (max-width: 768px) {
+  .diagram {
+    padding: 20px 10px;
+  }
+
+  .row {
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+
+  .node {
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .nodeWide {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .splitRow {
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+
+  .splitConnector {
+    padding-top: 0;
+    transform: rotate(90deg);
+  }
+
+  .parallelPaths {
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .parallelPath {
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .sideColumn {
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .fanBar {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .fanHorizontalLine {
+    display: none;
+  }
+
+  .gridRow {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .gridConnector {
+    transform: rotate(90deg);
+    margin: 8px 0;
+  }
+}
