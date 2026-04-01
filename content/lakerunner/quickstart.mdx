@@ -1,3 +1,4 @@
+import { Steps } from 'nextra/components';
 import SupportCallout from '../../components/SupportCallout';
 
 # Quick Start
@@ -10,22 +11,25 @@ Get Lakerunner running on a local Kubernetes cluster in under 10 minutes.
 - [Helm](https://helm.sh/docs/intro/install/) 3.14+
 - A Kubernetes cluster 1.33+ (or [kind](https://kind.sigs.k8s.io/), [minikube](https://minikube.sigs.k8s.io/), etc.)
 
-## 1. Create a Namespace
+<Steps>
+
+{<h3>Create the namespace</h3>}
 
 ```bash copy
 kubectl create namespace lakerunner
 ```
 
-## 2. Install Lakerunner
+{<h3>Install using Helm</h3>}
+
+Use the [Installation Wizard](/lakerunner/install) to generate a `values.yaml` tailored to your environment, then install:
 
 ```bash copy
 helm install lakerunner oci://public.ecr.aws/cardinalhq.io/lakerunner \
+  --values values.yaml \
   --namespace lakerunner
 ```
 
-This installs Lakerunner with default settings suitable for local development and evaluation.
-
-## 3. Verify the Installation
+{<h3>Verify the installation</h3>}
 
 Wait for all pods to become ready:
 
@@ -33,7 +37,7 @@ Wait for all pods to become ready:
 kubectl get pods -n lakerunner -w
 ```
 
-## 4. Access Grafana
+{<h3>Access Grafana</h3>}
 
 Port-forward Grafana to your local machine:
 
@@ -42,6 +46,8 @@ kubectl port-forward -n lakerunner svc/grafana 3000:3000
 ```
 
 Open [http://localhost:3000](http://localhost:3000) in your browser. Lakerunner's data source is pre-configured.
+
+</Steps>
 
 ## Next Steps
 
