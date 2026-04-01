@@ -1,0 +1,5 @@
+export default {
+  index: 'Welcome',
+  vibeshield: 'Cardinal Desktop Application',
+  lakerunner: 'Lakerunner',
+}

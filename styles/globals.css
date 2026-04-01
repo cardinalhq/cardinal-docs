@@ -12,22 +12,22 @@
   --cardinal-accent-soft: rgba(255, 138, 92, 0.2);
 }
 
-.nextra-content a {
+article a {
   color: var(--cardinal-accent);
   text-decoration: none;
 }
 
-.nextra-content a:hover {
+article a:hover {
   color: var(--cardinal-red);
 }
 
-.nextra-content h1 {
+article h1 {
   position: relative;
   display: inline-block;
   padding-bottom: 8px;
 }
 
-.nextra-content h1::after {
+article h1::after {
   content: '';
   position: absolute;
   left: 0;
@@ -39,15 +39,15 @@
   opacity: 0.9;
 }
 
-.nextra-content h2 {
+article h2 {
   border-left: 3px solid var(--cardinal-accent);
   padding-left: 12px;
 }
 
-.nextra-content code {
+article code {
   border-color: var(--cardinal-accent-soft);
 }
 
-.nextra-content ::selection {
+article ::selection {
   background: var(--cardinal-accent-soft);
 }
