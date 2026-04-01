@@ -5,22 +5,20 @@ import CompactionRollupDiagram from '../../../components/diagrams/CompactionRoll
 
 This page covers the end-to-end path telemetry takes from raw files in object storage through to optimized, queryable Parquet segments.
 
-> **Important:** Kafka is used exclusively for shuttling file notifications and work coordination messages between stages — raw telemetry data never flows through Kafka. Workers read and write telemetry data directly from object storage.
-
 ## Ingestion Flow
 
 <IngestionFlowDiagram />
 
 ## Compaction and Rollup
 
-After ingest, background stages merge and downsample segments to keep query costs stable as data grows.
+After ingestion, background stages merge and downsample segments to keep query costs stable as data grows.
 
 <CompactionRollupDiagram />
 
 ## Key Design Points
 
-1. **Kafka carries notifications, not data.** Kafka topics contain file paths and work coordination messages only. Raw and cooked telemetry lives exclusively in object storage — workers read and write it directly.
-2. **Horizontally scalable.** Add workers and Kafka partitions to handle more volume.
-3. **Boxer decouples fanout from compute.** High-volume notification streams are batched and grouped before reaching heavier worker stages.
+1. **Workers read and write directly from object storage.** Raw telemetry data never passes through intermediate messaging — workers process it in place.
+2. **Horizontally scalable.** Add workers to handle more volume.
+3. **Signal-specific processors.** `process-logs`, `process-metrics`, and `process-traces` each handle their signal type with tailored normalization and schema.
 4. **Object storage is immutable state.** Workers only append new segments — they never modify existing ones. PostgreSQL tracks the mutable planning metadata.
 5. **Compaction and rollup run continuously** in the background to keep segment counts and query costs bounded.

@@ -18,26 +18,8 @@ export default function IngestionFlowDiagram() {
       />
       <DiagramArrow />
       <DiagramNode
-        type="kafka"
-        title="Kafka"
-        lines={["objstore.ingest.{signal}", "(file paths only, NOT raw telemetry data)"]}
-      />
-      <DiagramArrow />
-      <DiagramNode
         type="worker"
-        title="boxer-ingest-{signal}"
-        lines={["batch + group by org/collector/time window"]}
-      />
-      <DiagramArrow />
-      <DiagramNode
-        type="kafka"
-        title="Kafka"
-        lines={["segments.{signal}.ingest"]}
-      />
-      <DiagramArrow />
-      <DiagramNode
-        type="worker"
-        title="ingest-{signal} worker"
+        title="process-{logs,metrics,traces}"
         lines={[
           "reads raw objects",
           "normalizes telemetry",
