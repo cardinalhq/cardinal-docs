@@ -1,0 +1,75 @@
+import SupportCallout from '../../components/SupportCallout';
+
+# Quick Start
+
+Get Lakerunner running on a local Kubernetes cluster in under 10 minutes.
+
+## Prerequisites
+
+- [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl) installed
+- [Helm](https://helm.sh/docs/intro/install/) 3.14+
+- A running Kubernetes cluster (e.g., [kind](https://kind.sigs.k8s.io/), [minikube](https://minikube.sigs.k8s.io/), or [Docker Desktop](https://www.docker.com/products/docker-desktop/))
+
+## 1. Create a Namespace
+
+```bash copy
+kubectl create namespace lakerunner
+```
+
+## 2. Install Lakerunner
+
+```bash copy
+helm install lakerunner oci://public.ecr.aws/cardinalhq.io/lakerunner \
+  --namespace lakerunner
+```
+
+This installs Lakerunner with default settings suitable for local development and evaluation.
+
+## 3. Verify the Installation
+
+Wait for all pods to become ready:
+
+```bash copy
+kubectl get pods -n lakerunner -w
+```
+
+## 4. Access Grafana
+
+Port-forward Grafana to your local machine:
+
+```bash copy
+kubectl port-forward -n lakerunner svc/grafana 3000:3000
+```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser. Lakerunner's data source is pre-configured.
+
+## 5. Send Test Data
+
+Send a sample log entry using `curl`:
+
+```bash copy
+curl -X POST http://localhost:3100/loki/api/v1/push \
+  -H "Content-Type: application/json" \
+  -d '{"streams":[{"stream":{"app":"quickstart"},"values":[["'"$(date +%s)000000000"'","Hello from Lakerunner!"]]}]}'
+```
+
+> Lakerunner exposes a Loki-compatible push API, so any Loki client or agent (Promtail, Alloy, Fluent Bit) can ship data without changes.
+
+## 6. Query Your Logs
+
+In Grafana, go to **Explore** and run:
+
+```
+{app="quickstart"}
+```
+
+You should see the log entry you just sent.
+
+## Next Steps
+
+- **Production deployment** — Use the [Installation Wizard](/lakerunner/install) to generate a production `values.yaml` with S3, Kafka, and PostgreSQL configured
+- **Sizing** — Estimate resource needs with the [Sizing Estimator](/lakerunner/sizing)
+- **Architecture** — Learn how ingestion, materialization, and query work under the hood in the [Architecture](/lakerunner/architecture) section
+- **CLI** — Explore the [CLI Reference](/lakerunner/cli) for managing your Lakerunner instance
+
+<SupportCallout />

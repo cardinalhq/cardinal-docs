@@ -1,5 +1,6 @@
 export default {
   index: 'Overview',
+  quickstart: 'Quick Start',
   install: 'Installation Guide',
   sizing: 'Sizing Estimator',
   architecture: 'Architecture',
