@@ -96,7 +96,7 @@ const steps: Step[] = [
     title: 'Access Grafana',
     content: (
       <>
-        <p>Port-forward Grafana to your local machine:</p>
+        <p>If Grafana was included in your installation, port-forward it to your local machine:</p>
         <div className={styles.codeBlock}>
           <div className={styles.codeHeader}>
             <span className={styles.codeLang}>bash</span>
@@ -111,7 +111,29 @@ const steps: Step[] = [
           <a href="http://localhost:3000" target="_blank" rel="noopener noreferrer">
             http://localhost:3000
           </a>{' '}
-          in your browser. Lakerunner&apos;s data source is pre-configured.
+          in your browser. Lakerunner&apos;s data source is pre-configured, but you won&apos;t see any data yet — that comes in the next step.
+        </p>
+      </>
+    ),
+  },
+  {
+    number: 7,
+    title: 'Send data',
+    content: (
+      <>
+        <p>
+          Install{' '}
+          <a href="/lakerunner/collectors" target="_blank" rel="noopener noreferrer">
+            OpenTelemetry Collectors
+          </a>{' '}
+          to monitor your cluster and write telemetry to S3.
+        </p>
+        <p>
+          Generate data from your real applications, or use the{' '}
+          <a href="/lakerunner/otel-demo" target="_blank" rel="noopener noreferrer">
+            OTel Demo Application
+          </a>{' '}
+          to produce realistic logs, metrics, and traces right away.
         </p>
       </>
     ),
