@@ -145,28 +145,28 @@ function CopyButton({ text }: { text: string }) {
 
 const nextSteps = [
   {
+    icon: '📡',
+    title: 'Install OpenTelemetry Collectors',
+    description: 'Deploy the agent, poller, and gateway to monitor your cluster and write to S3',
+    href: '/lakerunner/collectors',
+  },
+  {
+    icon: '🛍️',
+    title: 'Install the OTel Demo Application',
+    description: 'Deploy a microservices e-commerce app that generates realistic telemetry',
+    href: '/lakerunner/otel-demo',
+  },
+  {
     icon: '🚀',
     title: 'Production deployment',
     description: 'Generate a production values.yaml with S3 and PostgreSQL',
     href: '/lakerunner/install',
   },
   {
-    icon: '📐',
-    title: 'Sizing',
-    description: 'Estimate resource needs for your workload',
-    href: '/lakerunner/sizing',
-  },
-  {
     icon: '🏗️',
     title: 'Architecture',
     description: 'Learn how ingestion, materialization, and query work',
     href: '/lakerunner/architecture',
-  },
-  {
-    icon: '⌨️',
-    title: 'CLI Reference',
-    description: 'Manage your Lakerunner instance from the terminal',
-    href: '/lakerunner/cli',
   },
 ];
 

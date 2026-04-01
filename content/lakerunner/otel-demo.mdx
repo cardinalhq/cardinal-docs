@@ -1,0 +1,192 @@
+import SupportCallout from '../../components/SupportCallout';
+
+# OpenTelemetry Demo Application
+
+The [OpenTelemetry Demo](https://opentelemetry.io/docs/demo/) is a microservices-based e-commerce application that generates realistic logs, metrics, and traces. It's a great way to see Lakerunner in action with real-world telemetry.
+
+## What You Get
+
+The demo deploys a full e-commerce application with services written in multiple languages (Go, Java, Python, Node.js, .NET, and more). Each service is instrumented with OpenTelemetry and generates:
+
+- **Logs** from application output
+- **Metrics** from runtime instrumentation and kubelet stats
+- **Traces** spanning the full request lifecycle across services
+
+## Prerequisites
+
+- A running Lakerunner installation (see the [Quick Start](/lakerunner/quickstart))
+- [Kustomize](https://kubectl.docs.kubernetes.io/installation/kustomize/) or `kubectl` with built-in kustomize support
+- A Cardinal API key (from your [Cardinal dashboard](https://app.cardinalhq.io))
+
+## Installation
+
+### 1. Create the namespace
+
+```bash copy
+kubectl create namespace otel-demo
+```
+
+### 2. Create the Helm values file
+
+Create a `values.yaml` that configures the demo to export telemetry to your Cardinal endpoint:
+
+```yaml copy
+default:
+  envOverrides:
+    - name: OTEL_METRIC_EXPORT_INTERVAL
+      value: "10000"
+    - name: OTEL_RESOURCE_ATTRIBUTES
+      value: "k8s.namespace.name=otel-demo,k8s.cluster.name=YOUR_CLUSTER_NAME"
+
+opentelemetry-collector:
+  config:
+    exporters:
+      otlphttp/cardinal:
+        endpoint: https://otelhttp.intake.YOUR_REGION.aws.cardinalhq.io
+        headers:
+          x-cardinalhq-api-key: YOUR_API_KEY
+    service:
+      pipelines:
+        traces:
+          exporters: [otlphttp/cardinal, spanmetrics]
+        metrics:
+          exporters: [otlphttp/cardinal]
+        logs:
+          exporters: [otlphttp/cardinal]
+
+# Disable built-in observability backends — Lakerunner replaces them
+jaeger:
+  enabled: false
+prometheus:
+  enabled: false
+grafana:
+  enabled: false
+opensearch:
+  enabled: false
+```
+
+Replace `YOUR_CLUSTER_NAME`, `YOUR_REGION`, and `YOUR_API_KEY` with your actual values.
+
+### 3. Install with Helm
+
+```bash copy
+helm install otel-demo opentelemetry-demo \
+  --repo https://open-telemetry.github.io/opentelemetry-helm-charts \
+  --version 0.38.6 \
+  --namespace otel-demo \
+  --values values.yaml
+```
+
+### 4. Add kubelet stats collection (optional)
+
+To also collect node-level metrics from the demo cluster, deploy a lightweight kubelet stats collector:
+
+```yaml copy
+# kubeletstats-collector-config.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kubeletstats-collector
+  namespace: otel-demo
+data:
+  config.yaml: |
+    receivers:
+      kubeletstats:
+        auth_type: serviceAccount
+        collection_interval: 10s
+        endpoint: https://${env:NODE_IP}:10250
+        insecure_skip_verify: true
+        metric_groups: [node, pod, container]
+
+    processors:
+      k8sattributes:
+        passthrough: false
+        pod_association:
+          - sources:
+              - from: resource_attribute
+                name: k8s.pod.uid
+        extract:
+          labels:
+            - tag_name: service.name
+              key: opentelemetry.io/name
+              from: pod
+      resource:
+        attributes:
+          - key: k8s.cluster.name
+            value: YOUR_CLUSTER_NAME
+            action: upsert
+      batch: {}
+
+    exporters:
+      otlphttp/cardinal:
+        endpoint: https://otelhttp.intake.YOUR_REGION.aws.cardinalhq.io
+        headers:
+          x-cardinalhq-api-key: ${env:CARDINAL_API_KEY}
+
+    service:
+      pipelines:
+        metrics:
+          receivers: [kubeletstats]
+          processors: [k8sattributes, resource, batch]
+          exporters: [otlphttp/cardinal]
+```
+
+Deploy the collector as a DaemonSet:
+
+```yaml copy
+# kubeletstats-collector-daemonset.yaml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kubeletstats-collector
+  namespace: otel-demo
+spec:
+  selector:
+    matchLabels:
+      app: kubeletstats-collector
+  template:
+    metadata:
+      labels:
+        app: kubeletstats-collector
+    spec:
+      serviceAccountName: kubeletstats-collector
+      containers:
+        - name: collector
+          image: otel/opentelemetry-collector-contrib:0.146.1
+          args: ["--config=/etc/otelcol/config.yaml"]
+          env:
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: CARDINAL_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: kubeletstats-collector
+                  key: api-key
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+          volumeMounts:
+            - name: config
+              mountPath: /etc/otelcol
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: kubeletstats-collector
+```
+
+### 5. Verify in Grafana
+
+Open Grafana (see [Quick Start step 6](/lakerunner/quickstart)) and navigate to **Explore**. You should see:
+
+- **Logs** from the demo services
+- **Metrics** including application metrics and kubelet stats
+- **Traces** spanning the full request lifecycle across services
+
+<SupportCallout />
