@@ -1,5 +1,4 @@
 import IngestionFlowDiagram from '../../../components/diagrams/IngestionFlowDiagram'
-import CompactionRollupDiagram from '../../../components/diagrams/CompactionRollupDiagram'
 
 # Ingestion Architecture
 
@@ -9,16 +8,20 @@ This page covers the end-to-end path telemetry takes from raw files in object st
 
 <IngestionFlowDiagram />
 
-## Compaction and Rollup
+### How it works
 
-After ingestion, background stages merge and downsample segments to keep query costs stable as data grows.
-
-<CompactionRollupDiagram />
+1. **Raw data lands in object storage.** Collectors write OTel-format files to well-known prefixes (`otel-raw/logs/`, `otel-raw/metrics/`, `otel-raw/traces/`).
+2. **Notifications trigger processing.** Object-created events flow through a PubSub adapter (SQS, GCP Pub/Sub, Azure Event Grid, or a simple HTTP callback) to the appropriate signal processor.
+3. **`process-{signal}` handles everything.** A single worker per signal type — `process-logs`, `process-metrics`, `process-traces` — performs all processing:
+   - **Ingestion** — reads raw objects, normalizes telemetry, writes Parquet segments, and registers them in the segment index (lrdb).
+   - **Compaction** — merges small segments into larger ones to reduce file count and improve query efficiency.
+   - **Rollups** *(metrics only)* — produces time-aggregated versions of metric data at coarser granularities.
+4. **Results are stored durably.** Cooked Parquet segments are written to object storage and their metadata is tracked in PostgreSQL.
 
 ## Key Design Points
 
-1. **Workers read and write directly from object storage.** Raw telemetry data never passes through intermediate messaging — workers process it in place.
-2. **Horizontally scalable.** Add workers to handle more volume.
-3. **Signal-specific processors.** `process-logs`, `process-metrics`, and `process-traces` each handle their signal type with tailored normalization and schema.
+1. **One process, three responsibilities.** Ingestion, compaction, and rollups all run inside `process-{signal}`, keeping the deployment simple and eliminating coordination overhead between separate stages.
+2. **Workers read and write directly from object storage.** Raw telemetry data never passes through intermediate messaging — workers process it in place.
+3. **Horizontally scalable.** Add worker replicas to handle more volume.
 4. **Object storage is immutable state.** Workers only append new segments — they never modify existing ones. PostgreSQL tracks the mutable planning metadata.
-5. **Compaction and rollup run continuously** in the background to keep segment counts and query costs bounded.
+5. **Compaction and rollups run continuously** in the background to keep segment counts and query costs bounded.

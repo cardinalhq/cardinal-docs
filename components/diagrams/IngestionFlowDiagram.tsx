@@ -20,14 +20,15 @@ export default function IngestionFlowDiagram() {
       <DiagramNode
         type="worker"
         title="process-{logs,metrics,traces}"
+        wide
         lines={[
-          "reads raw objects",
-          "normalizes telemetry",
-          "writes Parquet segment",
-          "registers in lrdb",
+          "reads raw objects → normalizes telemetry",
+          "writes Parquet segments → registers in lrdb",
+          "compacts small segments into larger ones",
+          "produces time-aggregated rollups (metrics)",
         ]}
       />
-      <DiagramArrow label="writes cooked parquet" />
+      <DiagramArrow label="reads & writes" />
 
       <div className={styles.splitRow}>
         <DiagramNode
