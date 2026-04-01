@@ -1,67 +1,8 @@
-import { Steps } from 'nextra/components';
+import QuickStartSteps from '../../components/QuickStartSteps';
 import SupportCallout from '../../components/SupportCallout';
 
 # Quick Start
 
-Get Lakerunner running on a local Kubernetes cluster in under 10 minutes.
-
-## Prerequisites
-
-- [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl) installed
-- [Helm](https://helm.sh/docs/intro/install/) 3.14+
-- A Kubernetes cluster 1.33+ (or [kind](https://kind.sigs.k8s.io/), [minikube](https://minikube.sigs.k8s.io/), etc.)
-
-<Steps>
-
-{<h3>Sign up for a Cardinal account</h3>}
-
-Create your free account at <a href="https://app.cardinalhq.io" target="_blank">app.cardinalhq.io</a>.
-
-{<h3>Download your Lakerunner Trial license</h3>}
-
-After signing in, download your trial license from the Cardinal dashboard.
-
-{<h3>Create the namespace</h3>}
-
-```bash copy
-kubectl create namespace lakerunner
-```
-
-{<h3>Install using Helm</h3>}
-
-Use the <a href="/lakerunner/install" target="_blank">Installation Wizard</a> to generate a `values.yaml` tailored to your environment, then install:
-
-```bash copy
-helm install lakerunner oci://public.ecr.aws/cardinalhq.io/lakerunner \
-  --values values.yaml \
-  --namespace lakerunner
-```
-
-{<h3>Verify the installation</h3>}
-
-Wait for all pods to become ready:
-
-```bash copy
-kubectl get pods -n lakerunner -w
-```
-
-{<h3>Access Grafana</h3>}
-
-Port-forward Grafana to your local machine:
-
-```bash copy
-kubectl port-forward -n lakerunner svc/grafana 3000:3000
-```
-
-Open [http://localhost:3000](http://localhost:3000) in your browser. Lakerunner's data source is pre-configured.
-
-</Steps>
-
-## Next Steps
-
-- **Production deployment** — Use the [Installation Wizard](/lakerunner/install) to generate a production `values.yaml` with S3 and PostgreSQL configured
-- **Sizing** — Estimate resource needs with the [Sizing Estimator](/lakerunner/sizing)
-- **Architecture** — Learn how ingestion, materialization, and query work under the hood in the [Architecture](/lakerunner/architecture) section
-- **CLI** — Explore the [CLI Reference](/lakerunner/cli) for managing your Lakerunner instance
+<QuickStartSteps />
 
 <SupportCallout />
