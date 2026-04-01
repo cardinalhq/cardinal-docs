@@ -10,6 +10,7 @@
     "test:watch": "jest --watch",
     "test:links": "jest lib/__tests__/links.test.ts"
   },
+  "packageManager": "pnpm@10.30.1",
   "license": "MIT",
   "dependencies": {
     "next": "^14.2.21",
