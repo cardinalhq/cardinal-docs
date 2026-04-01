@@ -14,7 +14,7 @@ Lakerunner is an open-source observability data lake that stores logs, metrics, 
 - **Cost-effective storage** - Store petabytes of observability data at object storage prices
 - **Fast queries** - Columnar format with intelligent indexing for sub-second queries
 - **Native Grafana integration** - Query your data lake directly from Grafana
-- **Kubernetes-native** - Deploy with Helm, scale with KEDA
+- **Kubernetes-native** - Deploy with Helm, auto-scales with demand
 
 ## Architecture
 
@@ -44,7 +44,5 @@ Before installing Lakerunner, ensure you have:
 For **POC and Production** deployments, you'll also need:
 - S3-compatible object storage with notification capability (S3, GCS, or Azure Blob)
 - PostgreSQL 16+ database
-- Kafka cluster (minimum 2 brokers for production)
-- [KEDA](https://keda.sh/) - Highly recommended for production autoscaling
 
 <SupportCallout />
