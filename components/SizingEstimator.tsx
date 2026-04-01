@@ -323,7 +323,7 @@ export default function SizingEstimator() {
           <div className={styles.recCard}>
             <h4>Auto-Scaling</h4>
             <p>
-              Log, metric, trace, and query components <strong>auto-scale based on demand</strong> using KEDA.
+              Log, metric, trace, and query components <strong>auto-scale automatically based on demand</strong>.
               The estimates above represent a <strong>maximum footprint</strong> at sustained peak load.
               Actual resource usage will be lower during normal operation.
             </p>
