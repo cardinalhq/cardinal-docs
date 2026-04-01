@@ -1,0 +1,7 @@
+export default {
+  index: 'Overview',
+  ingestion: 'Ingestion',
+  query: 'Query',
+  materialization: 'Materialization',
+  'deployment-models': 'Deployment Models',
+}

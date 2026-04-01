@@ -28,16 +28,17 @@ pnpm build
 ## Architecture
 
 ### Documentation Structure
-- `pages/` - MDX content files organized by product
-  - `pages/_meta.json` - Navigation structure and page titles
-  - `pages/vibeshield/` - Desktop Application docs (connectors, product guides, agents)
-  - `pages/lakerunner/` - Lakerunner docs
+- `content/` - MDX content files organized by product
+  - `content/_meta.ts` - Navigation structure and page titles
+  - `content/vibeshield/` - Desktop Application docs (connectors, product guides, agents)
+  - `content/lakerunner/` - Lakerunner docs
+- `app/` - Next.js App Router (layout, catch-all route for MDX)
 - `components/` - React components used in MDX pages
-- `theme.config.tsx` - Nextra theme configuration (logo, SEO, footer)
-- `next.config.js` - Next.js configuration with Nextra plugin
+- `next.config.mjs` - Next.js configuration with Nextra plugin
+- `mdx-components.tsx` - MDX component overrides
 
 ### Nextra Conventions
-- Each directory can have a `_meta.json` to define navigation order and titles
+- Each directory can have a `_meta.ts` to define navigation order and titles
 - Pages are written in MDX (Markdown with JSX support)
 - React components from `components/` can be imported directly in MDX files
 - Images go in `public/` and are referenced with absolute paths (e.g., `/cardinal.png`)

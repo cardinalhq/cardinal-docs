@@ -1,0 +1,11 @@
+export default {
+  index: {
+    title: 'Overview',
+    display: 'hidden',
+  },
+  overview: 'Overview',
+  get_started: 'Get Started',
+  product: 'Product',
+  agents: 'Agents',
+  connectors: 'Connectors',
+}

@@ -1,0 +1,7 @@
+export default {
+  index: 'Overview',
+  assets: 'Assets',
+  'org-settings': 'Org Settings',
+  'chat-modes': 'Agent Chat',
+  'launch-agents': 'Launch Agents',
+}
