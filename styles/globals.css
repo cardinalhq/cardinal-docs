@@ -52,6 +52,11 @@ article ::selection {
   background: var(--cardinal-accent-soft);
 }
 
+.nextra-steps {
+  padding-inline-start: 3.5rem !important;
+  margin-inline-start: 1.5rem !important;
+}
+
 .nextra-steps h2:before,
 .nextra-steps h3:not([style^='visibility:']):before,
 .nextra-steps h4:before,
@@ -62,5 +67,5 @@ article ::selection {
   height: var(--size) !important;
   font-size: 1.5rem !important;
   line-height: calc(var(--size) - 8px) !important;
-  margin-inline-start: calc(-1 * var(--size) - 8px) !important;
+  margin-inline-start: calc(-1 * var(--size) - 14px) !important;
 }
