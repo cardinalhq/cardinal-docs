@@ -8,6 +8,7 @@ import {
   isValidCollectorName,
   isValidUUID,
   isValidPort,
+  isValidLicenseData,
   createDefaultState,
   generateValuesYaml,
 } from '../lib/generateValuesYaml';
@@ -66,6 +67,9 @@ export default function LakerunnerHelmValuesWizard() {
       // POC: Grafana enabled by default
       // Production: Grafana disabled by default
       enableGrafana: installType === 'poc',
+      scaling: installType === 'production'
+        ? { processLogsMax: '10', processMetricsMax: '10', processTracesMax: '10' }
+        : { processLogsMax: '10', processMetricsMax: '10', processTracesMax: '10' },
     }));
   };
 
@@ -190,63 +194,7 @@ export default function LakerunnerHelmValuesWizard() {
               <span className={styles.hint}>Pre-configured Grafana with Lakerunner datasources</span>
             </div>
 
-            {/* Cardinal Monitoring Component */}
-            <div className={styles.optionalComponent}>
-              <label className={styles.checkboxLabel}>
-                <input
-                  type="checkbox"
-                  checked={state.enableCardinalMonitoring}
-                  onChange={(e) => updateState('enableCardinalMonitoring', e.target.checked)}
-                />
-                <strong>Monitoring by Cardinal</strong>
-              </label>
-              <span className={styles.hint}>Send Lakerunner telemetry to Cardinal for monitoring. Cardinal will monitor your Lakerunner deployment and provide a dashboard for performance monitoring. We will not see your organization's data, just Lakerunner performance.</span>
-              {state.enableCardinalMonitoring && (
-                <div className={styles.componentSettings}>
-                  <div className={styles.formGroup}>
-                    <label>Cardinal Cloud API Key <span className={styles.required}>*</span></label>
-                    <input
-                      type="text"
-                      value={state.cardinalApiKey}
-                      onChange={(e) => updateState('cardinalApiKey', e.target.value)}
-                      placeholder="your-cardinal-cloud-api-key"
-                      className={!state.cardinalApiKey.trim() ? styles.inputError : ''}
-                    />
-                    <span className={styles.hint}>
-                      This is different from the Lakerunner API key above. Sign up at <a href="https://app.cardinalhq.io" target="_blank" rel="noopener noreferrer">app.cardinalhq.io</a> and copy your API key from the dashboard.
-                    </span>
-                  </div>
-                </div>
-              )}
-              {!state.enableCardinalMonitoring && (
-                <div className={styles.componentSettings}>
-                  <div className={styles.warningBox}>
-                    <strong>⚠️ Warning:</strong> Without Cardinal monitoring, ensure your Lakerunner deployment is properly monitored by another observability solution.
-                  </div>
-                </div>
-              )}
-            </div>
 
-            {/* KEDA Component */}
-            <div className={styles.optionalComponent}>
-              <label className={styles.checkboxLabel}>
-                <input
-                  type="checkbox"
-                  checked={state.enableKeda}
-                  onChange={(e) => updateState('enableKeda', e.target.checked)}
-                />
-                <strong>KEDA Autoscaling</strong>
-              </label>
-              <span className={styles.hint}>Work queue-based autoscaling for production workloads</span>
-              {!state.enableKeda && (state.installType === 'poc' || state.installType === 'production') && (
-                <div className={styles.componentSettings}>
-                  <div className={styles.warningBox}>
-                    <strong>⚠️ Warning:</strong> KEDA is highly recommended for {state.installType === 'poc' ? 'POC' : 'production'} deployments.
-                    It provides intelligent scaling based on workload backlog, which is essential for micro-batch workloads.
-                  </div>
-                </div>
-              )}
-            </div>
           </section>
 
           {/* Cloud Provider */}
@@ -692,95 +640,237 @@ export default function LakerunnerHelmValuesWizard() {
             </div>
           </section>
 
-          {/* Kafka Configuration */}
+          {/* License Configuration */}
           <section className={styles.section}>
-            <h3 className={styles.sectionTitle}>Kafka</h3>
+            <h3 className={styles.sectionTitle}>License</h3>
+            <p className={styles.hint}>
+              A valid license is required for Lakerunner to operate. Contact <a href="mailto:support@cardinalhq.com">support@cardinalhq.com</a> to obtain one.
+            </p>
             <div className={styles.formGrid}>
               <div className={`${styles.formGroup} ${styles.fullWidth}`}>
-                <label>Credentials</label>
+                <label>License Source</label>
                 <div className={styles.credentialModeSelect}>
                   <button
-                    className={`${styles.credentialModeBtn} ${state.kafka.credentialMode === 'create' ? styles.active : ''}`}
-                    onClick={() => updateNested('kafka', 'credentialMode', 'create')}
+                    className={`${styles.credentialModeBtn} ${state.license.mode === 'create' ? styles.active : ''}`}
+                    onClick={() => updateNested('license', 'mode', 'create')}
                   >
-                    Create Secret
+                    Provide License Data
                   </button>
                   <button
-                    className={`${styles.credentialModeBtn} ${state.kafka.credentialMode === 'existing' ? styles.active : ''}`}
-                    onClick={() => updateNested('kafka', 'credentialMode', 'existing')}
+                    className={`${styles.credentialModeBtn} ${state.license.mode === 'existing' ? styles.active : ''}`}
+                    onClick={() => updateNested('license', 'mode', 'existing')}
                   >
                     Use Existing Secret
                   </button>
                 </div>
               </div>
-              <div className={`${styles.formGroup} ${styles.fullWidth}`}>
-                <label>Broker Addresses <span className={styles.required}>*</span></label>
+              <div className={styles.formGroup}>
+                <label>Secret Name</label>
                 <input
                   type="text"
-                  value={state.kafka.brokers}
-                  onChange={(e) => updateNested('kafka', 'brokers', e.target.value)}
-                  placeholder="kafka-1:9092,kafka-2:9092,kafka-3:9092"
-                  className={!state.kafka.brokers.trim() ? styles.inputError : ''}
+                  value={state.license.secretName}
+                  onChange={(e) => updateNested('license', 'secretName', e.target.value)}
+                  placeholder="lakerunner-license"
                 />
               </div>
-              <div className={styles.formGroup}>
-                <label>SASL Mechanism</label>
-                <select
-                  value={state.kafka.saslMechanism}
-                  onChange={(e) => updateNested('kafka', 'saslMechanism', e.target.value)}
-                >
-                  <option value="PLAIN">PLAIN</option>
-                  <option value="SCRAM-SHA-256">SCRAM-SHA-256</option>
-                  <option value="SCRAM-SHA-512">SCRAM-SHA-512</option>
-                </select>
-              </div>
-              {state.kafka.credentialMode === 'create' ? (
-                <>
-                  <div className={styles.formGroup}>
-                    <label>Username <span className={styles.required}>*</span></label>
-                    <input
-                      type="text"
-                      value={state.kafka.username}
-                      onChange={(e) => updateNested('kafka', 'username', e.target.value)}
-                      placeholder="kafka-user"
-                      className={!state.kafka.username.trim() ? styles.inputError : ''}
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>Password <span className={styles.required}>*</span></label>
-                    <input
-                      type="password"
-                      value={state.kafka.password}
-                      onChange={(e) => updateNested('kafka', 'password', e.target.value)}
-                      placeholder="••••••••"
-                      className={!state.kafka.password.trim() ? styles.inputError : ''}
-                    />
-                  </div>
-                </>
-              ) : (
-                <div className={styles.formGroup}>
-                  <label>Secret Name <span className={styles.required}>*</span></label>
+              {state.license.mode === 'create' ? (
+                <div className={`${styles.formGroup} ${styles.fullWidth}`}>
+                  <label>License Data <span className={styles.required}>*</span></label>
                   <input
                     type="text"
-                    value={state.kafka.existingSecretName}
-                    onChange={(e) => updateNested('kafka', 'existingSecretName', e.target.value)}
-                    placeholder="kafka-credentials"
-                    className={!state.kafka.existingSecretName.trim() ? styles.inputError : ''}
+                    value={state.license.data}
+                    onChange={(e) => updateNested('license', 'data', e.target.value)}
+                    placeholder='b64:... or z64:...'
+                    className={state.license.data.trim() && !isValidLicenseData(state.license.data) ? styles.inputError : ''}
                   />
-                  <span className={styles.hint}>Name of existing Kubernetes secret containing credentials (keys: KAFKA_USERNAME, KAFKA_PASSWORD)</span>
+                  {state.license.data.trim() && !isValidLicenseData(state.license.data) && (
+                    <span className={styles.errorText}>
+                      License must start with "b64:" or "z64:"
+                    </span>
+                  )}
+                  <span className={styles.hint}>Paste your license string (starts with b64: or z64:)</span>
+                </div>
+              ) : (
+                <div className={`${styles.formGroup} ${styles.fullWidth}`}>
+                  <span className={styles.hint}>
+                    The secret must contain your license data under the key "license.json".
+                  </span>
                 </div>
               )}
-              <div className={styles.formGroup}>
-                <label className={styles.checkboxLabel}>
-                  <input
-                    type="checkbox"
-                    checked={state.kafka.useTls}
-                    onChange={(e) => updateNested('kafka', 'useTls', e.target.checked)}
-                  />
-                  Use TLS
-                </label>
-              </div>
             </div>
+          </section>
+
+          {/* Scaling Configuration */}
+          <section className={styles.section}>
+            <h3 className={styles.sectionTitle}>Scaling</h3>
+            <p className={styles.hint}>
+              Lakerunner uses internal autoscaling from 1 pod up to the max you set here.
+            </p>
+            <table className={styles.scalingTable}>
+              <thead>
+                <tr>
+                  <th>Service</th>
+                  <th>Max Pods</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Log Processing</td>
+                  <td>
+                    <input
+                      type="text"
+                      value={state.scaling.processLogsMax}
+                      onChange={(e) => updateNested('scaling', 'processLogsMax', e.target.value)}
+                      placeholder="10"
+                    />
+                  </td>
+                </tr>
+                <tr>
+                  <td>Metric Processing</td>
+                  <td>
+                    <input
+                      type="text"
+                      value={state.scaling.processMetricsMax}
+                      onChange={(e) => updateNested('scaling', 'processMetricsMax', e.target.value)}
+                      placeholder="10"
+                    />
+                  </td>
+                </tr>
+                <tr>
+                  <td>Trace Processing</td>
+                  <td>
+                    <input
+                      type="text"
+                      value={state.scaling.processTracesMax}
+                      onChange={(e) => updateNested('scaling', 'processTracesMax', e.target.value)}
+                      placeholder="10"
+                    />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+
+          {/* PubSub Configuration */}
+          <section className={styles.section}>
+            <h3 className={styles.sectionTitle}>Ingestion</h3>
+            {state.cloudProvider === 'gcp' ? (
+              <>
+                <p className={styles.hint}>
+                  GCP uses Pub/Sub for ingestion from Cloud Storage notifications.
+                </p>
+                <div className={styles.formGrid}>
+                  <div className={styles.formGroup}>
+                    <label>GCP Project ID <span className={styles.required}>*</span></label>
+                    <input
+                      type="text"
+                      value={state.pubsub.gcpProjectID}
+                      onChange={(e) => updateNested('pubsub', 'gcpProjectID', e.target.value)}
+                      placeholder="my-project-123456"
+                      className={!state.pubsub.gcpProjectID.trim() ? styles.inputError : ''}
+                    />
+                  </div>
+                  <div className={styles.formGroup}>
+                    <label>Subscription ID <span className={styles.required}>*</span></label>
+                    <input
+                      type="text"
+                      value={state.pubsub.gcpSubscriptionID}
+                      onChange={(e) => updateNested('pubsub', 'gcpSubscriptionID', e.target.value)}
+                      placeholder="my-subscription"
+                      className={!state.pubsub.gcpSubscriptionID.trim() ? styles.inputError : ''}
+                    />
+                  </div>
+                  <div className={styles.formGroup}>
+                    <label>Replicas</label>
+                    <input
+                      type="text"
+                      value={state.pubsub.gcpReplicas}
+                      onChange={(e) => updateNested('pubsub', 'gcpReplicas', e.target.value)}
+                      placeholder="1"
+                    />
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className={styles.hint}>
+                  Choose how S3 object notifications are ingested. HTTP provides a webhook endpoint. SQS polls from an AWS SQS queue.
+                </p>
+                <div className={styles.providerSelect}>
+                  <button
+                    className={`${styles.providerBtn} ${state.pubsub.type === 'http' ? styles.active : ''}`}
+                    onClick={() => updateNested('pubsub', 'type', 'http')}
+                  >
+                    HTTP (Webhook)
+                  </button>
+                  <button
+                    className={`${styles.providerBtn} ${state.pubsub.type === 'sqs' ? styles.active : ''}`}
+                    onClick={() => updateNested('pubsub', 'type', 'sqs')}
+                  >
+                    SQS
+                  </button>
+                </div>
+
+                {state.pubsub.type === 'http' && (
+                  <div className={styles.formGrid}>
+                    <div className={styles.formGroup}>
+                      <label>Replicas</label>
+                      <input
+                        type="text"
+                        value={state.pubsub.httpReplicas}
+                        onChange={(e) => updateNested('pubsub', 'httpReplicas', e.target.value)}
+                        placeholder="2"
+                      />
+                      <span className={styles.hint}>Recommend at least 2 for production</span>
+                    </div>
+                  </div>
+                )}
+
+                {state.pubsub.type === 'sqs' && (
+                  <div className={styles.formGrid}>
+                    <div className={`${styles.formGroup} ${styles.fullWidth}`}>
+                      <label>SQS Queue URL <span className={styles.required}>*</span></label>
+                      <input
+                        type="text"
+                        value={state.pubsub.sqsQueueURL}
+                        onChange={(e) => updateNested('pubsub', 'sqsQueueURL', e.target.value)}
+                        placeholder="https://sqs.us-east-2.amazonaws.com/123456789012/my-queue"
+                        className={!state.pubsub.sqsQueueURL.trim() ? styles.inputError : ''}
+                      />
+                    </div>
+                    <div className={styles.formGroup}>
+                      <label>Replicas</label>
+                      <input
+                        type="text"
+                        value={state.pubsub.sqsReplicas}
+                        onChange={(e) => updateNested('pubsub', 'sqsReplicas', e.target.value)}
+                        placeholder="2"
+                      />
+                    </div>
+                    <div className={styles.formGroup}>
+                      <label>Region</label>
+                      <input
+                        type="text"
+                        value={state.pubsub.sqsRegion}
+                        onChange={(e) => updateNested('pubsub', 'sqsRegion', e.target.value)}
+                        placeholder="Defaults to cloud provider region"
+                      />
+                      <span className={styles.hint}>Leave blank to use the AWS region above</span>
+                    </div>
+                    <div className={styles.formGroup}>
+                      <label>Role ARN</label>
+                      <input
+                        type="text"
+                        value={state.pubsub.sqsRoleARN}
+                        onChange={(e) => updateNested('pubsub', 'sqsRoleARN', e.target.value)}
+                        placeholder="arn:aws:iam::123456789012:role/my-role"
+                      />
+                      <span className={styles.hint}>Optional IAM role to assume for SQS access</span>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </section>
 
       {/* Generated YAML Output */}
@@ -804,15 +894,7 @@ export default function LakerunnerHelmValuesWizard() {
         {yaml && (
           <div className={styles.installInstructions}>
             <h4>Installation Commands</h4>
-            {state.enableKeda && (
-              <>
-                <h4>Step 1: Install KEDA (Required)</h4>
-                <p style={{ marginBottom: '1rem' }}>
-                  Follow the official KEDA installation guide: <a href="https://keda.sh/docs/latest/deploy/" target="_blank" rel="noopener noreferrer">https://keda.sh/docs/latest/deploy/</a>
-                </p>
-              </>
-            )}
-            <h4>{state.enableKeda ? 'Step 2: Install Lakerunner' : 'Install Lakerunner'}</h4>
+            <h4>Install Lakerunner</h4>
             <pre className={styles.codeBlock}>
 {`# Save the above values.yaml, then run:
 helm install lakerunner oci://public.ecr.aws/cardinalhq.io/lakerunner \\
