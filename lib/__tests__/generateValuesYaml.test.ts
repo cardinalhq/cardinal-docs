@@ -4,11 +4,12 @@ import {
   isValidCollectorName,
   isValidUUID,
   isValidPort,
+  isValidLicenseData,
   type WizardState,
 } from '../generateValuesYaml';
 
-// Helper to create a valid POC base state
-function createValidPOCState(): WizardState {
+// Helper to create a valid base state for AWS
+function createValidAWSState(): WizardState {
   const state = createDefaultState();
   state.installType = 'poc';
   state.cloudProvider = 'aws';
@@ -42,20 +43,48 @@ function createValidPOCState(): WizardState {
     sslMode: 'require',
     existingSecretName: '',
   };
-  state.kafka = {
-    credentialMode: 'create',
-    brokers: 'kafka-1:9092,kafka-2:9092',
-    saslMechanism: 'SCRAM-SHA-256',
-    username: 'kafka-user',
-    password: 'kafkapassword789',
-    useTls: true,
-    existingSecretName: '',
+  state.license = {
+    mode: 'create',
+    secretName: 'lakerunner-license',
+    data: 'b64:dGVzdGxpY2Vuc2VkYXRh',
   };
-  state.enableKeda = true;
+  state.pubsub = {
+    type: 'http',
+    httpReplicas: '2',
+    sqsReplicas: '2',
+    sqsQueueURL: '',
+    sqsRegion: '',
+    sqsRoleARN: '',
+    gcpReplicas: '1',
+    gcpProjectID: '',
+    gcpSubscriptionID: '',
+  };
   state.enableGrafana = true;
   state.enableCollector = true;
-  state.enableCardinalMonitoring = false;
-  state.cardinalApiKey = '';
+  return state;
+}
+
+// Helper to create a valid base state for GCP
+function createValidGCPState(): WizardState {
+  const state = createValidAWSState();
+  state.cloudProvider = 'gcp';
+  state.storage.region = 'us-central1';
+  state.gcp = {
+    credentialMode: 'workload_identity',
+    serviceAccountJson: '',
+    existingSecretName: '',
+  };
+  state.pubsub = {
+    type: 'http',
+    httpReplicas: '2',
+    sqsReplicas: '2',
+    sqsQueueURL: '',
+    sqsRegion: '',
+    sqsRoleARN: '',
+    gcpReplicas: '1',
+    gcpProjectID: 'my-project-123',
+    gcpSubscriptionID: 'my-subscription',
+  };
   return state;
 }
 
@@ -109,12 +138,77 @@ describe('Validation Functions', () => {
       expect(isValidPort('')).toBe(false);
     });
   });
+
+  describe('isValidLicenseData', () => {
+    test('accepts b64: prefix', () => {
+      expect(isValidLicenseData('b64:dGVzdA==')).toBe(true);
+    });
+
+    test('accepts z64: prefix', () => {
+      expect(isValidLicenseData('z64:dGVzdA==')).toBe(true);
+    });
+
+    test('rejects empty string', () => {
+      expect(isValidLicenseData('')).toBe(false);
+    });
+
+    test('rejects data without valid prefix', () => {
+      expect(isValidLicenseData('dGVzdA==')).toBe(false);
+      expect(isValidLicenseData('x64:dGVzdA==')).toBe(false);
+    });
+  });
 });
 
 describe('generateValuesYaml', () => {
+  describe('License Configuration', () => {
+    test('generates inline license with create mode', () => {
+      const state = createValidAWSState();
+
+      const yaml = generateValuesYaml(state);
+
+      expect(yaml).not.toBeNull();
+      expect(yaml).toContain('license:');
+      expect(yaml).toContain('create: true');
+      expect(yaml).toContain('data: "b64:dGVzdGxpY2Vuc2VkYXRh"');
+    });
+
+    test('generates existing secret license', () => {
+      const state = createValidAWSState();
+      state.license = { mode: 'existing', secretName: 'my-license-secret', data: '' };
+
+      const yaml = generateValuesYaml(state);
+
+      expect(yaml).not.toBeNull();
+      expect(yaml).toContain('license:');
+      expect(yaml).toContain('create: false');
+      expect(yaml).toContain('secretName: "my-license-secret"');
+    });
+
+    test('returns null when license data missing for create mode', () => {
+      const state = createValidAWSState();
+      state.license = { mode: 'create', secretName: 'lakerunner-license', data: '' };
+
+      expect(generateValuesYaml(state)).toBeNull();
+    });
+
+    test('returns null when license data has wrong prefix', () => {
+      const state = createValidAWSState();
+      state.license = { mode: 'create', secretName: 'lakerunner-license', data: 'invalid-data' };
+
+      expect(generateValuesYaml(state)).toBeNull();
+    });
+
+    test('returns null when existing secret name empty', () => {
+      const state = createValidAWSState();
+      state.license = { mode: 'existing', secretName: '', data: '' };
+
+      expect(generateValuesYaml(state)).toBeNull();
+    });
+  });
+
   describe('AWS Cloud Provider', () => {
     test('generates EKS IRSA config (inject: false, create: false)', () => {
-      const state = createValidPOCState();
+      const state = createValidAWSState();
       state.aws.credentialMode = 'eks';
 
       const yaml = generateValuesYaml(state);
@@ -124,11 +218,10 @@ describe('generateValuesYaml', () => {
       expect(yaml).toContain('inject: false');
       expect(yaml).toContain('create: false');
       expect(yaml).not.toContain('accessKeyId');
-      // Note: secretName appears in apiKeys section, which is correct
     });
 
     test('generates existing secret config (inject: true, create: false, secretName)', () => {
-      const state = createValidPOCState();
+      const state = createValidAWSState();
       state.aws.credentialMode = 'existing';
       state.aws.existingSecretName = 'my-aws-secret';
 
@@ -143,7 +236,7 @@ describe('generateValuesYaml', () => {
     });
 
     test('generates create secret config (inject: true, create: true, credentials)', () => {
-      const state = createValidPOCState();
+      const state = createValidAWSState();
       state.aws.credentialMode = 'create';
 
       const yaml = generateValuesYaml(state);
@@ -159,13 +252,7 @@ describe('generateValuesYaml', () => {
 
   describe('GCP Cloud Provider', () => {
     test('generates Workload Identity config (inject: false, create: false)', () => {
-      const state = createValidPOCState();
-      state.cloudProvider = 'gcp';
-      state.gcp = {
-        credentialMode: 'workload_identity',
-        serviceAccountJson: '',
-        existingSecretName: '',
-      };
+      const state = createValidGCPState();
 
       const yaml = generateValuesYaml(state);
 
@@ -175,12 +262,10 @@ describe('generateValuesYaml', () => {
       expect(yaml).toContain('inject: false');
       expect(yaml).toContain('create: false');
       expect(yaml).not.toContain('serviceAccountJson');
-      // Note: secretName appears in apiKeys section, which is correct
     });
 
     test('generates existing secret config (inject: true, create: false, secretName)', () => {
-      const state = createValidPOCState();
-      state.cloudProvider = 'gcp';
+      const state = createValidGCPState();
       state.gcp = {
         credentialMode: 'existing',
         serviceAccountJson: '',
@@ -191,7 +276,6 @@ describe('generateValuesYaml', () => {
 
       expect(yaml).not.toBeNull();
       expect(yaml).toContain('provider: "gcp"');
-      expect(yaml).toContain('gcp:');
       expect(yaml).toContain('inject: true');
       expect(yaml).toContain('create: false');
       expect(yaml).toContain('secretName: "my-gcp-credentials"');
@@ -199,8 +283,7 @@ describe('generateValuesYaml', () => {
     });
 
     test('generates service account JSON config (inject: true, create: true, serviceAccountJson)', () => {
-      const state = createValidPOCState();
-      state.cloudProvider = 'gcp';
+      const state = createValidGCPState();
       state.gcp = {
         credentialMode: 'service_account',
         serviceAccountJson: '{"type":"service_account","project_id":"test"}',
@@ -211,7 +294,6 @@ describe('generateValuesYaml', () => {
 
       expect(yaml).not.toBeNull();
       expect(yaml).toContain('provider: "gcp"');
-      expect(yaml).toContain('gcp:');
       expect(yaml).toContain('inject: true');
       expect(yaml).toContain('create: true');
       expect(yaml).toContain('serviceAccountJson:');
@@ -219,140 +301,231 @@ describe('generateValuesYaml', () => {
     });
   });
 
-  describe('KEDA Configuration', () => {
-    test('generates keda mode when enabled', () => {
-      const state = createValidPOCState();
-      state.enableKeda = true;
+  describe('Scaling Configuration', () => {
+    test('generates processLogs/processMetrics/processTraces with autoscaling', () => {
+      const state = createValidAWSState();
+      state.scaling = { processLogsMax: '5', processMetricsMax: '8', processTracesMax: '3' };
 
       const yaml = generateValuesYaml(state);
 
-      expect(yaml).toContain('mode: "keda"');
+      expect(yaml).not.toBeNull();
+      expect(yaml).toContain('processLogs:');
+      expect(yaml).toContain('processMetrics:');
+      expect(yaml).toContain('processTraces:');
+      expect(yaml).toContain('minReplicas: 1');
+      expect(yaml).toContain('maxReplicas: 5');
+      expect(yaml).toContain('maxReplicas: 8');
+      expect(yaml).toContain('maxReplicas: 3');
     });
 
-    test('generates disabled mode when KEDA disabled', () => {
-      const state = createValidPOCState();
-      state.enableKeda = false;
+    test('does not generate old ingest* or keda keys', () => {
+      const state = createValidAWSState();
 
       const yaml = generateValuesYaml(state);
 
-      expect(yaml).toContain('mode: "disabled"');
+      expect(yaml).not.toBeNull();
+      expect(yaml).not.toContain('ingestLogs');
+      expect(yaml).not.toContain('ingestMetrics');
+      expect(yaml).not.toContain('ingestTraces');
+      expect(yaml).not.toContain('mode: "keda"');
+      expect(yaml).not.toContain('mode: "disabled"');
+    });
+  });
+
+  describe('PubSub Configuration', () => {
+    test('generates HTTP pubsub for AWS', () => {
+      const state = createValidAWSState();
+      state.pubsub.type = 'http';
+      state.pubsub.httpReplicas = '3';
+
+      const yaml = generateValuesYaml(state);
+
+      expect(yaml).not.toBeNull();
+      expect(yaml).toContain('pubsub:');
+      expect(yaml).toContain('HTTP:');
+      expect(yaml).toContain('enabled: true');
+      expect(yaml).toContain('replicas: 3');
+    });
+
+    test('generates SQS pubsub for AWS', () => {
+      const state = createValidAWSState();
+      state.pubsub.type = 'sqs';
+      state.pubsub.sqsQueueURL = 'https://sqs.us-east-1.amazonaws.com/123456789012/my-queue';
+      state.pubsub.sqsReplicas = '2';
+
+      const yaml = generateValuesYaml(state);
+
+      expect(yaml).not.toBeNull();
+      expect(yaml).toContain('pubsub:');
+      expect(yaml).toContain('SQS:');
+      expect(yaml).toContain('enabled: true');
+      expect(yaml).toContain('queueURL: "https://sqs.us-east-1.amazonaws.com/123456789012/my-queue"');
+    });
+
+    test('generates SQS with optional region and roleARN', () => {
+      const state = createValidAWSState();
+      state.pubsub.type = 'sqs';
+      state.pubsub.sqsQueueURL = 'https://sqs.us-east-2.amazonaws.com/123456789012/q';
+      state.pubsub.sqsRegion = 'us-east-2';
+      state.pubsub.sqsRoleARN = 'arn:aws:iam::123456789012:role/my-role';
+
+      const yaml = generateValuesYaml(state);
+
+      expect(yaml).not.toBeNull();
+      expect(yaml).toContain('region: "us-east-2"');
+      expect(yaml).toContain('roleARN: "arn:aws:iam::123456789012:role/my-role"');
+    });
+
+    test('returns null when SQS selected but queueURL empty', () => {
+      const state = createValidAWSState();
+      state.pubsub.type = 'sqs';
+      state.pubsub.sqsQueueURL = '';
+
+      expect(generateValuesYaml(state)).toBeNull();
+    });
+
+    test('generates GCP Pub/Sub for GCP provider', () => {
+      const state = createValidGCPState();
+
+      const yaml = generateValuesYaml(state);
+
+      expect(yaml).not.toBeNull();
+      expect(yaml).toContain('pubsub:');
+      expect(yaml).toContain('GCP:');
+      expect(yaml).toContain('enabled: true');
+      expect(yaml).toContain('projectID: "my-project-123"');
+      expect(yaml).toContain('subscriptionID: "my-subscription"');
+    });
+
+    test('returns null when GCP missing projectID', () => {
+      const state = createValidGCPState();
+      state.pubsub.gcpProjectID = '';
+
+      expect(generateValuesYaml(state)).toBeNull();
+    });
+
+    test('returns null when GCP missing subscriptionID', () => {
+      const state = createValidGCPState();
+      state.pubsub.gcpSubscriptionID = '';
+
+      expect(generateValuesYaml(state)).toBeNull();
     });
   });
 
   describe('Grafana Configuration', () => {
     test('includes grafana apiKey when enabled', () => {
-      const state = createValidPOCState();
+      const state = createValidAWSState();
       state.enableGrafana = true;
 
       const yaml = generateValuesYaml(state);
 
       expect(yaml).toContain('grafana:');
       expect(yaml).toContain('enabled: true');
-      // Grafana uses the main apiKey
       expect(yaml).toContain(`apiKey: "${state.apiKey}"`);
     });
 
     test('does not include apiKey when grafana disabled', () => {
-      const state = createValidPOCState();
+      const state = createValidAWSState();
       state.enableGrafana = false;
 
       const yaml = generateValuesYaml(state);
 
       expect(yaml).toContain('grafana:');
       expect(yaml).toContain('enabled: false');
-      expect(yaml).not.toContain('cardinal:');
     });
   });
 
-  describe('Production Configuration', () => {
-    test('includes replica settings for production', () => {
-      const state = createValidPOCState();
-      state.installType = 'production';
+  describe('Database Configuration', () => {
+    test('generates database with create mode', () => {
+      const state = createValidAWSState();
 
       const yaml = generateValuesYaml(state);
 
-      expect(yaml).toContain('ingestLogs:');
-      expect(yaml).toContain('replicas: 3');
-      expect(yaml).toContain('queryApi:');
-      expect(yaml).toContain('replicas: 2');
+      expect(yaml).not.toBeNull();
+      expect(yaml).toContain('database:');
+      expect(yaml).toContain('host: "lakerunner-db.example.com"');
+      expect(yaml).toContain('password: "testpassword123"');
     });
 
-    test('does not include replica settings for POC', () => {
-      const state = createValidPOCState();
-      state.installType = 'poc';
+    test('generates database with existing secret', () => {
+      const state = createValidAWSState();
+      state.lrdb.credentialMode = 'existing';
+      state.lrdb.existingSecretName = 'lrdb-credentials';
 
       const yaml = generateValuesYaml(state);
 
-      expect(yaml).not.toContain('ingestLogs:');
-      expect(yaml).not.toContain('replicas: 3');
+      expect(yaml).not.toBeNull();
+      expect(yaml).toContain('secretName: "lrdb-credentials"');
+      expect(yaml).not.toContain('password: "testpassword123"');
+    });
+
+    test('generates configdb with create mode', () => {
+      const state = createValidAWSState();
+
+      const yaml = generateValuesYaml(state);
+
+      expect(yaml).not.toBeNull();
+      expect(yaml).toContain('configdb:');
+      expect(yaml).toContain('host: "config-db.example.com"');
+    });
+
+    test('returns null when lrdb host empty', () => {
+      const state = createValidAWSState();
+      state.lrdb.host = '';
+
+      expect(generateValuesYaml(state)).toBeNull();
+    });
+
+    test('returns null when configdb host empty', () => {
+      const state = createValidAWSState();
+      state.configdb.host = '';
+
+      expect(generateValuesYaml(state)).toBeNull();
     });
   });
 
   describe('Validation', () => {
     test('returns null when collector name is invalid', () => {
-      const state = createValidPOCState();
+      const state = createValidAWSState();
       state.collectorName = 'default';
 
-      const yaml = generateValuesYaml(state);
-
-      expect(yaml).toBeNull();
+      expect(generateValuesYaml(state)).toBeNull();
     });
 
     test('returns null when organization ID is invalid', () => {
-      const state = createValidPOCState();
+      const state = createValidAWSState();
       state.organizationId = 'not-a-uuid';
 
-      const yaml = generateValuesYaml(state);
-
-      expect(yaml).toBeNull();
+      expect(generateValuesYaml(state)).toBeNull();
     });
 
     test('returns null when GCP service account mode has no JSON', () => {
-      const state = createValidPOCState();
-      state.cloudProvider = 'gcp';
-      state.gcp = {
-        credentialMode: 'service_account',
-        serviceAccountJson: '',  // Empty - should fail validation
-        existingSecretName: '',
-      };
+      const state = createValidGCPState();
+      state.gcp.credentialMode = 'service_account';
+      state.gcp.serviceAccountJson = '';
 
-      const yaml = generateValuesYaml(state);
-
-      expect(yaml).toBeNull();
+      expect(generateValuesYaml(state)).toBeNull();
     });
 
     test('returns null when GCP existing secret mode has no secret name', () => {
-      const state = createValidPOCState();
-      state.cloudProvider = 'gcp';
-      state.gcp = {
-        credentialMode: 'existing',
-        serviceAccountJson: '',
-        existingSecretName: '',  // Empty - should fail validation
-      };
+      const state = createValidGCPState();
+      state.gcp.credentialMode = 'existing';
+      state.gcp.existingSecretName = '';
 
-      const yaml = generateValuesYaml(state);
-
-      expect(yaml).toBeNull();
+      expect(generateValuesYaml(state)).toBeNull();
     });
 
     test('passes validation for GCP workload identity with no credentials', () => {
-      const state = createValidPOCState();
-      state.cloudProvider = 'gcp';
-      state.gcp = {
-        credentialMode: 'workload_identity',
-        serviceAccountJson: '',  // Empty is OK for workload identity
-        existingSecretName: '',
-      };
+      const state = createValidGCPState();
+      state.gcp.credentialMode = 'workload_identity';
 
-      const yaml = generateValuesYaml(state);
-
-      expect(yaml).not.toBeNull();
+      expect(generateValuesYaml(state)).not.toBeNull();
     });
   });
 
   describe('Storage Profiles', () => {
     test('includes organization_id and collector_name in storageProfiles', () => {
-      const state = createValidPOCState();
+      const state = createValidAWSState();
 
       const yaml = generateValuesYaml(state);
 
@@ -364,64 +537,29 @@ describe('generateValuesYaml', () => {
     });
   });
 
-  describe('Cardinal Monitoring Configuration', () => {
-    test('includes OTEL env vars when Cardinal monitoring enabled with valid API key', () => {
-      const state = createValidPOCState();
-      state.enableCardinalMonitoring = true;
-      state.cardinalApiKey = 'test-cardinal-api-key-12345';
-
-      const yaml = generateValuesYaml(state);
-
-      expect(yaml).not.toBeNull();
-      expect(yaml).toContain('env:');
-      expect(yaml).toContain('- name: OTEL_EXPORTER_OTLP_ENDPOINT');
-      expect(yaml).toContain('value: "https://otelhttp.intake.us-east-2.aws.cardinalhq.io"');
-      expect(yaml).toContain('- name: OTEL_EXPORTER_OTLP_HEADERS');
-      expect(yaml).toContain('value: "x-cardinalhq-api-key=test-cardinal-api-key-12345"');
-    });
-
-    test('does not include OTEL env vars when Cardinal monitoring disabled', () => {
-      const state = createValidPOCState();
-      state.enableCardinalMonitoring = false;
-      state.cardinalApiKey = '';
-
-      const yaml = generateValuesYaml(state);
-
-      expect(yaml).not.toBeNull();
-      expect(yaml).not.toContain('OTEL_EXPORTER_OTLP_ENDPOINT');
-      expect(yaml).not.toContain('OTEL_EXPORTER_OTLP_HEADERS');
-    });
-
-    test('returns null when Cardinal monitoring enabled but API key too short', () => {
-      const state = createValidPOCState();
-      state.enableCardinalMonitoring = true;
-      state.cardinalApiKey = 'short';  // Less than 10 characters
-
-      const yaml = generateValuesYaml(state);
-
-      expect(yaml).toBeNull();
-    });
-
-    test('generates valid YAML when Cardinal monitoring enabled with 10+ char API key', () => {
-      const state = createValidPOCState();
-      state.enableCardinalMonitoring = true;
-      state.cardinalApiKey = '1234567890';  // Exactly 10 characters
-
-      const yaml = generateValuesYaml(state);
-
-      expect(yaml).not.toBeNull();
-      expect(yaml).toContain('OTEL_EXPORTER_OTLP_ENDPOINT');
-    });
-  });
-
   describe('Collector Configuration', () => {
     test('collector is always disabled in generated YAML', () => {
-      const state = createValidPOCState();
+      const state = createValidAWSState();
 
       const yaml = generateValuesYaml(state);
 
       expect(yaml).toContain('collector:');
       expect(yaml).toContain('enabled: false');
+    });
+  });
+
+  describe('No removed fields in output', () => {
+    test('does not contain kafka, keda, or cardinal monitoring fields', () => {
+      const state = createValidAWSState();
+
+      const yaml = generateValuesYaml(state);
+
+      expect(yaml).not.toBeNull();
+      expect(yaml).not.toContain('kafka:');
+      expect(yaml).not.toContain('brokers:');
+      expect(yaml).not.toContain('sasl:');
+      expect(yaml).not.toContain('global:');
+      expect(yaml).not.toContain('OTEL_EXPORTER');
     });
   });
 });

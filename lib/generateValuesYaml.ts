@@ -4,6 +4,9 @@ export type CloudProvider = 'aws' | 'gcp' | 'azure';
 export type AWSCredentialMode = 'create' | 'existing' | 'eks';
 export type GCPCredentialMode = 'workload_identity' | 'service_account' | 'existing';
 export type SecretMode = 'create' | 'existing';
+export type PubSubType = 'http' | 'sqs';
+export type GCPPubSubType = 'gcp';
+export type LicenseMode = 'create' | 'existing';
 
 export interface StorageConfig {
   bucket: string;
@@ -41,14 +44,28 @@ export interface PostgresConfig {
   existingSecretName: string;
 }
 
-export interface KafkaConfig {
-  credentialMode: SecretMode;
-  brokers: string;
-  saslMechanism: string;
-  username: string;
-  password: string;
-  useTls: boolean;
-  existingSecretName: string;
+export interface ScalingConfig {
+  processLogsMax: string;
+  processMetricsMax: string;
+  processTracesMax: string;
+}
+
+export interface PubSubConfig {
+  type: PubSubType;
+  httpReplicas: string;
+  sqsReplicas: string;
+  sqsQueueURL: string;
+  sqsRegion: string;
+  sqsRoleARN: string;
+  gcpReplicas: string;
+  gcpProjectID: string;
+  gcpSubscriptionID: string;
+}
+
+export interface LicenseConfig {
+  mode: LicenseMode;
+  secretName: string;
+  data: string;
 }
 
 export interface WizardState {
@@ -63,12 +80,11 @@ export interface WizardState {
   azure: AzureConfig;
   lrdb: PostgresConfig;
   configdb: PostgresConfig;
-  kafka: KafkaConfig;
-  enableKeda: boolean;
+  scaling: ScalingConfig;
+  pubsub: PubSubConfig;
+  license: LicenseConfig;
   enableGrafana: boolean;
   enableCollector: boolean;
-  enableCardinalMonitoring: boolean;
-  cardinalApiKey: string;
 }
 
 // Validation functions
@@ -87,13 +103,19 @@ export function isValidPort(port: string): boolean {
   return !isNaN(portNum) && portNum >= 1 && portNum <= 65535;
 }
 
+export function isValidLicenseData(data: string): boolean {
+  const trimmed = data.trim();
+  return trimmed.startsWith('b64:') || trimmed.startsWith('z64:');
+}
+
 export function isBasicsConfigured(state: WizardState): boolean {
   if (!isValidCollectorName(state.collectorName)) return false;
   if (!isValidUUID(state.organizationId)) return false;
   if (!state.apiKey.trim()) return false;
 
-  // Validate Cardinal monitoring API key if enabled
-  if (state.enableCardinalMonitoring && state.cardinalApiKey.trim().length < 10) return false;
+  // Validate license
+  if (state.license.mode === 'create' && !isValidLicenseData(state.license.data)) return false;
+  if (state.license.mode === 'existing' && !state.license.secretName.trim()) return false;
 
   // Validate storage configuration
   if (!state.storage.bucket.trim()) return false;
@@ -113,32 +135,29 @@ export function isBasicsConfigured(state: WizardState): boolean {
     } else if (state.gcp.credentialMode === 'existing') {
       if (!state.gcp.existingSecretName.trim()) return false;
     }
-    // workload_identity requires no additional fields
   }
 
-  // For POC and Production, validate database and Kafka configuration
-  if (state.installType === 'poc' || state.installType === 'production') {
-    // Validate lrdb
-    if (!state.lrdb.host.trim()) return false;
-    if (!isValidPort(state.lrdb.port)) return false;
-    if (!state.lrdb.database.trim()) return false;
-    if (!state.lrdb.username.trim()) return false;
-    if (state.lrdb.credentialMode === 'create' && !state.lrdb.password.trim()) return false;
-    if (state.lrdb.credentialMode === 'existing' && !state.lrdb.existingSecretName.trim()) return false;
+  // Validate database configuration
+  if (!state.lrdb.host.trim()) return false;
+  if (!isValidPort(state.lrdb.port)) return false;
+  if (!state.lrdb.database.trim()) return false;
+  if (!state.lrdb.username.trim()) return false;
+  if (state.lrdb.credentialMode === 'create' && !state.lrdb.password.trim()) return false;
+  if (state.lrdb.credentialMode === 'existing' && !state.lrdb.existingSecretName.trim()) return false;
 
-    // Validate configdb
-    if (!state.configdb.host.trim()) return false;
-    if (!isValidPort(state.configdb.port)) return false;
-    if (!state.configdb.database.trim()) return false;
-    if (!state.configdb.username.trim()) return false;
-    if (state.configdb.credentialMode === 'create' && !state.configdb.password.trim()) return false;
-    if (state.configdb.credentialMode === 'existing' && !state.configdb.existingSecretName.trim()) return false;
+  if (!state.configdb.host.trim()) return false;
+  if (!isValidPort(state.configdb.port)) return false;
+  if (!state.configdb.database.trim()) return false;
+  if (!state.configdb.username.trim()) return false;
+  if (state.configdb.credentialMode === 'create' && !state.configdb.password.trim()) return false;
+  if (state.configdb.credentialMode === 'existing' && !state.configdb.existingSecretName.trim()) return false;
 
-    // Validate kafka
-    if (!state.kafka.brokers.trim()) return false;
-    if (state.kafka.credentialMode === 'create' && !state.kafka.username.trim()) return false;
-    if (state.kafka.credentialMode === 'create' && !state.kafka.password.trim()) return false;
-    if (state.kafka.credentialMode === 'existing' && !state.kafka.existingSecretName.trim()) return false;
+  // Validate pubsub (required)
+  if (state.cloudProvider === 'gcp') {
+    if (!state.pubsub.gcpProjectID.trim()) return false;
+    if (!state.pubsub.gcpSubscriptionID.trim()) return false;
+  } else {
+    if (state.pubsub.type === 'sqs' && !state.pubsub.sqsQueueURL.trim()) return false;
   }
 
   return true;
@@ -158,36 +177,34 @@ export function createDefaultState(): WizardState {
     azure: { storageAccountName: '', storageAccountKey: '', containerName: '' },
     lrdb: { credentialMode: 'create', host: '', port: '5432', database: 'lakerunner', username: '', password: '', sslMode: 'require', existingSecretName: '' },
     configdb: { credentialMode: 'create', host: '', port: '5432', database: 'configdb', username: '', password: '', sslMode: 'require', existingSecretName: '' },
-    kafka: { credentialMode: 'create', brokers: '', saslMechanism: 'PLAIN', username: '', password: '', useTls: true, existingSecretName: '' },
-    enableKeda: true,
+    scaling: { processLogsMax: '10', processMetricsMax: '10', processTracesMax: '10' },
+    pubsub: { type: 'http', httpReplicas: '2', sqsReplicas: '2', sqsQueueURL: '', sqsRegion: '', sqsRoleARN: '', gcpReplicas: '1', gcpProjectID: '', gcpSubscriptionID: '' },
+    license: { mode: 'create', secretName: 'lakerunner-license', data: '' },
     enableGrafana: true,
     enableCollector: true,
-    enableCardinalMonitoring: true,
-    cardinalApiKey: '',
   };
 }
 
 // YAML generator
 export function generateValuesYaml(state: WizardState): string | null {
-  // Check if basics are configured
   if (!isBasicsConfigured(state)) {
     return null;
   }
 
   const lines: string[] = ['# Lakerunner Values Configuration', '# Generated by Cardinal Install Wizard', ''];
 
-  // Global settings
-  lines.push('global:');
-  lines.push('  autoscaling:');
-  lines.push(`    mode: "${state.enableKeda ? 'keda' : 'disabled'}"`);
-  if (state.enableCardinalMonitoring && state.cardinalApiKey.trim()) {
-    lines.push('  env:');
-    lines.push('    - name: OTEL_EXPORTER_OTLP_ENDPOINT');
-    lines.push('      value: "https://otelhttp.intake.us-east-2.aws.cardinalhq.io"');
-    lines.push('    - name: OTEL_EXPORTER_OTLP_HEADERS');
-    lines.push(`      value: "x-cardinalhq-api-key=${state.cardinalApiKey}"`);
+  // License
+  lines.push('license:');
+  if (state.license.mode === 'existing') {
+    lines.push('  create: false');
+    lines.push(`  secretName: "${state.license.secretName}"`);
+  } else {
+    lines.push('  create: true');
+    lines.push(`  secretName: "${state.license.secretName}"`);
+    lines.push(`  data: "${state.license.data.trim()}"`);
   }
   lines.push('');
+
 
   // API Keys
   lines.push('apiKeys:');
@@ -207,16 +224,13 @@ export function generateValuesYaml(state: WizardState): string | null {
     lines.push('  aws:');
     lines.push(`    region: "${state.storage.region}"`);
     if (state.aws.credentialMode === 'eks') {
-      // Use EKS-provided credentials (IRSA/Pod Identity)
       lines.push('    inject: false');
       lines.push('    create: false');
     } else if (state.aws.credentialMode === 'existing') {
-      // Use existing secret
       lines.push('    inject: true');
       lines.push('    create: false');
       lines.push(`    secretName: "${state.aws.existingSecretName}"`);
     } else {
-      // Create new secret
       lines.push('    inject: true');
       lines.push('    create: true');
       lines.push(`    accessKeyId: "${state.aws.accessKeyId}"`);
@@ -225,16 +239,13 @@ export function generateValuesYaml(state: WizardState): string | null {
   } else if (state.cloudProvider === 'gcp') {
     lines.push('  gcp:');
     if (state.gcp.credentialMode === 'workload_identity') {
-      // Workload Identity (recommended for GKE)
       lines.push('    inject: false');
       lines.push('    create: false');
     } else if (state.gcp.credentialMode === 'existing') {
-      // Existing secret with GOOGLE_APPLICATION_CREDENTIALS
       lines.push('    inject: true');
       lines.push('    create: false');
       lines.push(`    secretName: "${state.gcp.existingSecretName}"`);
     } else {
-      // Service Account JSON
       lines.push('    inject: true');
       lines.push('    create: true');
       lines.push(`    serviceAccountJson: '${state.gcp.serviceAccountJson}'`);
@@ -265,78 +276,85 @@ export function generateValuesYaml(state: WizardState): string | null {
   }
   lines.push('');
 
-  // Database configuration (POC and Production)
-  if (state.installType === 'poc' || state.installType === 'production') {
-    lines.push('database:');
-    if (state.lrdb.credentialMode === 'existing') {
-      lines.push('  create: false');
-      lines.push(`  secretName: "${state.lrdb.existingSecretName}"`);
-    } else {
-      lines.push('  create: true');
-    }
-    lines.push('  lrdb:');
-    lines.push(`    host: "${state.lrdb.host}"`);
-    lines.push(`    port: ${state.lrdb.port}`);
-    lines.push(`    name: "${state.lrdb.database}"`);
-    lines.push(`    username: "${state.lrdb.username}"`);
-    if (state.lrdb.credentialMode === 'create') {
-      lines.push(`    password: "${state.lrdb.password}"`);
-    }
-    lines.push(`    sslMode: "${state.lrdb.sslMode}"`);
-    lines.push('');
+  // Database configuration
+  lines.push('database:');
+  if (state.lrdb.credentialMode === 'existing') {
+    lines.push('  create: false');
+    lines.push(`  secretName: "${state.lrdb.existingSecretName}"`);
+  } else {
+    lines.push('  create: true');
+  }
+  lines.push('  lrdb:');
+  lines.push(`    host: "${state.lrdb.host}"`);
+  lines.push(`    port: ${state.lrdb.port}`);
+  lines.push(`    name: "${state.lrdb.database}"`);
+  lines.push(`    username: "${state.lrdb.username}"`);
+  if (state.lrdb.credentialMode === 'create') {
+    lines.push(`    password: "${state.lrdb.password}"`);
+  }
+  lines.push(`    sslMode: "${state.lrdb.sslMode}"`);
+  lines.push('');
 
-    lines.push('configdb:');
-    if (state.configdb.credentialMode === 'existing') {
-      lines.push('  create: false');
-      lines.push(`  secretName: "${state.configdb.existingSecretName}"`);
-    } else {
-      lines.push('  create: true');
-    }
-    lines.push('  lrdb:');
-    lines.push(`    host: "${state.configdb.host}"`);
-    lines.push(`    port: ${state.configdb.port}`);
-    lines.push(`    name: "${state.configdb.database}"`);
-    lines.push(`    username: "${state.configdb.username}"`);
-    if (state.configdb.credentialMode === 'create') {
-      lines.push(`    password: "${state.configdb.password}"`);
-    }
-    lines.push(`    sslMode: "${state.configdb.sslMode}"`);
-    lines.push('');
+  lines.push('configdb:');
+  if (state.configdb.credentialMode === 'existing') {
+    lines.push('  create: false');
+    lines.push(`  secretName: "${state.configdb.existingSecretName}"`);
+  } else {
+    lines.push('  create: true');
+  }
+  lines.push('  lrdb:');
+  lines.push(`    host: "${state.configdb.host}"`);
+  lines.push(`    port: ${state.configdb.port}`);
+  lines.push(`    name: "${state.configdb.database}"`);
+  lines.push(`    username: "${state.configdb.username}"`);
+  if (state.configdb.credentialMode === 'create') {
+    lines.push(`    password: "${state.configdb.password}"`);
+  }
+  lines.push(`    sslMode: "${state.configdb.sslMode}"`);
+  lines.push('');
 
-    lines.push('kafka:');
-    if (state.kafka.credentialMode === 'existing') {
-      lines.push('  create: false');
-      lines.push(`  secretName: "${state.kafka.existingSecretName}"`);
-    } else {
-      lines.push('  create: true');
-    }
-    lines.push(`  brokers: "${state.kafka.brokers}"`);
-    lines.push('  sasl:');
+  // Process service scaling
+  lines.push('processLogs:');
+  lines.push('  autoscaling:');
+  lines.push(`    minReplicas: 1`);
+  lines.push(`    maxReplicas: ${state.scaling.processLogsMax}`);
+  lines.push('');
+  lines.push('processMetrics:');
+  lines.push('  autoscaling:');
+  lines.push(`    minReplicas: 1`);
+  lines.push(`    maxReplicas: ${state.scaling.processMetricsMax}`);
+  lines.push('');
+  lines.push('processTraces:');
+  lines.push('  autoscaling:');
+  lines.push(`    minReplicas: 1`);
+  lines.push(`    maxReplicas: ${state.scaling.processTracesMax}`);
+  lines.push('');
+
+  // PubSub (ingestion)
+  lines.push('pubsub:');
+  if (state.cloudProvider === 'gcp') {
+    lines.push('  GCP:');
     lines.push('    enabled: true');
-    lines.push(`    mechanism: "${state.kafka.saslMechanism}"`);
-    if (state.kafka.credentialMode === 'create') {
-      lines.push(`    username: "${state.kafka.username}"`);
-      lines.push(`    password: "${state.kafka.password}"`);
+    lines.push(`    replicas: ${state.pubsub.gcpReplicas}`);
+    lines.push(`    projectID: "${state.pubsub.gcpProjectID}"`);
+    lines.push(`    subscriptionID: "${state.pubsub.gcpSubscriptionID}"`);
+  } else if (state.pubsub.type === 'http') {
+    lines.push('  HTTP:');
+    lines.push('    enabled: true');
+    lines.push(`    replicas: ${state.pubsub.httpReplicas}`);
+  } else if (state.pubsub.type === 'sqs') {
+    lines.push('  SQS:');
+    lines.push('    enabled: true');
+    lines.push(`    replicas: ${state.pubsub.sqsReplicas}`);
+    lines.push(`    queueURL: "${state.pubsub.sqsQueueURL}"`);
+    if (state.pubsub.sqsRegion.trim()) {
+      lines.push(`    region: "${state.pubsub.sqsRegion}"`);
     }
-    lines.push('  tls:');
-    lines.push(`    enabled: ${state.kafka.useTls}`);
-    lines.push('');
+    if (state.pubsub.sqsRoleARN.trim()) {
+      lines.push(`    roleARN: "${state.pubsub.sqsRoleARN}"`);
+    }
   }
-
-  // Production-specific settings
-  if (state.installType === 'production') {
-    lines.push('# Production replica settings');
-    lines.push('ingestLogs:');
-    lines.push('  replicas: 3');
-    lines.push('ingestMetrics:');
-    lines.push('  replicas: 3');
-    lines.push('ingestTraces:');
-    lines.push('  replicas: 3');
-    lines.push('');
-    lines.push('queryApi:');
-    lines.push('  replicas: 2');
-    lines.push('');
-  }
+  lines.push('');
 
   // Grafana settings
   lines.push('grafana:');

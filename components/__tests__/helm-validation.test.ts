@@ -9,14 +9,21 @@ import {
 } from '../../lib/generateValuesYaml';
 
 // These tests validate that the wizard-generated YAML can be successfully
-// templated with the actual Lakerunner helm chart using `helm template`
+// templated with the actual Lakerunner helm chart using `helm template`.
+// Uses the local chart at ../charts/lakerunner/ for speed.
+
+const CHART_PATH = path.resolve(__dirname, '../../../charts/lakerunner');
 
 describe('Helm Template Validation', () => {
-  const CHART_URL = 'oci://public.ecr.aws/cardinalhq.io/lakerunner';
   let tempDir: string;
+  let chartAvailable: boolean;
 
   beforeAll(() => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lakerunner-test-'));
+    chartAvailable = fs.existsSync(path.join(CHART_PATH, 'Chart.yaml'));
+    if (!chartAvailable) {
+      console.warn(`Skipping helm template tests: chart not found at ${CHART_PATH}`);
+    }
   });
 
   afterAll(() => {
@@ -29,7 +36,7 @@ describe('Helm Template Validation', () => {
     const valuesFile = path.join(tempDir, `${testName}-values.yaml`);
     fs.writeFileSync(valuesFile, yamlContent);
 
-    const result = spawnSync('helm', ['template', testName, CHART_URL, '--values', valuesFile], {
+    const result = spawnSync('helm', ['template', testName, CHART_PATH, '--values', valuesFile], {
       encoding: 'utf-8',
       timeout: 30000,
     });
@@ -41,8 +48,7 @@ describe('Helm Template Validation', () => {
     };
   }
 
-  // Helper to create a valid POC base state
-  function createValidPOCState(): WizardState {
+  function createValidAWSState(): WizardState {
     const state = createDefaultState();
     state.installType = 'poc';
     state.cloudProvider = 'aws';
@@ -76,147 +82,188 @@ describe('Helm Template Validation', () => {
       sslMode: 'require',
       existingSecretName: '',
     };
-    state.kafka = {
-      credentialMode: 'create',
-      brokers: 'kafka-1:9092,kafka-2:9092',
-      saslMechanism: 'SCRAM-SHA-256',
-      username: 'kafka-user',
-      password: 'kafkapassword789',
-      useTls: true,
-      existingSecretName: '',
+    state.license = {
+      mode: 'create',
+      secretName: 'lakerunner-license',
+      data: 'b64:dGVzdGxpY2Vuc2VkYXRh',
     };
-    state.enableKeda = true;
+    state.pubsub = {
+      type: 'http',
+      httpReplicas: '2',
+      sqsReplicas: '2',
+      sqsQueueURL: '',
+      sqsRegion: '',
+      sqsRoleARN: '',
+      gcpReplicas: '1',
+      gcpProjectID: '',
+      gcpSubscriptionID: '',
+    };
+    state.scaling = { processLogsMax: '10', processMetricsMax: '10', processTracesMax: '10' };
     state.enableGrafana = true;
     state.enableCollector = true;
-    state.enableCardinalMonitoring = false;
-    state.cardinalApiKey = '';
     return state;
   }
 
-  describe('AWS Configurations', () => {
-    test('POC with AWS create credentials passes helm template', () => {
-      const state = createValidPOCState();
-      state.aws.credentialMode = 'create';
+  function createValidGCPState(): WizardState {
+    const state = createValidAWSState();
+    state.cloudProvider = 'gcp';
+    state.storage.region = 'us-central1';
+    state.gcp = {
+      credentialMode: 'workload_identity',
+      serviceAccountJson: '',
+      existingSecretName: '',
+    };
+    state.pubsub = {
+      type: 'http',
+      httpReplicas: '2',
+      sqsReplicas: '2',
+      sqsQueueURL: '',
+      sqsRegion: '',
+      sqsRoleARN: '',
+      gcpReplicas: '1',
+      gcpProjectID: 'my-project-123',
+      gcpSubscriptionID: 'my-subscription',
+    };
+    return state;
+  }
 
+  function skipIfNoChart() {
+    if (!chartAvailable) {
+      return true;
+    }
+    return false;
+  }
+
+  describe('AWS + HTTP PubSub', () => {
+    test('POC with AWS create credentials + HTTP pubsub', () => {
+      if (skipIfNoChart()) return;
+
+      const state = createValidAWSState();
       const yaml = generateValuesYaml(state);
       expect(yaml).not.toBeNull();
 
-      const result = validateWithHelm(yaml!, 'aws-create-test');
-
-      if (!result.success) {
-        console.error('Helm template error:', result.error);
-      }
-
+      const result = validateWithHelm(yaml!, 'aws-create-http');
+      if (!result.success) console.error('Helm error:', result.error);
       expect(result.success).toBe(true);
       expect(result.output).toContain('kind: Deployment');
-    }, 60000);
+    }, 30000);
 
-    test('POC with AWS existing secret passes helm template', () => {
-      const state = createValidPOCState();
+    test('POC with AWS existing secret + HTTP pubsub', () => {
+      if (skipIfNoChart()) return;
+
+      const state = createValidAWSState();
       state.aws.credentialMode = 'existing';
       state.aws.existingSecretName = 'aws-credentials';
 
       const yaml = generateValuesYaml(state);
       expect(yaml).not.toBeNull();
 
-      const result = validateWithHelm(yaml!, 'aws-existing-test');
-
-      if (!result.success) {
-        console.error('Helm template error:', result.error);
-      }
-
+      const result = validateWithHelm(yaml!, 'aws-existing-http');
+      if (!result.success) console.error('Helm error:', result.error);
       expect(result.success).toBe(true);
-    }, 60000);
+    }, 30000);
 
-    test('POC with EKS IRSA passes helm template', () => {
-      const state = createValidPOCState();
+    test('POC with EKS IRSA + HTTP pubsub', () => {
+      if (skipIfNoChart()) return;
+
+      const state = createValidAWSState();
       state.aws.credentialMode = 'eks';
 
       const yaml = generateValuesYaml(state);
       expect(yaml).not.toBeNull();
 
-      const result = validateWithHelm(yaml!, 'aws-eks-test');
-
-      if (!result.success) {
-        console.error('Helm template error:', result.error);
-      }
-
+      const result = validateWithHelm(yaml!, 'aws-eks-http');
+      if (!result.success) console.error('Helm error:', result.error);
       expect(result.success).toBe(true);
-    }, 60000);
+    }, 30000);
+  });
+
+  describe('AWS + SQS PubSub', () => {
+    test('POC with AWS create credentials + SQS pubsub', () => {
+      if (skipIfNoChart()) return;
+
+      const state = createValidAWSState();
+      state.pubsub.type = 'sqs';
+      state.pubsub.sqsQueueURL = 'https://sqs.us-east-1.amazonaws.com/123456789012/my-queue';
+
+      const yaml = generateValuesYaml(state);
+      expect(yaml).not.toBeNull();
+
+      const result = validateWithHelm(yaml!, 'aws-create-sqs');
+      if (!result.success) console.error('Helm error:', result.error);
+      expect(result.success).toBe(true);
+    }, 30000);
+
+    test('POC with EKS IRSA + SQS with roleARN', () => {
+      if (skipIfNoChart()) return;
+
+      const state = createValidAWSState();
+      state.aws.credentialMode = 'eks';
+      state.pubsub.type = 'sqs';
+      state.pubsub.sqsQueueURL = 'https://sqs.us-east-2.amazonaws.com/123456789012/q';
+      state.pubsub.sqsRegion = 'us-east-2';
+      state.pubsub.sqsRoleARN = 'arn:aws:iam::123456789012:role/my-role';
+
+      const yaml = generateValuesYaml(state);
+      expect(yaml).not.toBeNull();
+
+      const result = validateWithHelm(yaml!, 'aws-eks-sqs-role');
+      if (!result.success) console.error('Helm error:', result.error);
+      expect(result.success).toBe(true);
+    }, 30000);
   });
 
   describe('GCP Configurations', () => {
-    test('POC with GCP Workload Identity passes helm template', () => {
-      const state = createValidPOCState();
-      state.cloudProvider = 'gcp';
-      state.storage.region = 'us-central1';
-      state.gcp = {
-        credentialMode: 'workload_identity',
-        serviceAccountJson: '',
-        existingSecretName: '',
-      };
+    test('POC with GCP Workload Identity + GCP Pub/Sub', () => {
+      if (skipIfNoChart()) return;
+
+      const state = createValidGCPState();
 
       const yaml = generateValuesYaml(state);
       expect(yaml).not.toBeNull();
 
-      const result = validateWithHelm(yaml!, 'gcp-workload-identity-test');
-
-      if (!result.success) {
-        console.error('Helm template error:', result.error);
-      }
-
+      const result = validateWithHelm(yaml!, 'gcp-workload-identity');
+      if (!result.success) console.error('Helm error:', result.error);
       expect(result.success).toBe(true);
       expect(result.output).toContain('kind: Deployment');
-    }, 60000);
+    }, 30000);
 
-    test('POC with GCP existing secret passes helm template', () => {
-      const state = createValidPOCState();
-      state.cloudProvider = 'gcp';
-      state.storage.region = 'us-central1';
-      state.gcp = {
-        credentialMode: 'existing',
-        serviceAccountJson: '',
-        existingSecretName: 'my-gcp-credentials',
-      };
+    test('POC with GCP existing secret + GCP Pub/Sub', () => {
+      if (skipIfNoChart()) return;
+
+      const state = createValidGCPState();
+      state.gcp.credentialMode = 'existing';
+      state.gcp.existingSecretName = 'my-gcp-credentials';
 
       const yaml = generateValuesYaml(state);
       expect(yaml).not.toBeNull();
 
-      const result = validateWithHelm(yaml!, 'gcp-existing-test');
-
-      if (!result.success) {
-        console.error('Helm template error:', result.error);
-      }
-
+      const result = validateWithHelm(yaml!, 'gcp-existing');
+      if (!result.success) console.error('Helm error:', result.error);
       expect(result.success).toBe(true);
-    }, 60000);
+    }, 30000);
 
-    test('POC with GCP service account JSON passes helm template', () => {
-      const state = createValidPOCState();
-      state.cloudProvider = 'gcp';
-      state.storage.region = 'us-central1';
-      state.gcp = {
-        credentialMode: 'service_account',
-        serviceAccountJson: '{"type":"service_account","project_id":"test-project","private_key_id":"key123"}',
-        existingSecretName: '',
-      };
+    test('POC with GCP service account JSON + GCP Pub/Sub', () => {
+      if (skipIfNoChart()) return;
+
+      const state = createValidGCPState();
+      state.gcp.credentialMode = 'service_account';
+      state.gcp.serviceAccountJson = '{"type":"service_account","project_id":"test-project","private_key_id":"key123"}';
 
       const yaml = generateValuesYaml(state);
       expect(yaml).not.toBeNull();
 
-      const result = validateWithHelm(yaml!, 'gcp-service-account-test');
-
-      if (!result.success) {
-        console.error('Helm template error:', result.error);
-      }
-
+      const result = validateWithHelm(yaml!, 'gcp-service-account');
+      if (!result.success) console.error('Helm error:', result.error);
       expect(result.success).toBe(true);
-    }, 60000);
+    }, 30000);
   });
 
-  describe('Production Configuration', () => {
-    test('Production with existing secrets passes helm template', () => {
-      const state = createValidPOCState();
+  describe('Production Configurations', () => {
+    test('Production AWS with existing secrets + HTTP', () => {
+      if (skipIfNoChart()) return;
+
+      const state = createValidAWSState();
       state.installType = 'production';
       state.aws.credentialMode = 'existing';
       state.aws.existingSecretName = 'aws-credentials';
@@ -224,91 +271,20 @@ describe('Helm Template Validation', () => {
       state.lrdb.existingSecretName = 'lrdb-credentials';
       state.configdb.credentialMode = 'existing';
       state.configdb.existingSecretName = 'configdb-credentials';
-      state.kafka.credentialMode = 'existing';
-      state.kafka.existingSecretName = 'kafka-credentials';
       state.enableGrafana = false;
 
       const yaml = generateValuesYaml(state);
       expect(yaml).not.toBeNull();
 
-      const result = validateWithHelm(yaml!, 'production-test');
-
-      if (!result.success) {
-        console.error('Helm template error:', result.error);
-      }
-
+      const result = validateWithHelm(yaml!, 'prod-aws-http');
+      if (!result.success) console.error('Helm error:', result.error);
       expect(result.success).toBe(true);
-      // Production should have replica settings
-      expect(yaml).toContain('replicas: 3');
-    }, 60000);
-  });
+    }, 30000);
 
-  describe('KEDA Configuration', () => {
-    test('Configuration without KEDA passes helm template', () => {
-      const state = createValidPOCState();
-      state.enableKeda = false;
+    test('Production AWS with existing secrets + SQS', () => {
+      if (skipIfNoChart()) return;
 
-      const yaml = generateValuesYaml(state);
-      expect(yaml).not.toBeNull();
-      expect(yaml).toContain('mode: "disabled"');
-
-      const result = validateWithHelm(yaml!, 'no-keda-test');
-
-      if (!result.success) {
-        console.error('Helm template error:', result.error);
-      }
-
-      expect(result.success).toBe(true);
-      // Should not contain ScaledObject when KEDA disabled
-      expect(result.output).not.toContain('kind: ScaledObject');
-    }, 60000);
-  });
-
-  describe('Cardinal Monitoring Configuration', () => {
-    test('POC without Cardinal monitoring passes helm template', () => {
-      const state = createValidPOCState();
-      state.enableCardinalMonitoring = false;
-      state.cardinalApiKey = '';
-
-      const yaml = generateValuesYaml(state);
-      expect(yaml).not.toBeNull();
-      expect(yaml).not.toContain('OTEL_EXPORTER_OTLP_ENDPOINT');
-
-      const result = validateWithHelm(yaml!, 'no-monitoring-test');
-
-      if (!result.success) {
-        console.error('Helm template error:', result.error);
-      }
-
-      expect(result.success).toBe(true);
-      expect(result.output).toContain('kind: Deployment');
-    }, 60000);
-
-    test('POC with Cardinal monitoring passes helm template and includes env vars', () => {
-      const state = createValidPOCState();
-      state.enableCardinalMonitoring = true;
-      state.cardinalApiKey = 'test-cardinal-api-key-12345';
-
-      const yaml = generateValuesYaml(state);
-      expect(yaml).not.toBeNull();
-      expect(yaml).toContain('OTEL_EXPORTER_OTLP_ENDPOINT');
-      expect(yaml).toContain('x-cardinalhq-api-key=test-cardinal-api-key-12345');
-
-      const result = validateWithHelm(yaml!, 'with-monitoring-test');
-
-      if (!result.success) {
-        console.error('Helm template error:', result.error);
-      }
-
-      expect(result.success).toBe(true);
-      expect(result.output).toContain('kind: Deployment');
-      // Verify env vars are attached to deployments
-      expect(result.output).toContain('OTEL_EXPORTER_OTLP_ENDPOINT');
-      expect(result.output).toContain('otelhttp.intake.us-east-2.aws.cardinalhq.io');
-    }, 60000);
-
-    test('Production with Cardinal monitoring passes helm template', () => {
-      const state = createValidPOCState();
+      const state = createValidAWSState();
       state.installType = 'production';
       state.aws.credentialMode = 'existing';
       state.aws.existingSecretName = 'aws-credentials';
@@ -316,22 +292,95 @@ describe('Helm Template Validation', () => {
       state.lrdb.existingSecretName = 'lrdb-credentials';
       state.configdb.credentialMode = 'existing';
       state.configdb.existingSecretName = 'configdb-credentials';
-      state.kafka.credentialMode = 'existing';
-      state.kafka.existingSecretName = 'kafka-credentials';
-      state.enableCardinalMonitoring = true;
-      state.cardinalApiKey = 'prod-cardinal-api-key-12345';
+      state.pubsub.type = 'sqs';
+      state.pubsub.sqsQueueURL = 'https://sqs.us-east-1.amazonaws.com/123456789012/q';
+      state.enableGrafana = false;
 
       const yaml = generateValuesYaml(state);
       expect(yaml).not.toBeNull();
 
-      const result = validateWithHelm(yaml!, 'production-monitoring-test');
-
-      if (!result.success) {
-        console.error('Helm template error:', result.error);
-      }
-
+      const result = validateWithHelm(yaml!, 'prod-aws-sqs');
+      if (!result.success) console.error('Helm error:', result.error);
       expect(result.success).toBe(true);
-      expect(result.output).toContain('OTEL_EXPORTER_OTLP_ENDPOINT');
-    }, 60000);
+    }, 30000);
+
+    test('Production GCP with workload identity', () => {
+      if (skipIfNoChart()) return;
+
+      const state = createValidGCPState();
+      state.installType = 'production';
+      state.lrdb.credentialMode = 'existing';
+      state.lrdb.existingSecretName = 'lrdb-credentials';
+      state.configdb.credentialMode = 'existing';
+      state.configdb.existingSecretName = 'configdb-credentials';
+      state.enableGrafana = false;
+
+      const yaml = generateValuesYaml(state);
+      expect(yaml).not.toBeNull();
+
+      const result = validateWithHelm(yaml!, 'prod-gcp');
+      if (!result.success) console.error('Helm error:', result.error);
+      expect(result.success).toBe(true);
+    }, 30000);
+  });
+
+  describe('License Configurations', () => {
+    test('Inline license passes helm template', () => {
+      if (skipIfNoChart()) return;
+
+      const state = createValidAWSState();
+      state.license = { mode: 'create', secretName: 'lakerunner-license', data: 'b64:dGVzdGxpY2Vuc2VkYXRh' };
+
+      const yaml = generateValuesYaml(state);
+      expect(yaml).not.toBeNull();
+
+      const result = validateWithHelm(yaml!, 'license-inline');
+      if (!result.success) console.error('Helm error:', result.error);
+      expect(result.success).toBe(true);
+    }, 30000);
+
+    test('Existing license secret passes helm template', () => {
+      if (skipIfNoChart()) return;
+
+      const state = createValidAWSState();
+      state.license = { mode: 'existing', secretName: 'my-license-secret', data: '' };
+
+      const yaml = generateValuesYaml(state);
+      expect(yaml).not.toBeNull();
+
+      const result = validateWithHelm(yaml!, 'license-existing');
+      if (!result.success) console.error('Helm error:', result.error);
+      expect(result.success).toBe(true);
+    }, 30000);
+  });
+
+  describe('Grafana Toggle', () => {
+    test('Grafana enabled passes helm template', () => {
+      if (skipIfNoChart()) return;
+
+      const state = createValidAWSState();
+      state.enableGrafana = true;
+
+      const yaml = generateValuesYaml(state);
+      expect(yaml).not.toBeNull();
+
+      const result = validateWithHelm(yaml!, 'grafana-enabled');
+      if (!result.success) console.error('Helm error:', result.error);
+      expect(result.success).toBe(true);
+    }, 30000);
+
+    test('Grafana disabled passes helm template', () => {
+      if (skipIfNoChart()) return;
+
+      const state = createValidAWSState();
+      state.enableGrafana = false;
+
+      const yaml = generateValuesYaml(state);
+      expect(yaml).not.toBeNull();
+
+      const result = validateWithHelm(yaml!, 'grafana-disabled');
+      if (!result.success) console.error('Helm error:', result.error);
+      expect(result.success).toBe(true);
+    }, 30000);
   });
 });
