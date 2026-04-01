@@ -96,7 +96,7 @@ const steps: Step[] = [
     title: 'Access Grafana',
     content: (
       <>
-        <p>Port-forward Grafana to your local machine:</p>
+        <p>If Grafana was included in your installation, port-forward it to your local machine:</p>
         <div className={styles.codeBlock}>
           <div className={styles.codeHeader}>
             <span className={styles.codeLang}>bash</span>
@@ -111,7 +111,29 @@ const steps: Step[] = [
           <a href="http://localhost:3000" target="_blank" rel="noopener noreferrer">
             http://localhost:3000
           </a>{' '}
-          in your browser. Lakerunner&apos;s data source is pre-configured.
+          in your browser. Lakerunner&apos;s data source is pre-configured, but you won&apos;t see any data yet — that comes in the next step.
+        </p>
+      </>
+    ),
+  },
+  {
+    number: 7,
+    title: 'Send data',
+    content: (
+      <>
+        <p>
+          Install{' '}
+          <a href="/lakerunner/collectors" target="_blank" rel="noopener noreferrer">
+            OpenTelemetry Collectors
+          </a>{' '}
+          to monitor your cluster and write telemetry to S3.
+        </p>
+        <p>
+          Generate data from your real applications, or use the{' '}
+          <a href="/lakerunner/otel-demo" target="_blank" rel="noopener noreferrer">
+            OTel Demo Application
+          </a>{' '}
+          to produce realistic logs, metrics, and traces right away.
         </p>
       </>
     ),
@@ -145,28 +167,28 @@ function CopyButton({ text }: { text: string }) {
 
 const nextSteps = [
   {
+    icon: '📡',
+    title: 'Install OpenTelemetry Collectors',
+    description: 'Deploy the agent, poller, and gateway to monitor your cluster and write to S3',
+    href: '/lakerunner/collectors',
+  },
+  {
+    icon: '🛍️',
+    title: 'Install the OTel Demo Application',
+    description: 'Deploy a microservices e-commerce app that generates realistic telemetry',
+    href: '/lakerunner/otel-demo',
+  },
+  {
     icon: '🚀',
     title: 'Production deployment',
     description: 'Generate a production values.yaml with S3 and PostgreSQL',
     href: '/lakerunner/install',
   },
   {
-    icon: '📐',
-    title: 'Sizing',
-    description: 'Estimate resource needs for your workload',
-    href: '/lakerunner/sizing',
-  },
-  {
     icon: '🏗️',
     title: 'Architecture',
     description: 'Learn how ingestion, materialization, and query work',
     href: '/lakerunner/architecture',
-  },
-  {
-    icon: '⌨️',
-    title: 'CLI Reference',
-    description: 'Manage your Lakerunner instance from the terminal',
-    href: '/lakerunner/cli',
   },
 ];
 

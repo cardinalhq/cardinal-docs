@@ -1,0 +1,267 @@
+import SupportCallout from '../../components/SupportCallout';
+
+# OpenTelemetry Collectors
+
+Lakerunner ingests telemetry from [OpenTelemetry Collectors](https://opentelemetry.io/docs/collector/) that write data to your S3-compatible object storage bucket. This guide covers the recommended three-tier collector architecture for monitoring Kubernetes clusters.
+
+## Architecture Overview
+
+The collector stack uses three components, each with a distinct role:
+
+| Component | Deployment | Purpose |
+|-----------|-----------|---------|
+| **Agent** | DaemonSet (one per node) | Receives OTLP from workloads, scrapes kubelet stats, enriches with Kubernetes attributes, forwards to gateway |
+| **Poller** | Deployment (single replica) | Watches cluster-level Kubernetes objects (pods, nodes, deployments, HPAs) and emits cluster metrics |
+| **Gateway** | Deployment (2+ replicas) | Aggregates data from agents and pollers, generates service graph metrics from traces, exports to S3 |
+
+```
+Workloads (OTLP)          External OTLP
+    │                         │
+    ▼                         ▼
+┌──────────┐  ┌──────────┐  ┌──────────────┐
+│  Agent   │  │  Poller  │  │              │
+│ (per     │  │ (1x)     │──│   Gateway    │──► S3 Bucket
+│  node)   │──│          │  │   (2x)       │
+└──────────┘  └──────────┘  └──────────────┘
+```
+
+## Agent
+
+The agent runs as a DaemonSet on every node with `hostNetwork: true`. It:
+
+- **Receives OTLP** on ports 4317 (gRPC) and 4318 (HTTP) from workloads on the same node
+- **Scrapes kubelet stats** every 10 seconds for node, pod, container, and volume metrics
+- **Enriches all telemetry** with Kubernetes attributes (pod name, namespace, deployment, labels, etc.)
+- **Sets `service.name`** from the owning controller (deployment, daemonset, statefulset, cronjob, or job)
+- **Converts cumulative metrics to delta** before forwarding to the gateway
+- **Forwards** all data to the gateway over internal OTLP/HTTP (port 24318)
+
+### Agent Configuration
+
+```yaml copy
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+  kubeletstats:
+    auth_type: serviceAccount
+    collection_interval: 10s
+    endpoint: "${env:HOST_IP}:10250"
+    insecure_skip_verify: true
+    node: "${env:K8S_NODE_NAME}"
+    metric_groups: [node, pod, container, volume]
+
+processors:
+  k8sattributes:
+    extract:
+      labels:
+        - from: pod
+          key_regex: "(.*)"
+          tag_name: "$1"
+      metadata:
+        - k8s.node.name
+        - k8s.namespace.name
+        - k8s.deployment.name
+        - k8s.replicaset.name
+        - k8s.daemonset.name
+        - k8s.statefulset.name
+        - k8s.cronjob.name
+        - k8s.job.name
+        - k8s.pod.name
+        - k8s.pod.ip
+        - k8s.container.name
+        - container.id
+        - container.image.name
+        - container.image.tag
+    filter:
+      node_from_env_var: K8S_NODE_NAME
+    pod_association:
+      - sources: [{ from: connection }]
+      - sources: [{ from: resource_attribute, name: k8s.pod.uid }]
+      - sources: [{ from: resource_attribute, name: k8s.pod.ip }]
+  resource/core:
+    attributes:
+      - { action: upsert, from_attribute: k8s.deployment.name, key: service.name }
+      - { action: upsert, from_attribute: k8s.daemonset.name, key: service.name }
+      - { action: upsert, from_attribute: k8s.statefulset.name, key: service.name }
+      - { action: upsert, from_attribute: k8s.cronjob.name, key: service.name }
+      - { action: upsert, from_attribute: k8s.job.name, key: service.name }
+      - { action: upsert, key: k8s.cluster.name, value: "${env:K8S_CLUSTER_NAME}" }
+  cumulativetodelta:
+    max_staleness: 15m
+  batch:
+    send_batch_max_size: 30000
+    send_batch_size: 10000
+    timeout: 10s
+
+exporters:
+  otlphttp/upstream:
+    endpoint: "http://collector-gateway-interproc:24318"
+    tls:
+      insecure: true
+
+service:
+  pipelines:
+    logs:
+      receivers: [otlp]
+      processors: [k8sattributes, resource/core, batch]
+      exporters: [otlphttp/upstream]
+    metrics:
+      receivers: [otlp, kubeletstats]
+      processors: [k8sattributes, resource/core, cumulativetodelta, batch]
+      exporters: [otlphttp/upstream]
+    traces:
+      receivers: [otlp]
+      processors: [k8sattributes, resource/core, batch]
+      exporters: [otlphttp/upstream]
+```
+
+### Agent Resources
+
+| Resource | Request | Limit |
+|----------|---------|-------|
+| CPU | 1 | 1 |
+| Memory | 500Mi | 500Mi |
+
+## Poller
+
+The poller is a single-replica deployment that watches cluster-level Kubernetes objects and emits metrics about their state. It monitors:
+
+- **Node conditions**: Ready, MemoryPressure, DiskPressure, PIDPressure
+- **Allocatable resources**: CPU, memory, ephemeral-storage, storage
+- **Object counts**: Pods, deployments, daemonsets, statefulsets, jobs, HPAs, and more
+
+### Poller Configuration
+
+```yaml copy
+receivers:
+  k8s_cluster:
+    auth_type: serviceAccount
+    node_conditions_to_report: [Ready, MemoryPressure, DiskPressure, PIDPressure]
+    allocatable_types_to_report: [cpu, memory, ephemeral-storage, storage]
+
+processors:
+  resource/core:
+    attributes:
+      - { action: upsert, key: k8s.cluster.name, value: "${env:K8S_CLUSTER_NAME}" }
+  cumulativetodelta:
+    max_staleness: 15m
+  batch:
+    send_batch_max_size: 30000
+    send_batch_size: 10000
+    timeout: 10s
+
+exporters:
+  otlphttp/upstream:
+    endpoint: "http://collector-gateway-interproc:24318"
+    tls:
+      insecure: true
+
+service:
+  pipelines:
+    metrics:
+      receivers: [k8s_cluster]
+      processors: [resource/core, cumulativetodelta, batch]
+      exporters: [otlphttp/upstream]
+```
+
+### Poller Resources
+
+| Resource | Request | Limit |
+|----------|---------|-------|
+| CPU | 1 | 1 |
+| Memory | 500Mi | 500Mi |
+
+## Gateway
+
+The gateway is the central aggregation point. It receives data from agents and pollers on an internal port, and can also accept external OTLP data directly. All data is exported to your S3 bucket.
+
+Key features:
+- **Service graph generation** — Extracts span-derived metrics (call counts, latency) from traces, grouped by `k8s.cluster.name` and `k8s.namespace.name`
+- **Load-balanced metric aggregation** — External cumulative metrics are load-balanced across gateway pods by stream ID before delta conversion
+- **S3 export** — Writes all telemetry to S3 under `otel-raw/{org_id}/{cluster_name}/`
+
+### Gateway Configuration
+
+```yaml copy
+connectors:
+  servicegraph:
+    dimensions: [k8s.cluster.name, k8s.namespace.name]
+    metrics_flush_interval: 10s
+    store:
+      ttl: 10s
+
+receivers:
+  otlp/interproc:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:24318
+  otlp/external:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+exporters:
+  awss3:
+    marshaler: otlp_proto
+    s3uploader:
+      compression: gzip
+      endpoint: "${env:AWS_S3_ENDPOINT}"
+      region: "${env:AWS_REGION}"
+      s3_bucket: "${env:AWS_S3_BUCKET}"
+      s3_prefix: "otel-raw/${env:LAKERUNNER_ORGANIZATION_ID}/${env:K8S_CLUSTER_NAME}"
+
+processors:
+  cumulativetodelta:
+    max_staleness: 15m
+  batch:
+    send_batch_max_size: 30000
+    send_batch_size: 10000
+    timeout: 10s
+
+service:
+  pipelines:
+    logs:
+      receivers: [otlp/interproc]
+      processors: [batch]
+      exporters: [awss3]
+    metrics:
+      receivers: [otlp/interproc]
+      processors: [batch]
+      exporters: [awss3]
+    traces:
+      receivers: [otlp/interproc]
+      processors: [batch]
+      exporters: [servicegraph, awss3]
+    metrics/servicegraph:
+      receivers: [servicegraph]
+      processors: [cumulativetodelta, batch]
+      exporters: [awss3]
+```
+
+### Gateway Resources
+
+| Resource | Request | Limit |
+|----------|---------|-------|
+| CPU | 2 | 2 |
+| Memory | 2Gi | 2Gi |
+
+## Deploying
+
+The collector manifests are designed to be deployed with [Kustomize](https://kustomize.io/). Before deploying, you need to:
+
+1. **Create the `collector` namespace**
+2. **Set your AWS credentials** in the gateway secrets
+3. **Set environment variables** for `K8S_CLUSTER_NAME`, `AWS_S3_BUCKET`, `AWS_REGION`, and `LAKERUNNER_ORGANIZATION_ID`
+
+```bash copy
+kubectl create namespace collector
+kubectl apply -k base-collector-manifests/
+```
+
+<SupportCallout />
