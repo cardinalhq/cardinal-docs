@@ -1,0 +1,68 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# Amazon Athena
+
+Connect Cardinal Cloud to Amazon Athena to explore and query data stored in S3 data lakes using natural language.
+
+## Overview
+
+With the Athena integration, the AI agent can:
+
+- **Explore Glue catalog databases** — browse tables, partitions, and column types
+- **Run SQL queries** — answer questions about your S3 data using natural language
+- **Analyze data lake contents** — leverage Athena's serverless query engine
+
+## Capabilities
+
+| Capability | Enabled |
+| ---------- | ------- |
+| Explore | Always |
+| Agent | Always |
+
+## Configuration
+
+### Settings
+
+| Field | Required | Default | Description |
+| ----- | -------- | ------- | ----------- |
+| **AWS Region** | Yes | — | AWS region where Athena runs (e.g., `us-east-1`) |
+| **Workgroup** | No | `primary` | Athena workgroup to use for queries |
+| **Database (Glue Catalog)** | Yes | — | AWS Glue catalog database name (e.g., `my_database`) |
+| **Output S3 Location** | Yes | — | S3 path where Athena writes query results (e.g., `s3://my-bucket/athena-results/`) |
+
+### Credentials
+
+| Field | Required | Description |
+| ----- | -------- | ----------- |
+| **AWS Access Key ID** | Yes | IAM access key ID with Athena and S3 permissions |
+| **AWS Secret Access Key** | Yes | Corresponding secret access key |
+
+## Prerequisites
+
+- An AWS account with Amazon Athena enabled
+- An AWS Glue Data Catalog with at least one database and table
+- An S3 bucket for Athena query results
+- An IAM user or role with the following permissions:
+  - `athena:StartQueryExecution`, `athena:GetQueryExecution`, `athena:GetQueryResults`
+  - `s3:GetObject`, `s3:PutObject` on the results bucket
+  - `glue:GetDatabase`, `glue:GetTable`, `glue:GetPartitions`
+
+## Setup
+
+1. Navigate to **Settings > Integrations** and click **Add Integration**
+2. Select **Amazon Athena**
+3. Enter the **AWS Region** and **Database** name
+4. Enter the **Output S3 Location** for query results
+5. Optionally set the **Workgroup** (defaults to `primary`)
+6. Enter the **AWS Access Key ID** and **Secret Access Key**
+7. Click **Test Connection** to verify access
+8. Click **Save**
+
+## What This Enables
+
+Once configured, you can ask the AI agent questions like:
+- "Show me the most recent CloudTrail events for the production account"
+- "How much data is stored in the logs partition for last month?"
+- "List the tables in the analytics database"
+
+<SupportCallout />

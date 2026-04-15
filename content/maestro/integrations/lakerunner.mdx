@@ -1,0 +1,70 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# Lakerunner
+
+Connect Cardinal Cloud to [Lakerunner](/lakerunner) for querying logs, metrics, and configuring alerts.
+
+## Overview
+
+Lakerunner is Cardinal's observability data platform. With this integration, the AI agent can:
+
+- **Query logs and metrics** using natural language
+- **Explore** available data sources, fields, and time ranges
+- **Receive alerts** from Lakerunner via webhook and respond to incidents automatically
+
+## Capabilities
+
+| Capability | Enabled |
+| ---------- | ------- |
+| Explore | Always |
+| Agent | Always |
+| Alerting | When Alert API URL and Notifier ID are configured |
+
+## Configuration
+
+### Settings
+
+| Field | Required | Description |
+| ----- | -------- | ----------- |
+| **Query API URL** | Yes | Base URL for query API requests (logs, metrics). Example: `https://lakerunner.example.com` |
+| **Alert API URL** | No | Base URL for alerting API requests. Defaults to the Query API URL if left empty |
+| **Notifier ID** | No | UUID assigned by Lakerunner when creating a webhook target. Required for alerting |
+
+### Credentials
+
+| Field | Required | Description |
+| ----- | -------- | ----------- |
+| **API Key** | Yes | API key for authentication (format: `lr_...`) |
+| **Webhook Secret** | No | Shared secret used for HMAC verification of incoming webhook payloads. Required for alerting |
+
+## Setup
+
+### Basic Setup (Logs and Metrics)
+
+1. Navigate to **Settings > Integrations** and click **Add Integration**
+2. Select **Lakerunner**
+3. Enter your **Query API URL** (e.g., `https://lakerunner.example.com`)
+4. Enter your **API Key** (starts with `lr_`)
+5. Click **Save**
+
+### Alerting Setup (Optional)
+
+To enable bidirectional alerting, you need to configure a webhook in Lakerunner that points back to Cardinal Cloud.
+
+1. Enter a **Webhook Secret** in the integration settings and click **Save**
+2. Copy the generated webhook URL displayed in the integration settings panel (format: `https://<your-maestro-url>/api/webhooks/lakerunner/alerts?integrationId=<id>`)
+3. In Lakerunner, navigate to **Alerting > Webhook Targets > Add Target**
+4. Paste the webhook URL and enter the same shared secret
+5. Copy the **Notifier ID** from the Lakerunner targets table
+6. Back in Cardinal Cloud, paste the Notifier ID and click **Save**
+
+> The **Alert API URL** field is only needed if your alerting API is hosted at a different URL than your query API.
+
+## What This Enables
+
+Once configured, you can ask the AI agent questions like:
+- "Show me error logs from the last hour"
+- "What's the p99 latency for the checkout service?"
+- "Are there any active alerts?"
+
+<SupportCallout />

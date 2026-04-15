@@ -1,0 +1,70 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# Google BigQuery
+
+Connect Cardinal Cloud to Google BigQuery to explore datasets and query data using natural language.
+
+## Overview
+
+With the BigQuery integration, the AI agent can:
+
+- **Explore datasets and tables** — browse structure, columns, and types
+- **Run queries** — answer questions about your data using natural language
+- **Analyze large datasets** — leverage BigQuery's serverless architecture for complex analytical queries
+
+## Capabilities
+
+| Capability | Enabled |
+| ---------- | ------- |
+| Explore | Always |
+| Agent | Always |
+
+## Configuration
+
+### Settings
+
+| Field | Required | Description |
+| ----- | -------- | ----------- |
+| **Project ID** | Yes | Google Cloud project ID containing the BigQuery datasets (e.g., `my-gcp-project`) |
+| **Dataset** | Yes | Default BigQuery dataset. Comma-separated for multiple datasets (e.g., `analytics,events`) |
+
+### Credentials
+
+| Field | Required | Description |
+| ----- | -------- | ----------- |
+| **Service Account Key (JSON)** | Yes | Full JSON key file for a GCP service account. Paste the entire JSON contents |
+
+## Prerequisites
+
+- A Google Cloud project with BigQuery enabled
+- A service account with the following roles:
+  - **BigQuery Data Viewer** — read access to tables and datasets
+  - **BigQuery Job User** — permission to run query jobs
+
+## Creating a Service Account
+
+1. Go to the [GCP Console > IAM & Admin > Service Accounts](https://console.cloud.google.com/iam-admin/serviceaccounts)
+2. Click **Create Service Account**
+3. Give it a descriptive name (e.g., `cardinal-bigquery-reader`)
+4. Grant the roles: **BigQuery Data Viewer** and **BigQuery Job User**
+5. Click **Done**, then select the service account
+6. Go to the **Keys** tab and click **Add Key > Create new key > JSON**
+7. Download the JSON key file
+
+## Setup
+
+1. Navigate to **Settings > Integrations** and click **Add Integration**
+2. Select **BigQuery**
+3. Enter your **Project ID** and **Dataset** name(s)
+4. Paste the full contents of the **Service Account Key JSON** file
+5. Click **Test Connection** to verify access
+6. Click **Save**
+
+## What This Enables
+
+Once configured, you can ask the AI agent questions like:
+- "What are the top queries by scan volume this week?"
+- "Show me daily active users for the last 30 days"
+- "List all tables in the analytics dataset"
+
+<SupportCallout />

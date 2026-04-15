@@ -1,0 +1,67 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# Snowflake
+
+Connect Cardinal Cloud to Snowflake to explore schemas and query your data warehouse using natural language.
+
+## Overview
+
+With the Snowflake integration, the AI agent can:
+
+- **Explore databases and schemas** — browse tables, columns, and data types
+- **Run queries** — answer questions about your data using natural language
+- **Analyze warehouse data** — leverage Snowflake's compute for complex analytical queries
+
+## Capabilities
+
+| Capability | Enabled |
+| ---------- | ------- |
+| Explore | Always |
+| Agent | Always |
+
+## Configuration
+
+### Settings
+
+| Field | Required | Default | Description |
+| ----- | -------- | ------- | ----------- |
+| **Account Identifier** | Yes | — | Snowflake account identifier (e.g., `xy12345.us-east-1`) |
+| **Warehouse** | Yes | — | Warehouse name to use for queries (e.g., `COMPUTE_WH`) |
+| **Database** | Yes | — | Database name (e.g., `ANALYTICS`) |
+| **Schema** | No | `PUBLIC` | Default schema. Comma-separated for multiple schemas |
+
+### Credentials
+
+| Field | Required | Description |
+| ----- | -------- | ----------- |
+| **Username** | Yes | Snowflake username (e.g., `SVC_CARDINAL`) |
+| **Password** | Yes | Password or programmatic access token |
+
+## Prerequisites
+
+- A Snowflake account with an active warehouse
+- A user with **read-only** access to the databases and schemas you want to explore (recommended)
+- Network policies configured to allow connections from Cardinal Cloud (if applicable)
+
+## Finding Your Account Identifier
+
+Your Snowflake account identifier can be found in the URL you use to access Snowflake. For example, if your URL is `https://xy12345.us-east-1.snowflakecomputing.com`, your account identifier is `xy12345.us-east-1`.
+
+## Setup
+
+1. Navigate to **Settings > Integrations** and click **Add Integration**
+2. Select **Snowflake**
+3. Enter the **Account Identifier**, **Warehouse**, and **Database**
+4. Optionally set the **Schema** (defaults to `PUBLIC`)
+5. Enter the **Username** and **Password**
+6. Click **Test Connection** to verify connectivity
+7. Click **Save**
+
+## What This Enables
+
+Once configured, you can ask the AI agent questions like:
+- "What's the total revenue by region this quarter?"
+- "Show me the schema for the ORDERS table"
+- "How many distinct users accessed the platform yesterday?"
+
+<SupportCallout />

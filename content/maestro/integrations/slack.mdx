@@ -1,0 +1,63 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# Slack
+
+Connect Cardinal Cloud to Slack to send AI-generated notifications and alerts to your Slack channels.
+
+## Overview
+
+With the Slack integration, the AI agent can:
+
+- **Send notifications** to specified Slack channels
+- **Deliver alerts** when triggered by monitoring rules or workflows
+- **Post summaries** of incidents, reports, or query results
+
+## Capabilities
+
+| Capability | Enabled |
+| ---------- | ------- |
+| Notify | Always |
+
+## Configuration
+
+### Credentials
+
+| Field | Required | Description |
+| ----- | -------- | ----------- |
+| **Bot Token** | Yes | Slack bot OAuth token with `chat:write` scope (format: `xoxb-...`) |
+
+## Prerequisites
+
+- A Slack workspace where you have permission to install apps
+- A Slack app with a Bot Token that has the `chat:write` scope
+- The bot must be invited to any channels where you want it to post
+
+### Creating a Slack App
+
+1. Go to [api.slack.com/apps](https://api.slack.com/apps)
+2. Click **Create New App** > **From scratch**
+3. Name the app (e.g., "Cardinal Bot") and select your workspace
+4. Navigate to **OAuth & Permissions**
+5. Under **Bot Token Scopes**, add:
+   - `chat:write` — send messages to channels
+   - `chat:write.public` — (optional) send to channels the bot hasn't been invited to
+6. Click **Install to Workspace** and authorize the app
+7. Copy the **Bot User OAuth Token** (starts with `xoxb-`)
+
+## Setup
+
+1. Navigate to **Settings > Integrations** and click **Add Integration**
+2. Select **Slack**
+3. Paste the **Bot Token** (`xoxb-...`)
+4. Click **Test Connection** to verify the token is valid
+5. Click **Save**
+6. Invite the bot to the desired channels using `/invite @Cardinal Bot` in Slack
+
+## What This Enables
+
+Once configured, the AI agent and automated workflows can send messages to Slack, such as:
+- Alert notifications when anomalies are detected
+- Incident summaries posted to on-call channels
+- Scheduled report digests
+
+<SupportCallout />

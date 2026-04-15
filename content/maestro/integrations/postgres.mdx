@@ -1,0 +1,64 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# PostgreSQL
+
+Connect Cardinal Cloud to PostgreSQL databases to explore schemas and query data using natural language.
+
+## Overview
+
+With the PostgreSQL integration, the AI agent can:
+
+- **Explore schemas and tables** — browse database structure, columns, and types
+- **Run read queries** — answer questions about your data using natural language
+- **Join across tables** — the agent understands relationships and can write complex queries
+
+## Capabilities
+
+| Capability | Enabled |
+| ---------- | ------- |
+| Explore | Always |
+| Agent | Always |
+
+## Configuration
+
+### Settings
+
+| Field | Required | Default | Description |
+| ----- | -------- | ------- | ----------- |
+| **Host** | Yes | — | PostgreSQL server hostname or IP (e.g., `db.example.com`) |
+| **Port** | Yes | `5432` | PostgreSQL server port |
+| **Database** | Yes | — | Database name (e.g., `mydb`) |
+| **Schema** | No | `public` | Schema(s) to search. Comma-separated for multiple schemas |
+| **SSL Mode** | No | `disable` | Connection SSL mode: `disable`, `require`, `verify-ca`, or `verify-full` |
+
+### Credentials
+
+| Field | Required | Description |
+| ----- | -------- | ----------- |
+| **Username** | Yes | Database user (e.g., `readonly_user`) |
+| **Password** | Yes | Database user password |
+
+## Prerequisites
+
+- Network access from Cardinal Cloud to your PostgreSQL instance (ensure firewall rules allow the connection)
+- A database user with **read-only** access to the schemas you want to explore (recommended for security)
+- SSL configured if connecting over the public internet
+
+## Setup
+
+1. Navigate to **Settings > Integrations** and click **Add Integration**
+2. Select **PostgreSQL**
+3. Enter the **Host**, **Port**, and **Database** name
+4. Optionally set the **Schema** (defaults to `public`) and **SSL Mode**
+5. Enter the **Username** and **Password**
+6. Click **Test Connection** to verify connectivity
+7. Click **Save**
+
+## What This Enables
+
+Once configured, you can ask the AI agent questions like:
+- "How many orders were placed last week?"
+- "Show me the top 10 customers by revenue"
+- "What columns does the users table have?"
+
+<SupportCallout />

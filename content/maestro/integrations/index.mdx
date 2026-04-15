@@ -1,0 +1,54 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# Integrations
+
+Integrations connect Cardinal Cloud to your external services, databases, and communication platforms. Once configured, the AI agent can query data, perform actions, and send notifications through these connected systems.
+
+## Capabilities
+
+Each integration enables one or more capabilities:
+
+| Capability | Description |
+| ---------- | ----------- |
+| **Explore** | Browse schemas, tables, and metadata from the connected data source |
+| **Agent** | Query data and perform actions through AI-powered natural language |
+| **Alerting** | Receive and process alerts from the connected system |
+| **Notify** | Send notifications and messages to communication channels |
+
+## Data Sources
+
+| Integration | Capabilities | Description |
+| ----------- | ------------ | ----------- |
+| [Lakerunner](/maestro/integrations/lakerunner) | Explore, Agent, Alerting | Logs, metrics, and alerting via Cardinal's observability platform |
+| [PostgreSQL](/maestro/integrations/postgres) | Explore, Agent | Query PostgreSQL databases using natural language |
+| [Google BigQuery](/maestro/integrations/bigquery) | Explore, Agent | Query BigQuery datasets using natural language |
+| [Snowflake](/maestro/integrations/snowflake) | Explore, Agent | Query Snowflake data warehouses using natural language |
+| [Amazon Athena](/maestro/integrations/athena) | Explore, Agent | Query S3 data lakes via Athena using natural language |
+| [ClickHouse](/maestro/integrations/clickhouse) | Explore, Agent | Query ClickHouse databases using natural language |
+
+## Service Integrations
+
+| Integration | Capabilities | Description |
+| ----------- | ------------ | ----------- |
+| [GitHub](/maestro/integrations/github) | Agent | Code search, PRs, issues, and deployments |
+| [ServiceNow](/maestro/integrations/servicenow) | Agent | ITSM: incidents, changes, CMDB, knowledge, and service catalog |
+
+## Notifications
+
+| Integration | Capabilities | Description |
+| ----------- | ------------ | ----------- |
+| [Slack](/maestro/integrations/slack) | Notify | Send notifications to Slack channels |
+| [Microsoft Teams](/maestro/integrations/teams) | Notify | Send notifications to Teams channels via webhooks |
+| [PagerDuty](/maestro/integrations/pagerduty) | Notify | Trigger incidents and send alerts via PagerDuty |
+
+## Adding an Integration
+
+1. Navigate to **Settings > Integrations** in the Cardinal Cloud web app
+2. Click **Add Integration** and select the integration type
+3. Fill in the required configuration fields (connection details and credentials)
+4. Click **Test Connection** (where available) to verify connectivity
+5. Click **Save** to activate the integration
+
+Each integration supports multiple instances — for example, you can connect multiple PostgreSQL databases or multiple Slack workspaces.
+
+<SupportCallout />

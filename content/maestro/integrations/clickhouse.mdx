@@ -1,0 +1,63 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# ClickHouse
+
+Connect Cardinal Cloud to ClickHouse to explore schemas and query your analytics database using natural language.
+
+## Overview
+
+With the ClickHouse integration, the AI agent can:
+
+- **Explore databases and tables** — browse structure, columns, and engine types
+- **Run analytical queries** — answer questions about your data using natural language
+- **Leverage columnar storage** — take advantage of ClickHouse's high-performance analytics engine
+
+## Capabilities
+
+| Capability | Enabled |
+| ---------- | ------- |
+| Explore | Always |
+| Agent | Always |
+
+## Configuration
+
+### Settings
+
+| Field | Required | Default | Description |
+| ----- | -------- | ------- | ----------- |
+| **Host** | Yes | — | ClickHouse server hostname or IP (e.g., `clickhouse.example.com`) |
+| **Port** | Yes | `9000` | Native protocol port (default `9000`) or HTTP port (`8123`) |
+| **Database** | Yes | — | Database name (e.g., `default`) |
+| **Use TLS** | No | Off | Enable TLS encryption for the connection |
+
+### Credentials
+
+| Field | Required | Description |
+| ----- | -------- | ----------- |
+| **Username** | Yes | ClickHouse user (e.g., `readonly`) |
+| **Password** | No | User password. Leave empty if no password is required |
+
+## Prerequisites
+
+- Network access from Cardinal Cloud to your ClickHouse instance
+- A database user with **read-only** access (recommended for security)
+- TLS configured if connecting over the public internet
+
+## Setup
+
+1. Navigate to **Settings > Integrations** and click **Add Integration**
+2. Select **ClickHouse**
+3. Enter the **Host**, **Port**, and **Database** name
+4. Optionally enable **Use TLS** for encrypted connections
+5. Enter the **Username** and optionally the **Password**
+6. Click **Test Connection** to verify connectivity
+7. Click **Save**
+
+## What This Enables
+
+Once configured, you can ask the AI agent questions like:
+- "What's the event count by type for the last 24 hours?"
+- "Show me the slowest queries from the query log"
+- "List all tables in the analytics database"
+
+<SupportCallout />

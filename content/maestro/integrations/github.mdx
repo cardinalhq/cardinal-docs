@@ -1,0 +1,85 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# GitHub
+
+Connect Cardinal Cloud to GitHub so the AI agent can search code, browse repositories, and query issues and pull requests.
+
+## Overview
+
+With the GitHub integration, the AI agent can:
+
+- **Search code** across your organization's repositories
+- **Browse repositories** — view files, directory structure, and README content
+- **Query issues and pull requests** — find open bugs, review PR status, and track project progress
+- **Analyze deployments** — understand what was recently shipped
+
+## Capabilities
+
+| Capability | Enabled |
+| ---------- | ------- |
+| Agent | Always |
+
+## Configuration
+
+The GitHub integration uses a multi-step setup wizard. After entering your token, Cardinal Cloud connects to GitHub to let you select your organization and repositories.
+
+### Credentials
+
+| Field | Required | Description |
+| ----- | -------- | ----------- |
+| **Personal Access Token** | Yes | A fine-grained or classic PAT with repo and org read access (format: `ghp_...`) |
+
+### Settings
+
+| Field | Required | Description |
+| ----- | -------- | ----------- |
+| **API Base URL** | No | Leave empty for github.com. Set to your GitHub Enterprise Server API URL (e.g., `https://github.yourcompany.com/api/v3`) |
+| **Organization** | Yes | Selected during setup — the GitHub organization to connect |
+| **Default Repositories** | No | Selected during setup — repositories the agent searches by default |
+
+### Optional Metadata
+
+| Field | Description |
+| ----- | ----------- |
+| **Name** | Display name for this integration (auto-generated as "GitHub - {org}") |
+| **Description** | Human-readable description of what this integration is for |
+| **Planner Hint** | Guidance for the AI on when to use this integration (e.g., "Use for searching code, reading files, managing PRs and issues") |
+
+## Prerequisites
+
+- A GitHub account with access to the target organization
+- A Personal Access Token with appropriate scopes
+
+### Creating a Personal Access Token
+
+1. Go to [github.com/settings/tokens](https://github.com/settings/tokens)
+2. Click **Generate new token** > **Fine-grained token** (recommended) or **Classic token**
+3. For fine-grained tokens, select your organization under **Resource owner** and grant:
+   - **Repository access**: All repositories (or select specific ones)
+   - **Permissions**: Contents (read), Issues (read), Pull requests (read), Metadata (read)
+4. For classic tokens, select these scopes:
+   - `repo` — full access to repositories
+   - `read:org` — read organization membership
+5. Click **Generate token** and copy it
+
+## Setup
+
+1. Navigate to **Settings > Integrations** and click **Add Integration**
+2. Select **GitHub**
+3. Enter your **Personal Access Token**
+4. Optionally enter an **API Base URL** for GitHub Enterprise Server
+5. Click **Connect to GitHub** — Cardinal will fetch your organizations
+6. Select your **Organization**
+7. Select the **Default Repositories** the agent should search (optional but recommended)
+8. Fill in **Name**, **Description**, and **Planner Hint** as needed
+9. Click **Create**
+
+## What This Enables
+
+Once configured, you can ask the AI agent questions like:
+- "Find where the rate limiter is implemented"
+- "Show me open PRs for the payments service"
+- "What issues were closed this sprint?"
+- "What changed in the last deployment?"
+
+<SupportCallout />

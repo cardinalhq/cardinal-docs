@@ -1,0 +1,60 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# Microsoft Teams
+
+Connect Cardinal Cloud to Microsoft Teams to send AI-generated notifications and alerts to your Teams channels via incoming webhooks.
+
+## Overview
+
+With the Microsoft Teams integration, the AI agent can:
+
+- **Send notifications** to Teams channels via incoming webhooks
+- **Deliver alerts** when triggered by monitoring rules or workflows
+- **Post summaries** of incidents, reports, or query results
+
+## Capabilities
+
+| Capability | Enabled |
+| ---------- | ------- |
+| Notify | Always |
+
+## Configuration
+
+### Credentials
+
+| Field | Required | Description |
+| ----- | -------- | ----------- |
+| **Webhook URL** | Yes | Incoming webhook URL for your Teams channel (format: `https://outlook.office.com/webhook/...`) |
+
+The webhook URL must use HTTPS and point to a Microsoft domain.
+
+## Prerequisites
+
+- A Microsoft Teams channel where you have permission to add connectors
+- An incoming webhook configured for the target channel
+
+### Creating an Incoming Webhook
+
+1. In Microsoft Teams, navigate to the channel where you want to receive notifications
+2. Click the **...** menu on the channel > **Connectors** (or **Manage channel** > **Connectors**)
+3. Search for **Incoming Webhook** and click **Configure**
+4. Give the webhook a name (e.g., "Cardinal Notifications") and optionally upload an image
+5. Click **Create**
+6. Copy the generated **Webhook URL**
+
+## Setup
+
+1. Navigate to **Settings > Integrations** and click **Add Integration**
+2. Select **Microsoft Teams**
+3. Paste the **Webhook URL**
+4. Click **Test Connection** to verify the webhook is reachable
+5. Click **Save**
+
+## What This Enables
+
+Once configured, the AI agent and automated workflows can send messages to Teams, such as:
+- Alert notifications when anomalies are detected
+- Incident summaries posted to on-call channels
+- Scheduled report digests
+
+<SupportCallout />

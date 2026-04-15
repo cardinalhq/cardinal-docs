@@ -1,0 +1,59 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# PagerDuty
+
+Connect Cardinal Cloud to PagerDuty to trigger incidents and send alerts through PagerDuty's incident management platform.
+
+## Overview
+
+With the PagerDuty integration, the AI agent can:
+
+- **Trigger incidents** when anomalies or critical issues are detected
+- **Send alert notifications** through PagerDuty's escalation policies
+- **Route alerts** to the appropriate on-call responders
+
+## Capabilities
+
+| Capability | Enabled |
+| ---------- | ------- |
+| Notify | Always |
+
+## Configuration
+
+### Credentials
+
+| Field | Required | Description |
+| ----- | -------- | ----------- |
+| **Routing Key** | Yes | PagerDuty Events API v2 routing key (also called an integration key) |
+
+## Prerequisites
+
+- A PagerDuty account with at least one service configured
+- A routing key (integration key) from a PagerDuty service
+
+### Getting a Routing Key
+
+1. Log in to [PagerDuty](https://app.pagerduty.com/)
+2. Navigate to **Services** > select the service you want alerts routed to
+3. Go to the **Integrations** tab
+4. Click **Add an integration**
+5. Select **Events API v2** and click **Add**
+6. Copy the **Integration Key** — this is your routing key
+
+## Setup
+
+1. Navigate to **Settings > Integrations** and click **Add Integration**
+2. Select **PagerDuty**
+3. Enter the **Routing Key**
+4. Click **Save**
+
+> PagerDuty integrations do not currently support the Test Connection feature. Verify the routing key is correct by triggering a test alert from your PagerDuty service.
+
+## What This Enables
+
+Once configured, the AI agent and automated workflows can create PagerDuty incidents, such as:
+- Triggering an alert when error rates exceed thresholds
+- Escalating unacknowledged incidents
+- Routing critical findings to the on-call team
+
+<SupportCallout />
