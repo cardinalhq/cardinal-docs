@@ -2,7 +2,7 @@ import SupportCallout from '../../../components/SupportCallout';
 
 # Lakerunner
 
-Connect Cardinal Cloud to [Lakerunner](/lakerunner) for querying logs, metrics, and configuring alerts.
+Connect Cardinal to [Lakerunner](/lakerunner) for querying logs, metrics, and configuring alerts.
 
 ## Overview
 
@@ -49,14 +49,14 @@ Lakerunner is Cardinal's observability data platform. With this integration, the
 
 ### Alerting Setup (Optional)
 
-To enable bidirectional alerting, you need to configure a webhook in Lakerunner that points back to Cardinal Cloud.
+To enable bidirectional alerting, you need to configure a webhook in Lakerunner that points back to Cardinal.
 
 1. Enter a **Webhook Secret** in the integration settings and click **Save**
 2. Copy the generated webhook URL displayed in the integration settings panel (format: `https://<your-maestro-url>/api/webhooks/lakerunner/alerts?integrationId=<id>`)
 3. In Lakerunner, navigate to **Alerting > Webhook Targets > Add Target**
 4. Paste the webhook URL and enter the same shared secret
 5. Copy the **Notifier ID** from the Lakerunner targets table
-6. Back in Cardinal Cloud, paste the Notifier ID and click **Save**
+6. Back in Cardinal, paste the Notifier ID and click **Save**
 
 > The **Alert API URL** field is only needed if your alerting API is hosted at a different URL than your query API.
 

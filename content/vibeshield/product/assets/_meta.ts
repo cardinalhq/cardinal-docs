@@ -1,9 +1,0 @@
-export default {
-  agents: 'Agents',
-  connectors: 'Connectors',
-  knowledge: 'Knowledge',
-  reports: 'Reports',
-  queries: 'Queries',
-  workflows: 'Workflows',
-  scripts: 'Scripts',
-}

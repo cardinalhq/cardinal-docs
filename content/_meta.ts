@@ -1,6 +1,5 @@
 export default {
   index: 'Welcome',
-  maestro: 'Cardinal Cloud',
-  vibeshield: 'Cardinal Desktop Application',
+  maestro: 'Product',
   lakerunner: 'Lakerunner',
 }
