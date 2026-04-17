@@ -1,0 +1,159 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# Helm Chart Reference
+
+Every field in `values.yaml` for the `maestro` Helm chart. Defaults shown are from the chart (`charts/maestro/values.yaml`).
+
+## Image
+
+A single unified image runs both workloads. The chart picks the entrypoint.
+
+```yaml
+image:
+  repository: public.ecr.aws/cardinalhq.io/maestro
+  tag: ""            # empty → Chart.appVersion (recommended: pin to a released tag)
+  pullPolicy: IfNotPresent
+```
+
+| Field | Default | Notes |
+| ----- | ------- | ----- |
+| `image.repository` | `public.ecr.aws/cardinalhq.io/maestro` | Also mirrored to `ghcr.io/cardinalhq/maestro` |
+| `image.tag` | `""` (falls back to `Chart.appVersion`) | Pin this. Do not let it float. |
+| `image.pullPolicy` | `IfNotPresent` | Kubernetes image pull policy |
+
+## Maestro workload
+
+```yaml
+maestro:
+  enabled: true
+  replicas: 1
+  port: 4200
+  resources: {}
+  labels: {}
+  annotations: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  env: []                 # extra env vars (auth, LLM, etc.)
+  extraVolumes: []
+  extraVolumeMounts: []
+```
+
+| Field | Default | Notes |
+| ----- | ------- | ----- |
+| `maestro.enabled` | `true` | Disable only if you want to run the gateway alone |
+| `maestro.replicas` | `1` | Maestro is stateless but session cookies are not sticky-bound — keep at `1` unless you've set up shared session storage |
+| `maestro.port` | `4200` | Container port; also the Service port |
+| `maestro.env` | `[]` | **This is where you put OIDC, LLM, and `MAESTRO_BASE_URL` vars.** See [Environment variables](/maestro/install/environment) |
+| `maestro.extraVolumes` / `extraVolumeMounts` | `[]` | Mount extra config or certs into the pod |
+
+The Maestro pod runs with `readOnlyRootFilesystem: true`. A `tmp` emptyDir is mounted at `/tmp`. If you need additional writable paths (e.g., ontology workspaces), add them via `extraVolumes` + `extraVolumeMounts`.
+
+An `initContainer` waits for the MCP gateway service to accept connections before Maestro starts.
+
+## MCP Gateway workload
+
+```yaml
+mcpGateway:
+  enabled: true
+  replicas: 1
+  port: 8080
+  debugPort: 9090
+  apiKey: ""
+  resources: {}
+  labels: {}
+  annotations: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  env: []
+```
+
+| Field | Default | Notes |
+| ----- | ------- | ----- |
+| `mcpGateway.enabled` | `true` | Must be enabled for integrations to work |
+| `mcpGateway.port` | `8080` | Maestro reaches the gateway at `http://<release>-mcp-gateway:8080` |
+| `mcpGateway.debugPort` | `9090` | pprof / debug endpoints — do **not** expose externally |
+| `mcpGateway.apiKey` | `""` | Injected as `MCP_API_KEY`. Leave empty for in-cluster trust; set it if the gateway is reachable beyond the namespace |
+| `mcpGateway.env` | `[]` | Extra env for the gateway (e.g. `AWS_REGION` for Bedrock embeddings) |
+
+## Database
+
+Required. Maestro will not start without it.
+
+```yaml
+database:
+  secretName: "pg-credentials"
+  create: true
+  passwordKey: "MAESTRO_DB_PASSWORD"
+  host: ""               # required
+  port: 5432
+  name: "maestro"
+  username: "maestro"
+  password: ""           # only used when create: true
+  sslMode: "require"
+```
+
+| Field | Default | Notes |
+| ----- | ------- | ----- |
+| `database.create` | `true` | When `true`, the chart creates a `Secret` named `<release>-<secretName>` with `password` base64-encoded. **In prod, set to `false` and manage the secret yourself** (SealedSecrets, External Secrets, etc.) |
+| `database.secretName` | `pg-credentials` | When `create: true`, gets prefixed with the release name. When `create: false`, used verbatim |
+| `database.passwordKey` | `MAESTRO_DB_PASSWORD` | Key within the secret |
+| `database.host` | `""` | **Required.** PostgreSQL hostname |
+| `database.port` | `5432` | |
+| `database.name` | `maestro` | Database name (must exist; Maestro does not create it) |
+| `database.username` | `maestro` | |
+| `database.sslMode` | `require` | One of `disable`, `require`, `verify-ca`, `verify-full` |
+
+The chart synthesizes `MAESTRO_DATABASE_URL` from these fields and injects it into both workloads — you do not need to set it yourself.
+
+## Ingress
+
+```yaml
+ingress:
+  enabled: false
+  className: ""
+  host: ""
+  annotations: {}
+  tls: []
+```
+
+The built-in Ingress is a minimal `networking.k8s.io/v1` object that points at the Maestro service. It works for NGINX, Traefik, or anything that honors `ingressClassName`. If you need more control (IngressRoute, Gateway API, multiple hosts), disable this and create your own routing resource — the Maestro service is `<release>-maestro` on port `4200`.
+
+## Service account
+
+```yaml
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+```
+
+| Field | Default | Notes |
+| ----- | ------- | ----- |
+| `serviceAccount.create` | `true` | Creates the SA used by both workloads |
+| `serviceAccount.name` | `""` | Override the generated name |
+| `serviceAccount.annotations` | `{}` | **Add IRSA annotation here for Bedrock.** See [AWS Bedrock](/maestro/install/bedrock) |
+
+## Global
+
+Applied to both workloads.
+
+```yaml
+global:
+  imagePullSecrets: []
+  env: []                 # env vars merged into both containers
+  labels: {}
+  annotations: {}
+```
+
+| Field | Default | Notes |
+| ----- | ------- | ----- |
+| `global.imagePullSecrets` | `[]` | List of secret names for pulling from private registries |
+| `global.env` | `[]` | Env vars that apply to both Maestro and the gateway. Use for `AWS_REGION`, tracing config, etc. |
+| `global.labels` | `{}` | Merged into every resource's labels |
+| `global.annotations` | `{}` | Merged into every resource's annotations |
+
+Scheduling fields (`nodeSelector`, `tolerations`, `affinity`) can also be set at the `global` level and are merged with per-workload overrides.
+
+<SupportCallout />

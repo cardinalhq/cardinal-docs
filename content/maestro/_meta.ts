@@ -3,5 +3,6 @@ export default {
     title: 'Overview',
     display: 'hidden',
   },
+  install: 'Installation',
   integrations: 'Integrations',
 }
