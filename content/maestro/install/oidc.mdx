@@ -1,0 +1,147 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# OIDC Setup
+
+Maestro delegates all authentication to an external OIDC provider. There is no built-in password login. Every user who signs in must exist in your IdP first.
+
+## How Maestro uses OIDC
+
+- The browser performs the standard Authorization Code flow against your IdP.
+- Maestro validates the resulting ID token against the provider's JWKS.
+- The token's `email` claim identifies the user. `email_verified` must be `true`.
+- Superadmin status is derived from either an OIDC **group** claim or an **email allowlist**. A user who matches either becomes a superadmin on first login.
+- Regular users start with no org membership. A superadmin (or an org owner) must place them in an org before they can do anything useful.
+
+## Required environment variables
+
+Set these in `maestro.env`:
+
+```yaml
+maestro:
+  env:
+    - name: MAESTRO_BASE_URL
+      value: https://maestro.example.com
+    - name: OIDC_ISSUER_URL
+      value: https://auth.example.com/realms/cardinal
+    - name: OIDC_AUDIENCE
+      value: maestro-ui
+    - name: OIDC_SUPERADMIN_EMAILS
+      value: admin@example.com,ops@example.com
+```
+
+| Variable | Notes |
+| -------- | ----- |
+| `MAESTRO_BASE_URL` | Must exactly match the redirect URI registered with your IdP |
+| `OIDC_ISSUER_URL` | Used for JWKS discovery (`{issuer}/.well-known/openid-configuration`) |
+| `OIDC_AUDIENCE` | The `aud` claim Maestro expects. Defaults to `maestro-ui` |
+| `OIDC_SUPERADMIN_GROUP` | Name of a `groups` claim value granting superadmin. Default `maestro-superadmin` |
+| `OIDC_SUPERADMIN_EMAILS` | Comma-separated email allowlist for superadmin. Case-insensitive. Use this to bootstrap before groups are configured |
+| `OIDC_JWKS_URL` | Override if your JWKS is at a non-standard path |
+| `OIDC_TRUST_UNVERIFIED_EMAILS` | `true` treats all OIDC emails as verified. Only use with IdPs that gate email ownership in another way |
+
+## Redirect URI
+
+Register the following redirect URI with your IdP (where `MAESTRO_BASE_URL` is whatever you set):
+
+```
+https://maestro.example.com/api/auth/callback
+```
+
+## Required token claims
+
+Maestro reads these claims out of the ID token. Configure your IdP to include them:
+
+| Claim | Required | Purpose |
+| ----- | -------- | ------- |
+| `sub` | Yes | Stable user identifier |
+| `email` | Yes | Primary user key |
+| `email_verified` | Yes (or set `OIDC_TRUST_UNVERIFIED_EMAILS=true`) | Prevents email spoofing |
+| `name` | Recommended | Displayed in the UI |
+| `groups` | If using group-based superadmin | Array of group names |
+
+## Bootstrapping the first superadmin
+
+On a fresh install, no users exist in the database. When the first person logs in:
+
+1. They authenticate with your IdP as usual.
+2. Maestro looks at their `email` (and `groups`, if any).
+3. If the email is listed in `OIDC_SUPERADMIN_EMAILS` **or** their groups contain `OIDC_SUPERADMIN_GROUP`, the user is auto-upserted with `role=superadmin`.
+4. Otherwise they land as a regular user with no org — and they'll see a "contact your administrator" screen.
+
+The practical pattern: set `OIDC_SUPERADMIN_EMAILS` to your own email during install so you can log in and configure the rest. Once group mappings are working end-to-end, you can remove the allowlist.
+
+## Keycloak
+
+Maestro is developed against Keycloak and the docker-compose dev stack uses it as the default IdP.
+
+1. Create a new realm (e.g. `cardinal`).
+2. Create a client:
+   - Client ID: `maestro-ui`
+   - Client type: `OpenID Connect`
+   - Client authentication: **off** (public client — the UI is a browser SPA)
+   - Standard flow: **on**
+   - Valid redirect URIs: `https://maestro.example.com/*`
+   - Web origins: `https://maestro.example.com`
+3. Under **Client scopes → maestro-ui-dedicated → Add mapper**, add a **Group Membership** mapper:
+   - Token Claim Name: `groups`
+   - Full group path: **off**
+   - Add to ID token: **on**
+   - Add to userinfo: **on**
+4. Create a group `maestro-superadmin` and add yourself to it.
+5. Set:
+   ```yaml
+   - name: OIDC_ISSUER_URL
+     value: https://keycloak.example.com/realms/cardinal
+   - name: OIDC_AUDIENCE
+     value: maestro-ui
+   - name: OIDC_SUPERADMIN_GROUP
+     value: maestro-superadmin
+   ```
+
+## Okta
+
+1. Create an OIDC **Single-Page Application**.
+2. Sign-in redirect URI: `https://maestro.example.com/api/auth/callback`.
+3. Add a **Groups claim** to the ID token — filter to the groups you care about.
+4. Assign users to a group (e.g. `maestro-superadmin`) and assign that group to the app.
+5. Set:
+   ```yaml
+   - name: OIDC_ISSUER_URL
+     value: https://{your-okta-domain}/oauth2/default
+   - name: OIDC_AUDIENCE
+     value: {the app's client ID}
+   - name: OIDC_SUPERADMIN_GROUP
+     value: maestro-superadmin
+   ```
+
+Some Okta setups don't populate `email_verified`. If users hit a "your email is not verified" error and you trust Okta's identity proofing, add:
+
+```yaml
+- name: OIDC_TRUST_UNVERIFIED_EMAILS
+  value: "true"
+```
+
+## Google Workspace
+
+Google OIDC does not issue a `groups` claim out of the box. Use the email allowlist:
+
+```yaml
+- name: OIDC_ISSUER_URL
+  value: https://accounts.google.com
+- name: OIDC_AUDIENCE
+  value: {your-client-id}.apps.googleusercontent.com
+- name: OIDC_SUPERADMIN_EMAILS
+  value: alice@example.com,bob@example.com
+```
+
+## Troubleshooting
+
+| Symptom | Cause |
+| ------- | ----- |
+| Redirect loop after login | `MAESTRO_BASE_URL` doesn't match the redirect URI registered with the IdP, or it's behind a different hostname than the browser is using |
+| "Invalid token audience" | `OIDC_AUDIENCE` doesn't match the token's `aud` claim (for some IdPs this is the client ID; for others it's a custom resource identifier) |
+| "Your email is not verified" | The IdP is omitting `email_verified` or setting it to `false`. Fix at the IdP, or set `OIDC_TRUST_UNVERIFIED_EMAILS=true` if appropriate |
+| Logged in but no admin menu | You're not in `OIDC_SUPERADMIN_GROUP` **and** not in `OIDC_SUPERADMIN_EMAILS`. Add yourself to one of them and log out / back in |
+| JWKS fetch errors in logs | `OIDC_ISSUER_URL` unreachable from the pod, or the IdP's JWKS lives outside the standard discovery path — set `OIDC_JWKS_URL` explicitly |
+
+<SupportCallout />

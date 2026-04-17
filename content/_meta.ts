@@ -1,5 +1,5 @@
 export default {
   index: 'Welcome',
-  maestro: 'Product',
+  maestro: 'Maestro',
   lakerunner: 'Lakerunner',
 }

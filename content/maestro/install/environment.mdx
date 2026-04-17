@@ -1,0 +1,124 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# Environment Variables
+
+Every environment variable Maestro and the MCP Gateway read at runtime. Set these via `maestro.env`, `mcpGateway.env`, or `global.env` in your `values.yaml`.
+
+Most of the really important knobs are here: OIDC, the public URL, and the AWS region for Bedrock. **Per-provider LLM credentials and per-org integration credentials are not env vars** — they live in the database and are managed through the admin UI.
+
+## Maestro
+
+### Database
+
+Usually set automatically by the chart — see the [Helm chart reference](/maestro/install/helm-chart#database).
+
+| Variable | Required | Default | Notes |
+| -------- | -------- | ------- | ----- |
+| `MAESTRO_DATABASE_URL` | Yes | — | Full PostgreSQL URL. The chart composes this from `database.*` values |
+| `MAESTRO_DB_HOST` | — | — | Set by chart from `database.host` |
+| `MAESTRO_DB_PORT` | — | `5432` | |
+| `MAESTRO_DB_NAME` | — | `maestro` | |
+| `MAESTRO_DB_USER` | — | `maestro` | |
+| `MAESTRO_DB_PASSWORD` | — | — | Sourced from the database secret |
+| `MAESTRO_DB_SSLMODE` | — | `require` | |
+
+### Public URL
+
+| Variable | Required | Default | Notes |
+| -------- | -------- | ------- | ----- |
+| `MAESTRO_BASE_URL` | Yes in prod | — | Full URL the browser hits (e.g. `https://maestro.example.com`). Must match your OIDC redirect URI |
+| `PORT` | — | `4200` | HTTP listen port |
+| `SPA_ROOT` | — | `/app/ui` | Path to the UI static bundle inside the image |
+
+### OIDC / authentication
+
+See [OIDC setup](/maestro/install/oidc) for a walkthrough.
+
+| Variable | Required | Default | Notes |
+| -------- | -------- | ------- | ----- |
+| `OIDC_ISSUER_URL` | Yes | — | Issuer URL of your IdP. JWKS is discovered from it |
+| `OIDC_AUDIENCE` | — | `maestro-ui` | Expected audience (client ID) |
+| `OIDC_JWKS_URL` | — | derived | Override if your IdP's JWKS lives outside the standard discovery path |
+| `OIDC_SUPERADMIN_GROUP` | — | `maestro-superadmin` | Users in this OIDC group are promoted to superadmin |
+| `OIDC_SUPERADMIN_EMAILS` | — | — | Comma-separated email allowlist. Matched case-insensitively. Use this to bootstrap the first superadmin before you've wired groups |
+| `OIDC_TRUST_UNVERIFIED_EMAILS` | — | `false` | Treat all OIDC emails as verified regardless of the `email_verified` claim. Only set this if you trust your IdP to gate email ownership itself (some Okta setups) |
+
+Maestro **always** requires `email_verified: true` in the token unless `OIDC_TRUST_UNVERIFIED_EMAILS=true`.
+
+### LLM providers (env var form)
+
+In normal operation you configure LLMs through the superadmin UI; those credentials live in the database. These env vars are only read by CLI provisioning helpers and the gateway's embedding path.
+
+| Variable | Used by | Notes |
+| -------- | ------- | ----- |
+| `ANTHROPIC_API_KEY` | CLI provisioning | |
+| `OPENAI_API_KEY` | CLI provisioning, gateway embeddings | |
+| `AWS_REGION` | Bedrock client default | When Bedrock creds are empty in the DB, the SDK falls back to the pod's credential chain and uses this region |
+| `GCP_PROJECT`, `GCP_REGION` | Vertex AI embeddings | |
+| `GOOGLE_APPLICATION_CREDENTIALS` | Vertex AI embeddings (gateway) | Path to GCP service account key file |
+
+### MCP Gateway integration
+
+| Variable | Required | Default | Notes |
+| -------- | -------- | ------- | ----- |
+| `MCP_GATEWAY_URL` | — | `http://localhost:8080` | The chart sets this to the in-cluster service URL |
+| `MCP_GATEWAY_API_KEY` | — | — | If set, sent as `X-CardinalHQ-API-Key` to the gateway |
+
+### Default Lakerunner bucket
+
+Used by the Lakerunner provisioner when auto-configuring a new org's bucket. All four must be set together or all omitted.
+
+| Variable | Notes |
+| -------- | ----- |
+| `DEFAULT_BUCKET_NAME` | |
+| `DEFAULT_BUCKET_CLOUD_PROVIDER` | `aws`, `gcp`, `azure` |
+| `DEFAULT_BUCKET_REGION` | |
+| `DEFAULT_BUCKET_COLLECTOR_NAME` | |
+
+### Ontology / repos
+
+| Variable | Default | Notes |
+| -------- | ------- | ----- |
+| `ONTOLOGY_WORKSPACE_DIR` | `/tmp/ontology-workspaces` | Writable path for cloned repos. The default sits on the `tmp` emptyDir — fine for most installs |
+| `GITHUB_PAT` | — | Used by the ontology CLI, not at runtime |
+
+### Observability
+
+| Variable | Default | Notes |
+| -------- | ------- | ----- |
+| `OTEL_SERVICE_NAME` | `maestro` | |
+| `OTEL_TRACING_ENABLED` | `true` if endpoint set | Set to `false` to disable |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4318` | HTTP OTLP endpoint |
+| `OTEL_EXPORTER_OTLP_HEADERS` | — | `Key=value,Key2=value2` |
+
+### Misc
+
+| Variable | Default | Notes |
+| -------- | ------- | ----- |
+| `DEBUG` | `false` | Enables `/api/debug/tools`. Do not set in prod |
+
+## MCP Gateway
+
+The gateway runs alongside Maestro and inherits most of its env from `global.env`. Unique vars:
+
+| Variable | Default | Notes |
+| -------- | ------- | ----- |
+| `MCP_HOST` | `0.0.0.0` | |
+| `MCP_PORT` | `8080` | Chart sets this from `mcpGateway.port` |
+| `MCP_DEBUG_PORT` | `9090` | Chart sets this from `mcpGateway.debugPort` |
+| `MCP_API_KEY` | — | If set, requests must carry `X-CardinalHQ-API-Key` |
+| `MCP_TRANSPORT` | `stdio` | Chart runs the gateway in HTTP mode; set to `http` if you ever override the entrypoint |
+| `MAESTRO_DATABASE_URL` | — | Same connection string as Maestro — required for per-org routing |
+| `DOCSTORE_DB_PATH` | auto-discovered | Path to `docstore.db` |
+| `WORKING_DIRECTORY` | cwd | Used for the embeddings cache |
+| `OTEL_SERVICE_NAME` | `mcp-gateway` | |
+
+## Where to set what
+
+| Scope | Use |
+| ----- | --- |
+| Public URL, OIDC, Postmark, superadmin email | `maestro.env` |
+| Bedrock region, OTel endpoint, trace headers | `global.env` (both workloads need them) |
+| MCP gateway specifics (API key in-container, docstore path) | `mcpGateway.env` or set on the chart-level field (`mcpGateway.apiKey`) |
+
+<SupportCallout />

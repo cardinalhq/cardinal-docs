@@ -1,0 +1,151 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# AWS Bedrock
+
+Maestro supports Bedrock as a first-class LLM backend for both inference and embeddings. On EKS the recommended setup is **IRSA** (IAM Roles for Service Accounts) or **EKS Pod Identity** — the pod assumes a role that has Bedrock permissions, and no access keys ever touch the pod.
+
+## Supported models
+
+Claude Sonnet / Opus / Haiku (4.x) via Bedrock, Mistral Large 3 and Mistral 14B, and Amazon Titan for embeddings. The exact catalog is presented in the superadmin **LLM Model Catalog** page at runtime.
+
+## Choosing an auth method
+
+| Method | Use when | How |
+| ------ | -------- | --- |
+| **IRSA** | EKS, established IAM Role pattern | Annotate the service account with the role ARN |
+| **EKS Pod Identity** | EKS, newer clusters | Associate a pod identity with the service account |
+| **Static access keys** | Non-EKS clusters, dev | Enter key/secret in the LLM config UI |
+
+The chart does **not** need to know which one you're using. As long as the pod ends up with AWS credentials in its default credential chain, Maestro will find them. Leave `accessKeyId` / `secretAccessKey` blank in the LLM config and the SDK falls back to the pod credentials.
+
+## IRSA setup (EKS)
+
+### 1. Create an IAM policy
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "bedrock:InvokeModel",
+        "bedrock:InvokeModelWithResponseStream",
+        "bedrock:Converse",
+        "bedrock:ConverseStream"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+Scope `Resource` down to specific model ARNs if you want (e.g. `arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-*`).
+
+### 2. Create an IAM role with a trust policy for the cluster's OIDC provider
+
+Replace `ACCOUNT`, `REGION`, `OIDC_ID`, `NAMESPACE`, and `SA_NAME`:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::ACCOUNT:oidc-provider/oidc.eks.REGION.amazonaws.com/id/OIDC_ID"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "oidc.eks.REGION.amazonaws.com/id/OIDC_ID:sub": "system:serviceaccount:NAMESPACE:SA_NAME",
+          "oidc.eks.REGION.amazonaws.com/id/OIDC_ID:aud": "sts.amazonaws.com"
+        }
+      }
+    }
+  ]
+}
+```
+
+`SA_NAME` should match whatever the chart names the service account — by default, `<release>-maestro`. You can pin it with `serviceAccount.name` in values.
+
+Attach the Bedrock policy from step 1 to this role.
+
+### 3. Annotate the service account
+
+```yaml
+serviceAccount:
+  create: true
+  name: maestro            # pin the name to match the IAM trust policy
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT:role/maestro-bedrock
+```
+
+### 4. Set the region
+
+The Bedrock client needs to know which region to call. Put it in `global.env` so both the Maestro pod and the gateway pick it up:
+
+```yaml
+global:
+  env:
+    - name: AWS_REGION
+      value: us-west-2
+```
+
+### 5. Configure the LLM in the UI
+
+After the pod restarts, log in as a superadmin:
+
+1. Go to **Admin → LLM Configs**
+2. Click **Create Config**
+3. Pick provider **Bedrock**
+4. Leave the access key and secret **blank**
+5. Set the region (or leave blank to fall back to `AWS_REGION`)
+6. Save
+
+Then head to **Admin → LLM Model Catalog** and enable the Bedrock models you want to expose.
+
+## EKS Pod Identity setup
+
+Pod Identity replaces IRSA on newer clusters. Instead of annotating the service account, you create a **Pod Identity Association** on the cluster:
+
+```bash
+aws eks create-pod-identity-association \
+  --cluster-name my-cluster \
+  --namespace maestro \
+  --service-account maestro \
+  --role-arn arn:aws:iam::ACCOUNT:role/maestro-bedrock
+```
+
+Everything else is identical: the service account needs the right name, the role needs the Bedrock policy, and `AWS_REGION` needs to be set.
+
+## Static access keys
+
+If IRSA / Pod Identity aren't available (non-EKS, air-gapped, dev):
+
+1. Create an IAM user with the Bedrock policy attached
+2. Generate an access key / secret
+3. In **Admin → LLM Configs**, paste them into the Bedrock config alongside the region
+
+Nothing needs to go into Helm values — the credentials stay in the Maestro database.
+
+## Verifying it works
+
+In the admin UI, open a config and use the **Test** button (if present), or create an org, assign the Bedrock config to it, and run a chat. The first inference call will surface any auth problems in the Maestro pod logs:
+
+```bash
+kubectl -n maestro logs deploy/maestro-maestro | grep -i bedrock
+```
+
+Common failures:
+
+| Symptom | Cause |
+| ------- | ----- |
+| `UnrecognizedClientException` | Pod has no AWS credentials — IRSA annotation missing, or the SA name doesn't match the trust policy |
+| `AccessDeniedException on bedrock:InvokeModel` | IAM policy is missing the action or scoped too narrowly |
+| `ValidationException: model not accessible` | Bedrock model access hasn't been requested for the account in this region |
+| `Could not load credentials` | No `AWS_REGION` set **and** the credential chain is empty |
+
+Bedrock model access must be requested in the AWS console before the first call will succeed. It's a per-account, per-region toggle.
+
+<SupportCallout />

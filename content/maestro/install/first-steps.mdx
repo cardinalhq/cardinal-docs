@@ -1,0 +1,96 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# First Steps as Superadmin
+
+You've installed the chart, the pod is healthy, OIDC is wired. Here's what to do on your first login.
+
+## 1. Log in
+
+Browse to `MAESTRO_BASE_URL`. You'll be redirected to your IdP, then back to Maestro. If your email is in `OIDC_SUPERADMIN_EMAILS` (or you're in `OIDC_SUPERADMIN_GROUP`), you'll see an **Admin** section in the sidebar. If not, jump back to [OIDC setup](/maestro/install/oidc#bootstrapping-the-first-superadmin).
+
+## 2. Configure at least one LLM
+
+Nothing else will work until there's an LLM backend.
+
+1. Go to **Admin → LLM Configs** and click **Create Config**
+2. Pick a provider:
+   - **Bedrock** — see the [Bedrock guide](/maestro/install/bedrock). Leave keys blank if using IRSA
+   - **Anthropic** — paste an API key
+   - **OpenAI-compatible** — paste a base URL and API key (works for OpenAI, Azure OpenAI, Groq, vLLM, etc.)
+3. Enable **inference** and/or **embeddings** on the config
+4. Save
+
+Then open **Admin → LLM Model Catalog** and select which specific models to expose. Maestro won't surface a model to org users until you've mapped it here.
+
+## 3. Create your first organization
+
+Everything in Maestro is scoped to an org. Users, integrations, chats, tokens — all of it.
+
+1. Go to **Admin → Organizations** and click **Create Org**
+2. Give it a name (e.g., `cardinal-internal`). The slug auto-generates from the name
+3. Set an owner email — this person becomes the org owner on their next login
+
+The owner can be you. If it is, refresh and you'll see the org in the main sidebar.
+
+## 4. Decide how users get in
+
+Two options:
+
+**Invitations (default).** An org owner goes to **Settings → People → Invitations** and invites users by email. They accept through a link (email delivery requires SMTP — see step 6).
+
+**Self-signup.** In **Admin → Settings**, toggle `allowSelfSignup`. Any user who logs in via OIDC can create their own org and becomes its owner. Use this for trusted internal deployments; leave it off otherwise.
+
+## 5. Add integrations
+
+Switch to an org context (pick the org from the sidebar). Then **Settings → Integrations → Add Integration**. Pick what you need:
+
+- [Lakerunner](/maestro/integrations/lakerunner) — almost certainly first
+- [PostgreSQL](/maestro/integrations/postgres), [Snowflake](/maestro/integrations/snowflake), [BigQuery](/maestro/integrations/bigquery), etc. — data sources
+- [GitHub](/maestro/integrations/github), [ServiceNow](/maestro/integrations/servicenow) — actions
+- [Slack](/maestro/integrations/slack), [Teams](/maestro/integrations/teams), [PagerDuty](/maestro/integrations/pagerduty) — notifications
+
+Every integration has a **Test Connection** button. Use it before saving. Credentials are encrypted at rest.
+
+## 6. Set up SMTP for invitations (optional but recommended)
+
+Without SMTP, the invite flow still works — you just have to copy-paste the invitation link by hand.
+
+1. Go to **Admin → System SMTP**
+2. Fill in host, port, credentials, from-address
+3. Send a test email
+
+## 7. Configure notifications (optional)
+
+For outbound notifications (alerts, daily summaries) use **Admin → Notification Integrations**. This is separate from per-org integrations — it's where you wire a Slack workspace or Teams channel that Maestro itself posts to for system events.
+
+## 8. Verify the whole stack
+
+Open a chat in your org and ask something concrete like *"what are the last 10 error logs from service X?"*. The agent should:
+
+1. Plan a step that calls a Lakerunner tool
+2. Execute it via the MCP Gateway
+3. Return the logs
+
+If it refuses or errors, check **Admin → Usage** (token usage proves LLM calls are going through) and the Maestro pod logs.
+
+## 9. Health checks for the cluster operator
+
+Point your liveness/readiness probes at `/api/health`:
+
+```
+GET /api/health
+{"status":"ok","service":"maestro","version":"..."}
+```
+
+The chart already wires this for both liveness and readiness. If you put a separate uptime monitor in front of Maestro, this is the endpoint to hit — it doesn't require auth.
+
+For operational visibility, **Admin → System Health** surfaces per-org Lakerunner instance health and recent errors.
+
+## Day-two concerns
+
+- **Backups**: everything important is in Postgres. Back that up.
+- **Upgrades**: bump `image.tag` in your `values.yaml`, `helm upgrade`, verify `/api/health` is still returning the new version. Migrations run automatically on startup.
+- **Secret rotation**: the database password is the only secret the chart creates. For BYO secrets (OIDC client secret if you add one, LLM keys stored in DB, integration credentials) — those live outside the chart.
+- **Scale**: `maestro.replicas` can go above 1 only if you've front-ended Maestro with a load balancer that does session affinity. The current session storage is per-pod. Plan to revisit if you need HA.
+
+<SupportCallout />

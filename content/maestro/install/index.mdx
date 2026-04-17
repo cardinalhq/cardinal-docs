@@ -1,0 +1,112 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# Installing Maestro on Kubernetes
+
+Maestro is Cardinal's agent server. It runs as a single pod behind a Helm chart that also includes the MCP Gateway and the Cardinal web UI. The whole stack ships as one container image — the Helm chart simply runs it twice with different entrypoints.
+
+## Architecture
+
+The chart deploys two workloads:
+
+| Component | What it does | Port |
+| --------- | ------------ | ---- |
+| **maestro** | HTTP server, serves the UI, handles auth, runs the agent | `4200` |
+| **mcp-gateway** | MCP server that exposes integration tools (Lakerunner, etc.) | `8080` (public) / `9090` (debug) |
+
+Both containers come from the same image — `public.ecr.aws/cardinalhq.io/maestro` — so there is only ever one `image.tag` to update. Maestro talks to the gateway over `ClusterIP` inside the namespace.
+
+## Prerequisites
+
+- A Kubernetes cluster (1.27+)
+- `helm` 3.13+
+- A PostgreSQL database reachable from the cluster (RDS, CloudSQL, or in-cluster is fine)
+- An OIDC provider (Keycloak, Okta, Auth0, Google Workspace, etc.) — required for login
+- An LLM backend — one of:
+  - AWS Bedrock (via IRSA — recommended on EKS)
+  - Anthropic API
+  - An OpenAI-compatible endpoint
+- A hostname and TLS cert for the ingress (Maestro expects to be reached at a single public URL)
+
+## Chart location
+
+The chart is published as an OCI artifact:
+
+```
+oci://public.ecr.aws/cardinalhq.io/maestro
+```
+
+Source lives at [github.com/cardinalhq/charts](https://github.com/cardinalhq/charts) under `maestro/`.
+
+## Minimal install
+
+Create a `values.yaml`:
+
+```yaml
+image:
+  tag: v0.20.1
+
+database:
+  create: false          # bring your own secret (recommended for prod)
+  secretName: pg-credentials
+  host: postgres.example.com
+  port: 5432
+  name: maestro
+  username: maestro
+  sslMode: require
+
+maestro:
+  env:
+    - name: MAESTRO_BASE_URL
+      value: https://maestro.example.com
+    - name: OIDC_ISSUER_URL
+      value: https://auth.example.com/realms/cardinal
+    - name: OIDC_AUDIENCE
+      value: maestro-ui
+    - name: OIDC_SUPERADMIN_EMAILS
+      value: admin@example.com
+
+ingress:
+  enabled: true
+  className: traefik
+  host: maestro.example.com
+  tls:
+    - secretName: maestro-tls
+      hosts:
+        - maestro.example.com
+```
+
+Pre-create the database password secret (since `database.create: false`):
+
+```bash
+kubectl create secret generic pg-credentials \
+  --from-literal=MAESTRO_DB_PASSWORD='...' \
+  -n maestro
+```
+
+Install:
+
+```bash
+helm install maestro oci://public.ecr.aws/cardinalhq.io/maestro \
+  --version 0.4.4 \
+  -n maestro --create-namespace \
+  -f values.yaml
+```
+
+Verify:
+
+```bash
+kubectl -n maestro get pods
+kubectl -n maestro port-forward svc/maestro-maestro 4200:4200
+curl http://localhost:4200/api/health
+# {"status":"ok","service":"maestro","version":"..."}
+```
+
+## Where to go next
+
+1. [Helm chart reference](/maestro/install/helm-chart) — every field in `values.yaml`
+2. [Environment variables](/maestro/install/environment) — full env var catalog
+3. [OIDC setup](/maestro/install/oidc) — wiring Keycloak, Okta, or any OIDC IdP
+4. [AWS Bedrock](/maestro/install/bedrock) — IRSA-based pod credentials
+5. [First steps as superadmin](/maestro/install/first-steps) — what to do after the first login
+
+<SupportCallout />

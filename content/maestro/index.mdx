@@ -1,35 +1,21 @@
-# Product
+# Maestro
 
-Cardinal is an AI-powered observability and incident management platform. It is powered by Maestro, an independently deployable agent server.
+Maestro is Cardinal's AI agent for observability. It turns natural-language questions into plans, executes them against your telemetry and operational systems, and answers with real data — not guesses.
+
+## What it does
+
+- **Explore your observability data.** Maestro drives [Lakerunner](/lakerunner) as a first-class data source. Ask about logs, metrics, services, or time ranges in plain English and Maestro figures out which queries to run, runs them, and summarizes the result.
+- **Investigate incidents agentically.** Maestro plans multi-step investigations: pull recent errors, correlate with a deploy, check downstream dependencies, open a ticket. You watch the plan unfold rather than stringing the steps together yourself.
+- **Act on what it finds.** With the right integrations connected, Maestro can open GitHub PRs, file ServiceNow incidents, or notify Slack / Teams / PagerDuty.
+
+## How it works
+
+Maestro is built on Cardinal's Orchestra planning engine. Every request goes through **plan → execute → evaluate**: it picks the right tools, executes them with retries and rate-limit handling, and evaluates the result before responding. Tools come from connected integrations exposed over the Model Context Protocol.
+
+## Installation
+
+Self-hosting Maestro? Start with the [Installation guide](/maestro/install) — Helm chart, environment variables, OIDC, AWS Bedrock on EKS, and first-login walkthrough.
 
 ## Integrations
 
-Integrations connect Cardinal to your external services and data sources. Once configured, the AI agent can query, explore, and act on data from these systems through natural language.
-
-Cardinal supports three categories of integrations:
-
-### Data Sources
-
-Connect databases and observability platforms so the AI agent can explore schemas, run queries, and surface insights.
-
-- [Lakerunner](/maestro/integrations/lakerunner) — Logs, metrics, and alerting
-- [PostgreSQL](/maestro/integrations/postgres) — Relational databases
-- [Google BigQuery](/maestro/integrations/bigquery) — Cloud data warehouse
-- [Snowflake](/maestro/integrations/snowflake) — Cloud data warehouse
-- [Amazon Athena](/maestro/integrations/athena) — S3 data lake queries
-- [ClickHouse](/maestro/integrations/clickhouse) — Columnar analytics database
-
-### Service Integrations
-
-Connect platforms the AI agent can interact with to search, query, and perform actions.
-
-- [GitHub](/maestro/integrations/github) — Code search, PRs, issues, and deployments
-- [ServiceNow](/maestro/integrations/servicenow) — ITSM: incidents, changes, CMDB, and knowledge
-
-### Notifications
-
-Send alerts and messages to communication channels.
-
-- [Slack](/maestro/integrations/slack) — Channel notifications
-- [Microsoft Teams](/maestro/integrations/teams) — Webhook notifications
-- [PagerDuty](/maestro/integrations/pagerduty) — Incident alerting
+Connect Maestro to the systems you already use. See [Integrations](/maestro/integrations) for the full list — data sources (Lakerunner, Postgres, Snowflake, BigQuery, Athena, ClickHouse), service integrations (GitHub, ServiceNow), and notifications (Slack, Teams, PagerDuty).
