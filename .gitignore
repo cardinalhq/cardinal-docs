@@ -3,4 +3,5 @@ node_modules
 .DS_Store
 out
 .playwright-mcp
+.playwright-artifacts
 *.tsbuildinfo
