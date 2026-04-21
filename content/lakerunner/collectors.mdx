@@ -312,6 +312,8 @@ If you need span-derived service graph metrics, stay with the gateway. For logs,
 
 The snippet below receives OTLP from workloads, stamps the cluster name as a resource attribute, enriches with Kubernetes metadata, converts cumulative metrics to delta, and writes to S3 in the Lakerunner-compatible layout. Substitute your own values for the four environment variables.
 
+> **Do not skip the `otelcol.processor.batch` stage, and do not shrink its `timeout` or `send_batch_size` below the values shown.** The awss3 exporter issues one S3 PUT per batch it receives. With the OTel batch defaults (`timeout: 200ms`), you would produce thousands of small PUTs per minute per Alloy instance per signal — which is both expensive on S3 request pricing and likely to trigger throttling (`SlowDown` responses) on high-volume buckets. The `10s / 10k / 30k` values below match the Cardinal gateway and are the minimum recommended. See [Notes and caveats](#notes-and-caveats) on replica-count amplification.
+
 ```alloy copy
 // Required environment variables (set via the Alloy pod spec):
 //   LAKERUNNER_ORGANIZATION_ID  — the same UUID as your Lakerunner install
@@ -407,6 +409,8 @@ Objects land at keys like `otel-raw/<org>/<cluster>/year=.../minute=.../logs_<ra
 
 ### Notes and caveats
 
+- **Batching is load-bearing, not optional.** Every batch handed to the awss3 exporter becomes a single `PutObject` request. The snippet batches every 10 seconds or every 10k records (whichever comes first), which caps PUT rate at roughly 6/min/signal per Alloy instance. If you remove the batch processor, shrink the timeout, or otherwise send many small batches, you will generate thousands of tiny S3 PUTs — which S3 prices per request and which will trigger `SlowDown` throttling on busy accounts. Keep the `10s / 10k / 30k` values or larger.
+- **Replica count multiplies PUT volume linearly.** A 200-node Alloy DaemonSet at the defaults above produces ~3600 PUTs/minute across the three signals — tolerable but not free. For high-node-count clusters, prefer a two-tier topology: a thin Alloy DaemonSet that forwards OTLP to a small central Alloy Deployment (2–4 replicas) which does the batching and S3 export. This keeps per-instance batches full and the PUT rate proportional to traffic, not node count.
 - **Cumulative-to-delta is essential for external Prometheus-style counters.** Lakerunner stores temporality as-is, so cumulative counters without conversion will produce confusing `rate()` results across collector restarts. The `otelcol.processor.cumulativetodelta` step in the snippet above handles this — don't remove it.
 - **Kubernetes attributes**: the `k8sattributes` processor needs cluster-scoped RBAC to list pods. Grant it a ServiceAccount with `get/list/watch` on `pods`, `namespaces`, and the replicaset/deployment hierarchy.
 - **Credentials**: the `awss3` exporter picks up AWS credentials through the default SDK chain, so IRSA, EKS Pod Identity, or `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` env vars all work without additional exporter config.
