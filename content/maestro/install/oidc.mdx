@@ -9,6 +9,7 @@ Maestro delegates all authentication to an external OIDC provider. There is no b
 - The browser performs the standard Authorization Code flow against your IdP.
 - Maestro validates the resulting ID token against the provider's JWKS.
 - The token's `email` claim identifies the user. `email_verified` must be `true`.
+- The token's `sub` claim is the persistent **account key** — it's what Maestro stores to recognise a returning user across email changes. Both the email and account-key claim names are remappable (see [Claim mapping](#claim-mapping)) for IdPs whose token shape differs from the Keycloak defaults.
 - Superadmin status is derived from either an OIDC **group** claim or an **email allowlist**. A user who matches either becomes a superadmin on first login.
 - Regular users start with no org membership. A superadmin (or an org owner) must place them in an org before they can do anything useful.
 
@@ -38,6 +39,13 @@ maestro:
 | `OIDC_SUPERADMIN_EMAILS` | Comma-separated email allowlist for superadmin. Case-insensitive. Use this to bootstrap before groups are configured |
 | `OIDC_JWKS_URL` | Override if your JWKS is at a non-standard path |
 | `OIDC_TRUST_UNVERIFIED_EMAILS` | `true` treats all OIDC emails as verified. Only use with IdPs that gate email ownership in another way |
+| `OIDC_EMAIL_CLAIM` | Token claim to read the user's email from. Default `email` |
+| `OIDC_EMAIL_VERIFIED_CLAIM` | Token claim to read the email-verified boolean from. Default `email_verified` |
+| `OIDC_DISPLAY_NAME_CLAIMS` | Comma-separated fallback chain for the display name. Default `name,preferred_username,email` |
+| `OIDC_GROUPS_CLAIM` | Token claim to read the group array from. Default `groups` |
+| `OIDC_EXTERNAL_ID_CLAIM` | Token claim Maestro uses as the persistent account key. Default `sub`. **Changing this on an existing deployment is a user migration event** — see [Claim mapping](#claim-mapping) |
+
+All five claim-mapping variables are optional; leaving them unset preserves the pre-existing Keycloak-shaped behavior.
 
 ## Redirect URI
 
@@ -49,15 +57,15 @@ https://maestro.example.com/api/auth/callback
 
 ## Required token claims
 
-Maestro reads these claims out of the ID token. Configure your IdP to include them:
+Maestro reads these claims out of the ID token. Configure your IdP to include them (or, if the claim names differ, remap them with the `OIDC_*_CLAIM` env vars — see [Claim mapping](#claim-mapping)):
 
-| Claim | Required | Purpose |
-| ----- | -------- | ------- |
-| `sub` | Yes | Stable user identifier |
-| `email` | Yes | Primary user key |
-| `email_verified` | Yes (or set `OIDC_TRUST_UNVERIFIED_EMAILS=true`) | Prevents email spoofing |
-| `name` | Recommended | Displayed in the UI |
-| `groups` | If using group-based superadmin | Array of group names |
+| Logical claim | Default token key | Required | Purpose |
+| ------------- | ----------------- | -------- | ------- |
+| Account key | `sub` | Yes | Persistent account identifier. Must be stable for a given user for the life of the install |
+| Email | `email` | Yes | Primary user key |
+| Email verified | `email_verified` | Yes (or set `OIDC_TRUST_UNVERIFIED_EMAILS=true`) | Prevents email spoofing |
+| Display name | `name` → `preferred_username` → `email` | Recommended | First non-empty value from the chain is shown in the UI |
+| Groups | `groups` | If using group-based superadmin | Array of group names |
 
 ## Bootstrapping the first superadmin
 
@@ -121,6 +129,31 @@ Some Okta setups don't populate `email_verified`. If users hit a "your email is 
   value: "true"
 ```
 
+### Okta access tokens (non-standard claim shape)
+
+Some Okta tenants issue access tokens rather than ID tokens, with a claim layout that doesn't match the defaults: `sub` carries the user's email (not an opaque id), the stable user id lives in a custom claim like `uid`, and `email` / `email_verified` / `name` / `groups` may be absent entirely.
+
+Tell Maestro where to find each logical claim:
+
+```yaml
+- name: OIDC_EMAIL_CLAIM
+  value: "sub"
+- name: OIDC_EXTERNAL_ID_CLAIM
+  value: "uid"
+- name: OIDC_DISPLAY_NAME_CLAIMS
+  value: "name,preferred_username,sub"
+- name: OIDC_TRUST_UNVERIFIED_EMAILS
+  value: "true"
+- name: OIDC_SUPERADMIN_EMAILS
+  value: first-admin@example.com
+```
+
+A few things to know about this combination:
+
+* `OIDC_EXTERNAL_ID_CLAIM` must not resolve to the same token claim as `OIDC_EMAIL_CLAIM`. Maestro refuses to boot if they do — account keys must be stable, and emails aren't. The literal case (`OIDC_EXTERNAL_ID_CLAIM=email`) and the subtle case (`OIDC_EMAIL_CLAIM=sub` + `OIDC_EXTERNAL_ID_CLAIM=sub`) both fail fast.
+* Remapping the email claim plus `OIDC_TRUST_UNVERIFIED_EMAILS=true` logs a warning at startup. It's warn-only, not fatal, because this is a legitimate Okta configuration — but the warning is worth reading. The resolved email feeds five authorization paths: superadmin allowlist matching, domain auto-join, invite acceptance, email-collision account linking, and UI display. Anything upstream that can control the remapped claim effectively controls those paths.
+* Groups may be scoped out entirely in this shape. Use `OIDC_SUPERADMIN_EMAILS` to bootstrap the first superadmin and manage further promotions from the admin UI.
+
 ## Google Workspace
 
 Google OIDC does not issue a `groups` claim out of the box. Use the email allowlist:
@@ -134,6 +167,33 @@ Google OIDC does not issue a `groups` claim out of the box. Use the email allowl
   value: alice@example.com,bob@example.com
 ```
 
+## Claim mapping
+
+Maestro reads five logical claims out of each token: email, email-verified, display-name chain, groups, and a persistent account key (called `externalId` internally, defaulted to `sub`). Each one can be remapped to a different token claim name via an env var. The defaults match Keycloak's shape; operators on Okta, Auth0, Azure AD, and so on typically override one or two.
+
+| Env var | Maps to | Default | Notes |
+| ------- | ------- | ------- | ----- |
+| `OIDC_EMAIL_CLAIM` | email | `email` | |
+| `OIDC_EMAIL_VERIFIED_CLAIM` | emailVerified | `email_verified` | |
+| `OIDC_DISPLAY_NAME_CLAIMS` | displayName | `name,preferred_username,email` | Comma-separated fallback chain, evaluated left-to-right until a non-empty value is found |
+| `OIDC_GROUPS_CLAIM` | groups | `groups` | |
+| `OIDC_EXTERNAL_ID_CLAIM` | externalId (account key) | `sub` | Single claim; never a fallback chain |
+
+Rules the verifier enforces:
+
+* `OIDC_EXTERNAL_ID_CLAIM` and `OIDC_EMAIL_CLAIM` must not resolve to the same token claim. Maestro refuses to boot otherwise.
+* `OIDC_DISPLAY_NAME_CLAIMS` rejects empty entries (e.g. `"name,,email"` fails at startup) so the operator intent is unambiguous.
+* If `OIDC_TRUST_UNVERIFIED_EMAILS=true` **and** `OIDC_EMAIL_CLAIM` is non-default, startup logs a warning listing the authorization paths that consume the resolved email. This is intentionally not fatal — legitimate Okta configs need this combination — but operators should audit upstream control of the remapped claim.
+
+### Changing `OIDC_EXTERNAL_ID_CLAIM` on an existing deployment is a migration event
+
+The account key is persisted per user. Switching `OIDC_EXTERNAL_ID_CLAIM` on a live install means every existing user's stored key stops matching the one in their next token:
+
+* Email-matching users will be silently relinked to the new key (the same path used when an IdP issues a brand-new `sub` for an existing email).
+* Users whose email also changed at the same time will appear as brand-new accounts, losing org memberships and roles.
+
+Do not toggle this variable on a populated database without a planned migration. On a fresh install it's free; after the first login it isn't.
+
 ## Troubleshooting
 
 | Symptom | Cause |
@@ -143,5 +203,6 @@ Google OIDC does not issue a `groups` claim out of the box. Use the email allowl
 | "Your email is not verified" | The IdP is omitting `email_verified` or setting it to `false`. Fix at the IdP, or set `OIDC_TRUST_UNVERIFIED_EMAILS=true` if appropriate |
 | Logged in but no admin menu | You're not in `OIDC_SUPERADMIN_GROUP` **and** not in `OIDC_SUPERADMIN_EMAILS`. Add yourself to one of them and log out / back in |
 | JWKS fetch errors in logs | `OIDC_ISSUER_URL` unreachable from the pod, or the IdP's JWKS lives outside the standard discovery path — set `OIDC_JWKS_URL` explicitly |
+| `OIDC_EXTERNAL_ID_CLAIM ('x') resolves to the same claim as OIDC_EMAIL_CLAIM` at startup | You pointed the email and account-key to the same token claim (either directly, or via defaults + one override). Pick a different stable claim for `OIDC_EXTERNAL_ID_CLAIM` — see [Claim mapping](#claim-mapping) |
 
 <SupportCallout />

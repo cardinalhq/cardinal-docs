@@ -42,6 +42,11 @@ See [OIDC setup](/maestro/install/oidc) for a walkthrough.
 | `OIDC_SUPERADMIN_GROUP` | — | `maestro-superadmin` | Users in this OIDC group are promoted to superadmin |
 | `OIDC_SUPERADMIN_EMAILS` | — | — | Comma-separated email allowlist. Matched case-insensitively. Use this to bootstrap the first superadmin before you've wired groups |
 | `OIDC_TRUST_UNVERIFIED_EMAILS` | — | `false` | Treat all OIDC emails as verified regardless of the `email_verified` claim. Only set this if you trust your IdP to gate email ownership itself (some Okta setups) |
+| `OIDC_EMAIL_CLAIM` | — | `email` | Token claim Maestro reads the user's email from. See [Claim mapping](/maestro/install/oidc#claim-mapping) |
+| `OIDC_EMAIL_VERIFIED_CLAIM` | — | `email_verified` | Token claim Maestro reads the email-verified boolean from |
+| `OIDC_DISPLAY_NAME_CLAIMS` | — | `name,preferred_username,email` | Comma-separated fallback chain for the UI display name |
+| `OIDC_GROUPS_CLAIM` | — | `groups` | Token claim Maestro reads the group array from |
+| `OIDC_EXTERNAL_ID_CLAIM` | — | `sub` | Token claim Maestro uses as the persistent account key. Must be stable per user. Changing this on a populated deployment is a migration event |
 
 Maestro **always** requires `email_verified: true` in the token unless `OIDC_TRUST_UNVERIFIED_EMAILS=true`.
 
