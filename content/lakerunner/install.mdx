@@ -29,6 +29,49 @@ Configure an Ingress or use port-forwarding to access Grafana:
 kubectl port-forward -n lakerunner svc/grafana 3000:3000
 ```
 
+## Deploying on OpenShift
+
+The chart renders cleanly under the `restricted-v2` SCC with two adjustments. Add the following to the `values.yaml` produced by the wizard above:
+
+### 1. Let the SCC assign UIDs
+
+OpenShift's `restricted-v2` SCC rejects pods whose `runAsUser`/`runAsGroup`/`fsGroup` fall outside the namespace's assigned UID range — it wants to inject them from the range itself. Null the fields so the chart emits only `runAsNonRoot: true`:
+
+```yaml copy
+global:
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: null
+    runAsGroup: null
+    fsGroup: null
+grafana:
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: null
+    runAsGroup: null
+    fsGroup: null
+```
+
+The SCC fills in `runAsUser`, `runAsGroup`, and `fsGroup`. All other hardening from `global.containerSecurityContext` (no-privilege-escalation, drop `ALL`, `RuntimeDefault` seccomp, read-only rootfs) stays in effect.
+
+### 2. Grafana needs an SCC that permits UID 472
+
+The upstream `grafana/grafana` image expects UID 472 to own `/var/lib/grafana`. Because that UID almost never falls inside a namespace's `restricted-v2` range, Grafana needs either a custom SCC or an OpenShift-compatible image. The simplest path is:
+
+```sh copy
+oc adm policy add-scc-to-user nonroot-v2 -z <release>-lakerunner -n <namespace>
+```
+
+…and then keep Grafana's defaults (UID 472). If you prefer to avoid the SCC grant, swap `grafana.image.repository` for an image that supports random UIDs.
+
+### 3. Perch needs elevated RBAC
+
+The Perch component ships with a `ClusterRole` that includes `patch` on `apps/deployments` cluster-wide — this is its legitimate function (cross-namespace deployment management), but it counts as a privileged grant. On clusters with strict RBAC review you may need admin approval or an `oc adm policy add-role-to-user edit` against the chart's ServiceAccount.
+
+### 4. Ingress / Routes
+
+The chart uses standard `networking.k8s.io/v1` `Ingress` resources. They work with the OpenShift HAProxy router out of the box; no nginx-specific annotations are emitted.
+
 ## Upgrading
 
 To upgrade an existing installation:

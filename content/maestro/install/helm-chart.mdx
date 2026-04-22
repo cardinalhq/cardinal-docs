@@ -145,6 +145,19 @@ global:
   env: []                 # env vars merged into both containers
   labels: {}
   annotations: {}
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 65532
+    runAsGroup: 65532
+    fsGroup: 65532
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+    seccompProfile:
+      type: RuntimeDefault
 ```
 
 | Field | Default | Notes |
@@ -153,7 +166,26 @@ global:
 | `global.env` | `[]` | Env vars that apply to both Maestro and the gateway. Use for `AWS_REGION`, tracing config, etc. |
 | `global.labels` | `{}` | Merged into every resource's labels |
 | `global.annotations` | `{}` | Merged into every resource's annotations |
+| `global.podSecurityContext` | `runAsNonRoot: true`, UID/GID/fsGroup `65532` | Pod-level `securityContext` applied to every workload. Per-component overrides at `<component>.podSecurityContext` win, missing fields fall back to the globals |
+| `global.containerSecurityContext` | no-privilege-escalation, read-only rootfs, drop `ALL` caps, `RuntimeDefault` seccomp | Container-level hardening applied to every container. Per-component overrides at `<component>.containerSecurityContext` |
 
 Scheduling fields (`nodeSelector`, `tolerations`, `affinity`) can also be set at the `global` level and are merged with per-workload overrides.
+
+## Deploying on OpenShift
+
+The chart renders cleanly under the `restricted-v2` SCC once the UID fields are nulled out so the SCC can inject values from the namespace's assigned UID range:
+
+```yaml
+global:
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: null
+    runAsGroup: null
+    fsGroup: null
+```
+
+With that in place the pod `securityContext` emits only `runAsNonRoot: true`; the SCC fills in `runAsUser`, `runAsGroup`, and `fsGroup`. All other hardening from `global.containerSecurityContext` (no-privilege-escalation, drop `ALL`, `RuntimeDefault` seccomp, read-only rootfs) stays in effect.
+
+The built-in `Ingress` is a standard `networking.k8s.io/v1` resource with a configurable `ingressClassName` — the OpenShift HAProxy router handles it out of the box; no nginx-specific annotations are emitted.
 
 <SupportCallout />
