@@ -37,7 +37,8 @@ See [OIDC setup](/maestro/install/oidc) for a walkthrough.
 | Variable | Required | Default | Notes |
 | -------- | -------- | ------- | ----- |
 | `OIDC_ISSUER_URL` | Yes | — | Issuer URL of your IdP. JWKS is discovered from it |
-| `OIDC_AUDIENCE` | — | `maestro-ui` | Expected audience (client ID) |
+| `OIDC_AUDIENCE` | — | `maestro-ui` | Expected `aud` claim on incoming tokens. For many IdPs this equals the OAuth client ID |
+| `OIDC_CLIENT_ID` | — | `OIDC_AUDIENCE` | OAuth client ID the SPA sends in `/authorize` requests. Set separately when the token's `aud` is a resource identifier distinct from the client ID (e.g. Okta with a custom authorization server) |
 | `OIDC_JWKS_URL` | — | derived | Override if your IdP's JWKS lives outside the standard discovery path |
 | `OIDC_SUPERADMIN_GROUP` | — | `maestro-superadmin` | Users in this OIDC group are promoted to superadmin |
 | `OIDC_SUPERADMIN_EMAILS` | — | — | Comma-separated email allowlist. Matched case-insensitively. Use this to bootstrap the first superadmin before you've wired groups |

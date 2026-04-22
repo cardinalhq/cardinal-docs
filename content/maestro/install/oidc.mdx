@@ -34,7 +34,8 @@ maestro:
 | -------- | ----- |
 | `MAESTRO_BASE_URL` | Must exactly match the redirect URI registered with your IdP |
 | `OIDC_ISSUER_URL` | Used for JWKS discovery (`{issuer}/.well-known/openid-configuration`) |
-| `OIDC_AUDIENCE` | The `aud` claim Maestro expects. Defaults to `maestro-ui` |
+| `OIDC_AUDIENCE` | The `aud` claim Maestro expects on incoming tokens. Defaults to `maestro-ui` |
+| `OIDC_CLIENT_ID` | OAuth client ID the SPA sends in `/authorize` requests. Defaults to `OIDC_AUDIENCE`. Set this explicitly when your IdP issues tokens whose `aud` differs from the client ID (e.g. Okta with a custom authorization server) |
 | `OIDC_SUPERADMIN_GROUP` | Name of a `groups` claim value granting superadmin. Default `maestro-superadmin` |
 | `OIDC_SUPERADMIN_EMAILS` | Comma-separated email allowlist for superadmin. Case-insensitive. Use this to bootstrap before groups are configured |
 | `OIDC_JWKS_URL` | Override if your JWKS is at a non-standard path |
@@ -122,6 +123,17 @@ Maestro is developed against Keycloak and the docker-compose dev stack uses it a
      value: maestro-superadmin
    ```
 
+   If your Okta tenant uses a **custom authorization server** whose audience is a resource URI (e.g. `api://maestro`) rather than the app's client ID, split the two:
+
+   ```yaml
+   - name: OIDC_AUDIENCE
+     value: api://maestro            # the `aud` on issued tokens (the auth server's audience)
+   - name: OIDC_CLIENT_ID
+     value: 0oabc123ClientIdXYZ      # the SPA app's client ID (used in /authorize)
+   ```
+
+   For the default Okta authorization server (no custom audience), `OIDC_CLIENT_ID` equals `OIDC_AUDIENCE` and can be omitted.
+
 Some Okta setups don't populate `email_verified`. If users hit a "your email is not verified" error and you trust Okta's identity proofing, add:
 
 ```yaml
@@ -199,7 +211,7 @@ Do not toggle this variable on a populated database without a planned migration.
 | Symptom | Cause |
 | ------- | ----- |
 | Redirect loop after login | `MAESTRO_BASE_URL` doesn't match the redirect URI registered with the IdP, or it's behind a different hostname than the browser is using |
-| "Invalid token audience" | `OIDC_AUDIENCE` doesn't match the token's `aud` claim (for some IdPs this is the client ID; for others it's a custom resource identifier) |
+| "Invalid token audience" | `OIDC_AUDIENCE` doesn't match the token's `aud` claim (for some IdPs this is the client ID; for others — e.g. Okta with a custom authorization server — it's a resource identifier distinct from the client ID, in which case set `OIDC_CLIENT_ID` separately) |
 | "Your email is not verified" | The IdP is omitting `email_verified` or setting it to `false`. Fix at the IdP, or set `OIDC_TRUST_UNVERIFIED_EMAILS=true` if appropriate |
 | Logged in but no admin menu | You're not in `OIDC_SUPERADMIN_GROUP` **and** not in `OIDC_SUPERADMIN_EMAILS`. Add yourself to one of them and log out / back in |
 | JWKS fetch errors in logs | `OIDC_ISSUER_URL` unreachable from the pod, or the IdP's JWKS lives outside the standard discovery path — set `OIDC_JWKS_URL` explicitly |
