@@ -102,27 +102,4 @@ Once configured, you can ask the agent questions like:
 - "Find the on-call escalation policy for the data platform team."
 - "Who edited the incident-response page most recently?"
 
-## Limits and follow-ups
-
-v1 deliberately does not ship:
-
-- Confluence Server / Data Center support (Cloud only).
-- Writes (page create / edit / comment / mention resolution).
-- Attachment / image / whiteboard / diagram extraction.
-- Knowledge-graph ingestion or LLM-driven entity linking from Confluence prose.
-- Per-user ACL enforcement on retrieval.
-
-These are tracked as deferred work; reach out if your team needs any of them.
-
-## Operator runbook — alerting
-
-Two Prometheus alerts ship with the integration:
-
-- **Confluence auth degrading** (page).
-  `sum by (org_id, instance) (increase(confluence_tool_calls_total{outcome="auth_error"}[1h])) > 3` — sustained `auth_error` outcomes mean the API token has rotated, the service-account email changed, or the bot lost access to required spaces. Action: rotate the credential or audit the service account's Confluence permissions.
-- **Confluence rate-limit churn** (warn).
-  `sum by (org_id, instance) (increase(confluence_tool_calls_total{outcome="rate_limited"}[1h])) > 20` — sustained 429 responses suggest the agent is being asked to scan too aggressively. Action: tighten **Spaces exclude** or audit the agent prompts driving the calls.
-
-There is no "sync dead" alert because there is no sync.
-
 <SupportCallout />
