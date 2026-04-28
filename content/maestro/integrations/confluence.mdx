@@ -2,21 +2,18 @@ import SupportCallout from '../../../components/SupportCallout';
 
 # Confluence
 
-Connect an Atlassian Confluence Cloud workspace so the agent can search and read pages on demand. v1 is a search-on-demand surface — Confluence content is **never** bulk-ingested into the knowledge graph, and pages are fetched fresh on each turn.
+Connect an Atlassian Confluence Cloud workspace so Cardinal's AI agent can search and read your team's pages on demand — runbooks, design docs, onboarding guides, knowledge-base articles, and more.
 
 ## Overview
 
-The Confluence integration exposes five Model Context Protocol tools to the agent:
+With the Confluence integration, the AI agent can:
 
-| Tool | Purpose |
-| ---- | ------- |
-| `confluence_list_instances` | Enumerate configured Confluence instances for the org |
-| `confluence_list_spaces` | Enumerate spaces the bot can read in the chosen instance |
-| `confluence_search` | CQL search with the per-instance space include/exclude lists folded in |
-| `confluence_get_page` | Fetch one page; default body format is Markdown (storage XHTML is converted; unknown macros become `[macro: name]` placeholders) |
-| `confluence_get_page_history` | Version list for a page |
+- **Find the right page** — search across your spaces using Confluence's native query language
+- **Read page content** — fetch a page's body in clean Markdown for the agent to summarize, quote, or extract from
+- **Track changes** — list a page's version history when the user asks who edited what and when
+- **Discover what's available** — enumerate spaces the bot has access to
 
-The agent decides at query time whether a turn requires Confluence content; nothing happens otherwise.
+Pages are fetched fresh on every turn, so edits in Confluence are immediately reflected in the agent's answers — there is no sync to wait on, no index to rebuild.
 
 ## Capabilities
 
@@ -30,68 +27,61 @@ The agent decides at query time whether a turn requires Confluence content; noth
 
 | Field | Required | Description |
 | ----- | -------- | ----------- |
-| **Base URL** | Yes | Workspace root, e.g. `https://acme.atlassian.net`. No trailing slash, no `/wiki` suffix. Must use HTTPS and end with `.atlassian.net` (Cloud only in v1). |
-| **Spaces include** | No | Comma-separated list of space keys. If present, only these spaces are searched. |
-| **Spaces exclude** | No | Comma-separated list of space keys. Takes precedence over **Spaces include**. **Use this for sensitive spaces** — see Data handling below. |
+| **Base URL** | Yes | Your workspace root, e.g. `https://acme.atlassian.net`. No trailing slash, no `/wiki` suffix. |
+| **Spaces include** | No | Comma-separated list of space keys. If set, only these spaces are searched. |
+| **Spaces exclude** | No | Comma-separated list of space keys. Takes precedence over **Spaces include**. Use this to keep sensitive spaces out of the agent's reach. |
 
 ### Credentials
 
 | Field | Required | Description |
 | ----- | -------- | ----------- |
-| **Service Account Email** | Yes | Email tied to the Atlassian API token (e.g. `svc_cardinal@yourdomain.com`) |
-| **API Token** | Yes | Atlassian API token from `id.atlassian.com` (stored encrypted; never displayed after save) |
+| **Service Account Email** | Yes | Email tied to the Atlassian API token (e.g. `cardinal-bot@yourdomain.com`) |
+| **API Token** | Yes | Atlassian API token created at [id.atlassian.com](https://id.atlassian.com/manage-profile/security/api-tokens) (stored encrypted; never displayed after save) |
 
-Authentication uses HTTP Basic Auth (`email:apiToken`).
+Authentication uses HTTP Basic Auth.
 
 ## Prerequisites
 
-- An Atlassian Cloud workspace.
-- A service account with read access to the spaces you want the agent to search. The bot can only see what the service account can see; restricted spaces invisible to the bot are also invisible to the agent.
-- Network access from Cardinal to your `*.atlassian.net` workspace.
+- An Atlassian Confluence **Cloud** workspace. (Server / Data Center is not currently supported.)
+- A service account with read access to the spaces you want the agent to use. The agent can only see what the service account can see — restricted spaces invisible to the service account are also invisible to the agent.
 
 ## Setup
 
-1. **Create an Atlassian API token** at [id.atlassian.com → Security → API tokens](https://id.atlassian.com/manage-profile/security/api-tokens). Use a descriptive label (e.g. `maestro-bot`).
-2. In the maestro admin UI, navigate to **Settings → Integrations → New Integration** and select **Confluence**.
+1. **Create an Atlassian API token** at [id.atlassian.com → Security → API tokens](https://id.atlassian.com/manage-profile/security/api-tokens). Use a descriptive label such as `cardinal-bot`.
+2. In Cardinal, navigate to **Settings → Integrations → New Integration** and select **Confluence**.
 3. Fill the required fields:
-   - **Base URL** — the workspace root (e.g. `https://acme.atlassian.net`).
+   - **Base URL** — your workspace root.
    - **Service Account Email** — the email tied to the API token.
-   - **API Token** — the token value.
+   - **API Token** — paste the token value.
    - **Spaces include** / **Spaces exclude** — optional, see below.
-4. **Acknowledge the data-handling stance** by ticking the gating checkbox shown on first save.
-5. Click **Test connection** — the handler hits `GET /wiki/api/v2/spaces?limit=1` and surfaces typed errors (`401_unauthorized`, `403_forbidden`, `dns_resolution_failed`, `tls_error`, `base_url_malformed`).
+4. Acknowledge the data-handling notice shown on first save.
+5. Click **Test Connection** to verify Cardinal can reach your workspace and the credentials are valid.
 6. Click **Save**.
 
-## Multi-instance
+## Working with multiple Confluence workspaces
 
-An organization with acquisitions or split product lines can configure multiple Confluence instances. Each integration row carries an **immutable** slug; the agent passes that slug as the `instance` arg on every tool call.
+If your organization runs more than one Confluence Cloud workspace — for example after an acquisition or to separate product lines — you can configure each as a separate Confluence integration. Each integration has its own slug, base URL, and service account credentials. The agent picks the right workspace based on conversation context, and you can list configured workspaces from inside any chat.
 
-- **Single-instance org**: omitting `instance` resolves to the only configured instance.
-- **Multi-instance org**: omitting `instance` produces a structured error instructing the planner to call `confluence_list_instances` first.
+## Choosing which spaces the agent uses
 
-## Spaces include / exclude
+For a focused, predictable agent experience, scope the integration to the spaces you actually want it to draw from.
 
-The two optional space-key lists fold into the agent's CQL queries **before** the request leaves the gateway:
+- **Spaces include** narrows the agent to a specific list of space keys. If left empty, the agent can search every space the service account can read.
+- **Spaces exclude** removes spaces from the agent's reach. Exclude takes precedence over include, so a key on both lists is excluded.
 
-- **Include**: `AND space.key IN ("ENG","OPS")` is appended to the CQL.
-- **Exclude**: `AND space.key NOT IN ("HR","SECRETS")` is appended after include.
-- **Exclude wins** when a key appears on both lists.
-
-Recommended exclude-list defaults for any org that hasn't audited its Confluence space set:
+A good default is to **exclude any space that contains credentials, HR/legal/finance content, security policies, onboarding material, or anything else you wouldn't want quoted back in a chat answer.** Many organizations start with an exclude list like:
 
 ```
 SECRETS,VAULT,CRED,HR,LEGAL,FIN,FINANCE,PEOPLE,ONBOARDING,SECURITY
 ```
 
-Adjust to match your space-naming conventions. The integration's "Included spaces preview" panel in the admin UI shows which spaces the bot can actually see after applying the lists.
+Adjust to match your space-naming conventions. The integration's **Included spaces preview** panel in Cardinal shows which spaces the agent can actually see after your include/exclude lists are applied — a quick way to confirm you've scoped it the way you intended.
 
-## Data handling (v1)
+## Privacy and data residency
 
-Three load-bearing facts about Confluence content in v1. These are deliberate v1 choices, not oversights — re-evaluating them requires a spec amendment.
+Cardinal runs language-model calls inside your own AWS account using Amazon Bedrock, so the contents of your Confluence pages stay within your AWS environment on the LLM path — they are never sent to a third-party model provider.
 
-1. **v1 does not scrub PII or secrets** from pages returned by Confluence tools. Operators MUST use **Spaces exclude** to keep credentials, HR, legal, finance, onboarding, or security spaces out of the agent's reach.
-2. **Any org user with agent access can retrieve any page the bot can read,** irrespective of their Confluence-side permissions. v1 has no user-level ACL on retrieval; the bot's view is the org's view. If you rely on Confluence as a permissioning boundary for individual users, maestro flattens that boundary at the org level.
-3. **LLM calls run inside the tenant's Bedrock,** so Confluence prose body does not egress to a third-party LLM provider. Page content stays inside your AWS account on the LLM path.
+Any user with agent access in your Cardinal organization can ask the agent about any page the service account can read. Use **Spaces exclude** to keep sensitive spaces out of the agent's reach, and grant the service account only the Confluence permissions it actually needs.
 
 ## What this enables
 
