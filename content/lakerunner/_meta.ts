@@ -3,6 +3,7 @@ export default {
   quickstart: 'Quick Start',
   install: 'Installation Guide',
   collectors: 'OpenTelemetry Collectors',
+  instrumentation: 'App Instrumentation',
   'otel-demo': 'OTel Demo Application',
   sizing: 'Sizing Estimator',
   architecture: 'Architecture',

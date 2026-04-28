@@ -1,0 +1,156 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# React.js App Instrumentation
+
+Follow the steps below to auto-instrument your React.js web app. When complete, your app will start emitting traces to Lakerunner.
+
+1. Install the OpenTelemetry dependencies:
+
+   ```sh copy
+   npm install --save @opentelemetry/instrumentation
+   npm install --save @opentelemetry/auto-instrumentations-web
+   npm install --save @opentelemetry/sdk-trace-web
+   npm install --save @opentelemetry/context-zone
+   npm install --save @opentelemetry/resources
+   npm install --save @opentelemetry/semantic-conventions
+   npm install --save @opentelemetry/exporter-trace-otlp-http
+   ```
+
+2. Initialize the instrumentation.
+
+   If your application has signed-in user state, initialize instrumentation when the user profile is available so that user information is included in `fetch` spans.
+
+   ```js copy
+   import { getWebAutoInstrumentations } from '@opentelemetry/auto-instrumentations-web';
+   import { ZoneContextManager } from '@opentelemetry/context-zone';
+   import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
+   import { registerInstrumentations } from '@opentelemetry/instrumentation';
+   import { resourceFromAttributes } from '@opentelemetry/resources';
+   import {
+     BatchSpanProcessor,
+     WebTracerProvider,
+   } from '@opentelemetry/sdk-trace-web';
+   import { ATTR_SERVICE_NAME } from '@opentelemetry/semantic-conventions';
+
+   useEffect(() => {
+     if (userProfile) {
+       const resource = resourceFromAttributes({
+         [ATTR_SERVICE_NAME]: 'your-service-name',
+         'deployment.environment.name': 'local', // local/dev/staging/prod
+       });
+
+       const tracerProvider = new WebTracerProvider({
+         resource,
+         spanProcessors: [
+           new BatchSpanProcessor(
+             new OTLPTraceExporter({
+               url: window.location.origin + '/otlp/v1/traces', // See Step 3 below
+             }),
+           ),
+         ],
+       });
+       tracerProvider.register({
+         contextManager: new ZoneContextManager(),
+       });
+
+       registerInstrumentations({
+         tracerProvider,
+         instrumentations: [
+           getWebAutoInstrumentations({
+             '@opentelemetry/instrumentation-user-interaction': {
+               enabled: false,
+             },
+             '@opentelemetry/instrumentation-document-load': {
+               enabled: false,
+             },
+             '@opentelemetry/instrumentation-fetch': {
+               enabled: true,
+               semconvStabilityOptIn: 'http',
+               ignoreNetworkEvents: true,
+               applyCustomAttributesOnSpan(span) {
+                 span.setAttribute('user.email', userProfile.email);
+                 span.setAttribute('user.id', userProfile.userId);
+               },
+             },
+           }),
+         ],
+       });
+     }
+   }, [userProfile]);
+   ```
+
+3. Set up a backend endpoint to proxy traces.
+
+   Proxying through your own backend ensures you don't expose your Cardinal API key in browser code.
+
+   Example [Express](https://expressjs.com/) route handler:
+
+   ```js copy
+   app.post('/otlp/v1/traces', async (req, res) => {
+     try {
+       const otlpEndpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+       if (!!otlpEndpoint) {
+         const response = await fetch(otlpEndpoint + '/v1/traces', {
+           method: 'POST',
+           body: JSON.stringify(req.body),
+           headers: {
+             'Content-Type': 'application/json',
+             'x-cardinalhq-api-key': process.env.CARDINALHQ_API_KEY,
+           },
+         });
+         return res.status(response.status).send();
+       }
+       return res.status(200).send();
+     } catch (err) {
+       logger.error(err, 'Error proxying web traces');
+       // Handle error
+     }
+   });
+   ```
+
+   Set these environment variables on the backend:
+
+   ```sh copy
+   export OTEL_EXPORTER_OTLP_ENDPOINT="https://otelhttp.intake.<your-region>.aws.cardinalhq.io"
+   export CARDINALHQ_API_KEY="your-api-key" # Set your API key
+   ```
+
+   To get an API key, follow the steps in the [Overview](/lakerunner/instrumentation#get-an-api-key).
+
+4. Run your application:
+
+   ```sh copy
+   npm run start # Or your application's start script
+   ```
+
+5. Validate that Lakerunner is receiving data.
+
+   Open pages in the app that make `fetch` calls. Wait a few minutes, then query for your service in the Cardinal dashboard.
+
+### PostHog Integration
+
+Use [PostHog](https://posthog.com/) for session replay recordings?
+
+Update the `applyCustomAttributesOnSpan` function in your browser instrumentation to add a `posthog.session_replay_url` attribute to spans:
+
+```js copy
+import { usePostHog } from 'posthog-js/react';
+
+const postHog = usePostHog();
+
+// In your `useEffect` hook from above...
+applyCustomAttributesOnSpan(span) {
+  // ... user attributes
+  span.setAttribute(
+    'posthog.session_replay_url',
+    postHog.get_session_replay_url({
+      withTimestamp: true,
+      timestampLookBack: 30,
+    }),
+  );
+},
+```
+
+Spans now carry a link to the PostHog session recording, which surfaces in downstream alerts and notifications.
+
+<SupportCallout />

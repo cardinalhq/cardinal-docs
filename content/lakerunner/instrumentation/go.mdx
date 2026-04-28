@@ -1,0 +1,284 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# Go App Instrumentation
+
+Follow the steps below to instrument your Go service. When complete, your service will start emitting logs, metrics, and traces to Lakerunner.
+
+### Local Testing
+
+1. Get a Cardinal API key.
+
+   Follow the steps in the [Overview](/lakerunner/instrumentation#get-an-api-key) to mint an ingest API key.
+
+2. Export the following environment variables:
+
+   ```sh copy
+   export OTEL_SERVICE_NAME="your-service-name"
+   export OTEL_RESOURCE_ATTRIBUTES="deployment.environment.name=local" # local/dev/staging/prod
+   export OTEL_METRICS_EXPORTER="otlp"
+   export OTEL_LOGS_EXPORTER="otlp"
+   export OTEL_TRACES_EXPORTER="otlp"
+   export OTEL_EXPORTER_OTLP_ENDPOINT="https://otelhttp.intake.<your-region>.aws.cardinalhq.io"
+   export OTEL_EXPORTER_OTLP_HEADERS="x-cardinalhq-api-key=<your-api-key>" # Set your API key
+   ```
+
+3. Follow the steps in [Instrumenting Your Application](#instrumenting-your-application) below to wire up the OpenTelemetry SDK against the libraries you use.
+
+4. Run your application:
+
+   ```sh copy
+   go run <your-app.go>
+   ```
+
+5. Validate that Lakerunner is receiving data.
+
+   Exercise the service by calling some API endpoints or causing some logs and metrics to be emitted. Wait a few minutes, then query for your service in the Cardinal dashboard.
+
+### Docker
+
+Set the environment variables outlined above in your Docker container runtime configuration.
+
+- Update `OTEL_RESOURCE_ATTRIBUTES` to set `deployment.environment.name` for your environment.
+- If you run an OpenTelemetry Collector, set `OTEL_EXPORTER_OTLP_ENDPOINT` to your Collector's OTLP receiver endpoint, and forward to Lakerunner from the Collector. See [Already running an OpenTelemetry Collector?](/lakerunner/instrumentation#already-running-an-opentelemetry-collector).
+
+### Kubernetes
+
+Set the environment variables outlined above in your `Deployment` or `StatefulSet` manifest.
+
+- Update `OTEL_RESOURCE_ATTRIBUTES` to set `deployment.environment.name` for your environment.
+- If you run an OpenTelemetry Collector, set `OTEL_EXPORTER_OTLP_ENDPOINT` to your Collector's OTLP receiver endpoint, and forward to Lakerunner from the Collector. See [Already running an OpenTelemetry Collector?](/lakerunner/instrumentation#already-running-an-opentelemetry-collector).
+
+## Instrumenting Your Application
+
+To instrument your Go application, set up the OpenTelemetry SDK and configure it to export data to Lakerunner.
+
+### Setup the OTel SDK
+
+```go
+import (
+    "context"
+    "log/slog"
+    "os"
+    "os/signal"
+    "syscall"
+
+    "github.com/cardinalhq/oteltools/pkg/telemetry"
+)
+
+func main() {
+    // Handle ^C and Kubernetes termination gracefully.
+    ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+    defer stop()
+
+    // Only enable OTel when an endpoint is configured.
+    enableOtel := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT") != ""
+
+    if enableOtel {
+        slog.Info("OpenTelemetry exporting enabled")
+        otelShutdown, err := telemetry.SetupOTelSDK(ctx)
+        if err != nil {
+            return err
+        }
+        defer func() {
+            err = errors.Join(err, otelShutdown(context.Background()))
+        }()
+    }
+
+    // Your application logic here
+}
+```
+
+### Send Logs
+
+#### `slog`
+
+```go
+import (
+    "log/slog"
+    "os"
+
+    slogmulti "github.com/samber/slog-multi"
+    "go.opentelemetry.io/contrib/bridges/otelslog"
+)
+
+func main() {
+    // SDK setup from the previous section
+
+    slog.SetDefault(slog.New(slogmulti.Fanout(
+        slog.NewJSONHandler(os.Stdout, nil),
+        otelslog.NewHandler(os.Getenv("OTEL_SERVICE_NAME")),
+    )))
+
+    // Your application logic here
+}
+```
+
+### Send Traces
+
+#### HTTP Client Tracing
+
+```go
+import (
+    "net/http"
+    "go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+)
+
+// All outgoing HTTP requests made with this client will be automatically traced.
+client := &http.Client{
+    Transport: otelhttp.NewTransport(http.DefaultTransport),
+}
+```
+
+#### HTTP Server Tracing
+
+```go
+// currentHttpHandler is your existing http.Handler — for example, http.HandlerFunc(myHandler)
+// or your existing middleware chain.
+handlerWrappedWithOtel := otelhttp.NewHandler(currentHttpHandler, "")
+
+s := &http.Server{
+    Addr:    address,
+    Handler: handlerWrappedWithOtel,
+}
+```
+
+#### Database Query Tracing
+
+To trace database queries made with `pgx/v5`, use `pgxotel`. It provides middleware that automatically instruments queries.
+
+```go
+import (
+    "context"
+
+    "github.com/jackc/pgx/v5/pgxpool"
+    "github.com/pgx-contrib/pgxotel"
+)
+
+func NewConnectionPool(ctx context.Context, url string, dbName string) (*pgxpool.Pool, error) {
+    cfg, err := pgxpool.ParseConfig(url)
+    if err != nil {
+        return nil, err
+    }
+
+    cfg.ConnConfig.Tracer = &pgxotel.QueryTracer{
+        Name: dbName,
+    }
+
+    return pgxpool.NewWithConfig(ctx, cfg)
+}
+```
+
+#### Message Queue Tracing
+
+##### Kafka (`github.com/segmentio/kafka-go`)
+
+Create a wrapper for the Kafka `TextMapCarrier` that propagates tracing context through Kafka messages.
+
+```go
+import (
+    "github.com/segmentio/kafka-go"
+)
+
+type KafkaHeaderCarrier struct {
+    Headers *[]kafka.Header
+}
+
+func (c KafkaHeaderCarrier) Get(key string) string {
+    for _, h := range *c.Headers {
+        if h.Key == key {
+            return string(h.Value)
+        }
+    }
+    return ""
+}
+
+func (c KafkaHeaderCarrier) Set(key, value string) {
+    for i, h := range *c.Headers {
+        if h.Key == key {
+            (*c.Headers)[i].Value = []byte(value)
+            return
+        }
+    }
+    *c.Headers = append(*c.Headers, kafka.Header{Key: key, Value: []byte(value)})
+}
+
+func (c KafkaHeaderCarrier) Keys() []string {
+    keys := make([]string, 0, len(*c.Headers))
+    for _, h := range *c.Headers {
+        keys = append(keys, h.Key)
+    }
+    return keys
+}
+```
+
+**Producer** — attach trace context to Kafka messages when producing them:
+
+```go
+headers := make([]kafka.Header, 0)
+carrier := KafkaHeaderCarrier{Headers: &headers}
+otel.GetTextMapPropagator().Inject(ctx, &carrier)
+
+messages := []kafka.Message{
+    {
+        Key:     []byte(key),
+        Value:   morePermanentBuffer.Bytes(),
+        Topic:   topic,
+        Headers: headers,
+    },
+}
+
+return kafka.WriteMessages(ctx, messages...)
+```
+
+**Consumer** — extract trace context from Kafka messages when consuming them, and rehydrate span context:
+
+```go
+import (
+    "github.com/segmentio/kafka-go"
+    "go.opentelemetry.io/otel"
+    "go.opentelemetry.io/otel/attribute"
+    semconv "go.opentelemetry.io/otel/semconv/v1.30.0"
+)
+
+var tracer = otel.Tracer("kafka-consumer")
+var propagator = otel.GetTextMapPropagator()
+
+msg, err := reader.FetchMessage(ctx)
+msgCtx := propagator.Extract(context.Background(), KafkaHeaderCarrier{&msg.Headers})
+
+spanName := fmt.Sprintf("kafka.consume %s", topic)
+msgCtx, span := tracer.Start(msgCtx, spanName)
+span.SetAttributes(
+    attribute.String(string(semconv.MessagingSystemKey), semconv.MessagingSystemKafka.Value.AsString()),
+    attribute.String(string(semconv.MessagingDestinationNameKey), topic),
+    attribute.Int(string(semconv.MessagingDestinationPartitionIDKey), partition),
+)
+
+// Process the message
+
+span.End()
+```
+
+### Send Metrics
+
+```go
+import (
+    "go.opentelemetry.io/otel"
+    "go.opentelemetry.io/otel/attribute"
+    "go.opentelemetry.io/otel/metric"
+)
+
+meter := otel.Meter("github.com/<company>/<project>")
+
+m, err := meter.Int64Histogram(
+    "request_latency",
+    metric.WithUnit("ms"),
+    metric.WithDescription("The delay in millis for a request."),
+)
+m.Record(ctx, latency,
+    attribute.String("method", "GET"),
+    attribute.String("path", "/api/v1/resource"),
+)
+```
+
+<SupportCallout />

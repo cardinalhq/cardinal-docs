@@ -1,0 +1,58 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# App Instrumentation
+
+Lakerunner is OpenTelemetry-native. To send telemetry from your applications, instrument them with the open-source OpenTelemetry SDKs and point them at Lakerunner's OTLP ingest endpoint.
+
+## Pick your language
+
+- [Node.js](/lakerunner/instrumentation/nodejs)
+- [Python](/lakerunner/instrumentation/python)
+- [Java](/lakerunner/instrumentation/java)
+- [Go](/lakerunner/instrumentation/go)
+- [React.js](/lakerunner/instrumentation/reactjs)
+
+## Get an API key
+
+All ingest into Lakerunner is authenticated with an API key sent in the `x-cardinalhq-api-key` header.
+
+1. Sign in to the [Cardinal dashboard](https://app.cardinalhq.io).
+2. Open **Settings → API Keys**.
+3. Click **Create API key**, give it a name, and copy the value. Keys are shown once at creation — copy yours immediately.
+
+API keys are scoped to a Lakerunner workspace. If your org has multiple managed Lakerunner integrations, you'll see one panel per workspace and mint a key under the workspace whose ingest endpoint you intend to use.
+
+## Find your ingest endpoint
+
+The ingest endpoint is per-workspace. Find it in the Cardinal dashboard under **Settings → Integrations → Lakerunner**, or use the regional endpoint pattern provided to you at provisioning:
+
+```
+https://otelhttp.intake.<your-region>.aws.cardinalhq.io
+```
+
+Substitute `<your-region>` with the AWS region where your Lakerunner workspace runs.
+
+## Already running an OpenTelemetry Collector?
+
+If your applications already export to a local OpenTelemetry Collector, getting onboarded to Lakerunner is as simple as adding an OTLP exporter that forwards to Lakerunner.
+
+```yaml copy
+exporters:
+  otlphttp/lakerunner:
+    endpoint: https://otelhttp.intake.<your-region>.aws.cardinalhq.io
+    headers:
+      x-cardinalhq-api-key: <your-api-key>
+
+service:
+  pipelines:
+    metrics:
+      exporters: [otlphttp/lakerunner]
+    logs:
+      exporters: [otlphttp/lakerunner]
+    traces:
+      exporters: [otlphttp/lakerunner]
+```
+
+For self-hosted Lakerunner deployments where collectors write directly to your S3 bucket, see [OpenTelemetry Collectors](/lakerunner/collectors) instead.
+
+<SupportCallout />
