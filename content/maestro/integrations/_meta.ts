@@ -8,6 +8,7 @@ export default {
   clickhouse: 'ClickHouse',
   github: 'GitHub',
   servicenow: 'ServiceNow',
+  confluence: 'Confluence',
   slack: 'Slack',
   teams: 'Microsoft Teams',
   pagerduty: 'PagerDuty',

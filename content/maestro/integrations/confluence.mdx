@@ -1,0 +1,128 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# Confluence
+
+Connect an Atlassian Confluence Cloud workspace so the agent can search and read pages on demand. v1 is a search-on-demand surface — Confluence content is **never** bulk-ingested into the knowledge graph, and pages are fetched fresh on each turn.
+
+## Overview
+
+The Confluence integration exposes five Model Context Protocol tools to the agent:
+
+| Tool | Purpose |
+| ---- | ------- |
+| `confluence_list_instances` | Enumerate configured Confluence instances for the org |
+| `confluence_list_spaces` | Enumerate spaces the bot can read in the chosen instance |
+| `confluence_search` | CQL search with the per-instance space include/exclude lists folded in |
+| `confluence_get_page` | Fetch one page; default body format is Markdown (storage XHTML is converted; unknown macros become `[macro: name]` placeholders) |
+| `confluence_get_page_history` | Version list for a page |
+
+The agent decides at query time whether a turn requires Confluence content; nothing happens otherwise.
+
+## Capabilities
+
+| Capability | Enabled |
+| ---------- | ------- |
+| Agent | Always |
+
+## Configuration
+
+### Settings
+
+| Field | Required | Description |
+| ----- | -------- | ----------- |
+| **Base URL** | Yes | Workspace root, e.g. `https://acme.atlassian.net`. No trailing slash, no `/wiki` suffix. Must use HTTPS and end with `.atlassian.net` (Cloud only in v1). |
+| **Spaces include** | No | Comma-separated list of space keys. If present, only these spaces are searched. |
+| **Spaces exclude** | No | Comma-separated list of space keys. Takes precedence over **Spaces include**. **Use this for sensitive spaces** — see Data handling below. |
+
+### Credentials
+
+| Field | Required | Description |
+| ----- | -------- | ----------- |
+| **Service Account Email** | Yes | Email tied to the Atlassian API token (e.g. `svc_cardinal@yourdomain.com`) |
+| **API Token** | Yes | Atlassian API token from `id.atlassian.com` (stored encrypted; never displayed after save) |
+
+Authentication uses HTTP Basic Auth (`email:apiToken`).
+
+## Prerequisites
+
+- An Atlassian Cloud workspace.
+- A service account with read access to the spaces you want the agent to search. The bot can only see what the service account can see; restricted spaces invisible to the bot are also invisible to the agent.
+- Network access from Cardinal to your `*.atlassian.net` workspace.
+
+## Setup
+
+1. **Create an Atlassian API token** at [id.atlassian.com → Security → API tokens](https://id.atlassian.com/manage-profile/security/api-tokens). Use a descriptive label (e.g. `maestro-bot`).
+2. In the maestro admin UI, navigate to **Settings → Integrations → New Integration** and select **Confluence**.
+3. Fill the required fields:
+   - **Base URL** — the workspace root (e.g. `https://acme.atlassian.net`).
+   - **Service Account Email** — the email tied to the API token.
+   - **API Token** — the token value.
+   - **Spaces include** / **Spaces exclude** — optional, see below.
+4. **Acknowledge the data-handling stance** by ticking the gating checkbox shown on first save.
+5. Click **Test connection** — the handler hits `GET /wiki/api/v2/spaces?limit=1` and surfaces typed errors (`401_unauthorized`, `403_forbidden`, `dns_resolution_failed`, `tls_error`, `base_url_malformed`).
+6. Click **Save**.
+
+## Multi-instance
+
+An organization with acquisitions or split product lines can configure multiple Confluence instances. Each integration row carries an **immutable** slug; the agent passes that slug as the `instance` arg on every tool call.
+
+- **Single-instance org**: omitting `instance` resolves to the only configured instance.
+- **Multi-instance org**: omitting `instance` produces a structured error instructing the planner to call `confluence_list_instances` first.
+
+## Spaces include / exclude
+
+The two optional space-key lists fold into the agent's CQL queries **before** the request leaves the gateway:
+
+- **Include**: `AND space.key IN ("ENG","OPS")` is appended to the CQL.
+- **Exclude**: `AND space.key NOT IN ("HR","SECRETS")` is appended after include.
+- **Exclude wins** when a key appears on both lists.
+
+Recommended exclude-list defaults for any org that hasn't audited its Confluence space set:
+
+```
+SECRETS,VAULT,CRED,HR,LEGAL,FIN,FINANCE,PEOPLE,ONBOARDING,SECURITY
+```
+
+Adjust to match your space-naming conventions. The integration's "Included spaces preview" panel in the admin UI shows which spaces the bot can actually see after applying the lists.
+
+## Data handling (v1)
+
+Three load-bearing facts about Confluence content in v1. These are deliberate v1 choices, not oversights — re-evaluating them requires a spec amendment.
+
+1. **v1 does not scrub PII or secrets** from pages returned by Confluence tools. Operators MUST use **Spaces exclude** to keep credentials, HR, legal, finance, onboarding, or security spaces out of the agent's reach.
+2. **Any org user with agent access can retrieve any page the bot can read,** irrespective of their Confluence-side permissions. v1 has no user-level ACL on retrieval; the bot's view is the org's view. If you rely on Confluence as a permissioning boundary for individual users, maestro flattens that boundary at the org level.
+3. **LLM calls run inside the tenant's Bedrock,** so Confluence prose body does not egress to a third-party LLM provider. Page content stays inside your AWS account on the LLM path.
+
+## What this enables
+
+Once configured, you can ask the agent questions like:
+
+- "What does the SSO bootstrap runbook say about rotating the IdP signing key?"
+- "Summarize the design doc for the payments reconciler."
+- "Find the on-call escalation policy for the data platform team."
+- "Who edited the incident-response page most recently?"
+
+## Limits and follow-ups
+
+v1 deliberately does not ship:
+
+- Confluence Server / Data Center support (Cloud only).
+- Writes (page create / edit / comment / mention resolution).
+- Attachment / image / whiteboard / diagram extraction.
+- Knowledge-graph ingestion or LLM-driven entity linking from Confluence prose.
+- Per-user ACL enforcement on retrieval.
+
+These are tracked as deferred work; reach out if your team needs any of them.
+
+## Operator runbook — alerting
+
+Two Prometheus alerts ship with the integration:
+
+- **Confluence auth degrading** (page).
+  `sum by (org_id, instance) (increase(confluence_tool_calls_total{outcome="auth_error"}[1h])) > 3` — sustained `auth_error` outcomes mean the API token has rotated, the service-account email changed, or the bot lost access to required spaces. Action: rotate the credential or audit the service account's Confluence permissions.
+- **Confluence rate-limit churn** (warn).
+  `sum by (org_id, instance) (increase(confluence_tool_calls_total{outcome="rate_limited"}[1h])) > 20` — sustained 429 responses suggest the agent is being asked to scan too aggressively. Action: tighten **Spaces exclude** or audit the agent prompts driving the calls.
+
+There is no "sync dead" alert because there is no sync.
+
+<SupportCallout />
