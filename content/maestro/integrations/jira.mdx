@@ -1,0 +1,173 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# Jira
+
+Connect Cardinal to Jira and give the AI agent a workflow-aware view of your engineering work — release readiness, sprint risk, backlog triage, and incident follow-ups — tailored to your Jira's actual configuration so the agent uses your real field names, statuses, and workflows.
+
+## Overview
+
+Cardinal learns your specific Jira instance at connection time: the projects, the custom fields, the workflows, the validation conventions your team actually uses. When you ask "show me release work that's done but unvalidated," the agent runs a query that uses your validation field, your status names, and your allowed values — not a guess.
+
+With the Jira integration, the AI agent can:
+
+- **Run workflow-aware searches** — find stale sprint work, unvalidated release items, blocked-or-waiting issues, reopened bugs, and more
+- **Triage and summarize** — group results into cohorts with recommended follow-ups
+- **Create issues** — file bugs, tasks, and stories with field validation
+- **Honor your scope** — restrict the integration to a specific subset of projects so it never touches the rest
+
+The integration is most powerful alongside Cardinal's observability data — the same agent can ask about Jira work and about the services, errors, and incidents it relates to.
+
+## Capabilities
+
+| Capability | Enabled |
+| ---------- | ------- |
+| Agent | Always |
+
+## Configuration
+
+### Settings
+
+| Field | Required | Description |
+| ----- | -------- | ----------- |
+| **Base URL** | Yes | Your Jira Cloud base URL (e.g., `https://yourcompany.atlassian.net`). Must use HTTPS and end with `.atlassian.net`. |
+| **Project Scope** | No | A comma-separated list of project keys (e.g., `PAY,OPS,CORE`) that this integration is allowed to touch. Leave empty to include every project the credential can access. Changes are detected automatically. |
+
+### Credentials
+
+| Field | Required | Description |
+| ----- | -------- | ----------- |
+| **Email** | Yes | The email of the Atlassian account that owns the API token |
+| **API Token** | Yes | A Jira Cloud API token (see Prerequisites) |
+
+Authentication uses HTTP Basic Auth (email + API token), per Atlassian's standard for service accounts.
+
+## Prerequisites
+
+- A **Jira Cloud** instance
+- An Atlassian account with API access to the projects you want the agent to work with
+- An **API token** generated at [id.atlassian.com/manage-profile/security/api-tokens](https://id.atlassian.com/manage-profile/security/api-tokens)
+
+### Recommended Account Permissions
+
+Create a dedicated Jira service account (or use a shared bot account) with these permissions on the projects in scope:
+
+- **Browse projects** — read access to issues and metadata
+- **Create issues** — only if you want the agent to file new tickets
+- **View development tools** — read access to issuelinks
+
+The agent never escalates beyond the credential's effective permissions. If you grant read-only access, attempts to create an issue are rejected cleanly.
+
+## Setup
+
+1. **Generate an API token** at [id.atlassian.com/manage-profile/security/api-tokens](https://id.atlassian.com/manage-profile/security/api-tokens). Label it something memorable like "Cardinal."
+2. In Cardinal, navigate to **Settings → Integrations** and click **Add Integration**.
+3. Select **Jira**.
+4. Enter your **Base URL** (e.g., `https://yourcompany.atlassian.net`).
+5. (Optional) Enter a **Project Scope** if you want to restrict the integration to specific projects (e.g., `PAY,OPS`). Leave blank for all accessible projects.
+6. Enter the **Email** and **API Token** for your service account.
+7. Click **Test Connection** to verify access.
+8. Click **Save**.
+
+After saving, the integration begins learning your Jira — see below.
+
+## The Init Dashboard
+
+When you save a new Jira integration, Cardinal opens a dashboard on the integration detail page that shows progress in real time. Each workflow search moves through these states:
+
+| State | Meaning |
+| ----- | ------- |
+| **Runnable** | The agent can run this search with high confidence |
+| **Degraded** | The search is callable but uses a fallback (for example, labels instead of a custom field). Comes with explicit warnings on every result. |
+| **Requires Confirmation** | Cardinal needs you to confirm which Jira field maps to a workflow concept (for example, which custom field means "validation status"). The search is not callable until you resolve it. |
+| **Unavailable** | Your Jira lacks the underlying concept entirely (for example, no validation field and no validated/verified label convention) |
+| **Stale** | Cardinal detected a change in your Jira config (renamed field, archived project) and a refresh is queued |
+| **Recompiling** | A refresh is in flight; the previous catalog stays callable until the new one is ready |
+| **Compile Failed** | The search failed against your instance; the previous version (if any) stays callable, and Cardinal will retry |
+
+Most teams reach the first runnable search within 5 minutes of connecting. The dashboard shows a **summary** with how many searches are runnable, degraded, awaiting confirmation, or unavailable.
+
+### Resolving confirmations
+
+When a search needs you to confirm a field mapping, the dashboard shows:
+
+- The concept that's ambiguous (for example, "validation status")
+- Top candidate fields with their fill rates and example issues
+- The searches currently waiting on this resolution
+- The searches currently running degraded because of it
+
+Pick the right field, click **Confirm**, and the affected searches refresh. You can also dismiss a concept as "not used at this company" — affected searches stay unavailable and stop appearing in the queue.
+
+## Workflow Searches
+
+The integration provides curated workflow searches across four areas. Each search is tailored to your specific Jira and returns workflow-level results, not raw issue dumps.
+
+**Standup and Sprint Risk**
+- What's currently assigned to me and in flight
+- Same, for a named team
+- In-progress issues that haven't been updated recently
+- Issues with a blocker status, blocking link, or "waiting for" label
+- Sprint work without an owner
+- Issues that were closed and reopened within a configurable window
+
+**Release Readiness**
+- Open issues attached to a fixVersion
+- High or critical priority unresolved work in a fixVersion
+- Release work without an assignee
+- Reopened issues across the release window
+- **Done work that may lack validation** — Done issues attached to a fixVersion that lack validation evidence (using your validation field; falls back to labels if absent). Results are categorized by how validation was confirmed, or flagged as unvalidated.
+
+**Backlog Triage**
+- Backlog items missing priority or type
+- Backlog items older than a threshold without an assignee
+- Stories or tasks missing description or acceptance criteria
+- Issues with similar summaries (likely duplicates)
+
+**Incident Follow-Up**
+- Issues linked to incident records that are still open
+- The same, without an assignee
+
+The list of searches available *for your specific Jira* is visible in the init dashboard.
+
+## Project Scope
+
+The **Project Scope** setting is the upper bound on which Jira projects this integration ever touches. It applies in three places:
+
+1. **Discovery** — only in-scope projects are read at connection time.
+2. **Search setup** — searches only consider in-scope projects when resolving fields, statuses, and workflows.
+3. **Runtime** — when the agent narrows further (for example, "in the PAY project"), it's intersected with your admin scope. The admin scope is the ceiling; the agent can narrow but never widen. Requests naming an out-of-scope project return a clear warning. Issue creation rejects out-of-scope projects outright.
+
+Changes to **Project Scope** are detected automatically and trigger a refresh.
+
+## Creating Issues
+
+The agent can create issues with full validation against your Jira's create-screen configuration:
+
+- **Required fields**: project, issue type, summary
+- **Common optional fields**: description, priority, assignee, reporter, labels, components, fix versions
+- **Custom fields** — validated against the live create-screen for that project + issue type
+- **Confidence gating** — the agent refuses to create an issue when any field mapping has low confidence and asks you to confirm first
+
+Repeated requests for the same issue are deduplicated automatically — the agent will not file the same ticket twice if a network blip causes a retry.
+
+## What This Enables
+
+The integration shines when Jira work intersects with services, errors, deploys, and incidents — exactly the kinds of questions that come up during oncall, incident response, and release reviews.
+
+Once configured, you can ask the AI agent questions like:
+
+- "After yesterday's P1 on the checkout service, are there follow-up Jira tickets still open?"
+- "Are there open Jira issues that match the payment-service error pattern I'm seeing in the last hour?"
+- "Which release-blocking issues for 2026.05 touch services that had error rate regressions this week?"
+- "Find Jira tickets linked to the auth-service incident on Tuesday that still don't have a fix version"
+- "Show me sprint work for the orders service that's been stuck in In Progress since Friday's deploy"
+- "Open a bug in OPS for this error pattern, priority high — summary: 'database failover took 12 minutes, expected under 2 minutes'"
+- "Which release work is marked done but might not actually be validated for 2026.05?"
+
+The agent picks the right search automatically, runs it against your specific Jira configuration, and returns workflow-level results — drawing on observability context from your other Cardinal integrations as needed.
+
+## Compatibility
+
+- **Jira Cloud** — supported
+- **Authentication** — email + API token
+
+<SupportCallout />

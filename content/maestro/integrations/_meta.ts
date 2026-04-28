@@ -7,6 +7,7 @@ export default {
   athena: 'Amazon Athena',
   clickhouse: 'ClickHouse',
   github: 'GitHub',
+  jira: 'Jira',
   servicenow: 'ServiceNow',
   confluence: 'Confluence',
   slack: 'Slack',
