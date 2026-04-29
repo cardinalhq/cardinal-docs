@@ -2,21 +2,53 @@ import SupportCallout from '../../../components/SupportCallout';
 
 # Microsoft Teams
 
-Connect Cardinal to Microsoft Teams to send AI-generated notifications and alerts to your Teams channels via incoming webhooks.
+Connect Cardinal to Microsoft Teams so the AI agent can resolve users and channels in your tenant and post messages to them on demand. You register an Entra app in your own Microsoft 365 tenant, grant admin consent on it, and paste the resulting credentials into Cardinal — no Cardinal-hosted Microsoft assets, no third-party multi-tenant app to trust.
 
 ## Overview
 
 With the Microsoft Teams integration, the AI agent can:
 
-- **Send notifications** to Teams channels via incoming webhooks
-- **Deliver alerts** when triggered by monitoring rules or workflows
-- **Post summaries** of incidents, reports, or query results
+- **Find a user** by display name, given name, surname, UPN, or email
+- **Find a standard channel** by name, optionally narrowed to a specific team
+- **Send a 1:1 message** to a user the agent has resolved
+- **Send a top-level message** to a standard channel the agent has resolved
+
+The agent uses bot delivery — your Entra app installs in a user's personal scope (for 1:1 sends) or in a team (for channel sends) and proactively posts from there.
+
+## What changed for v1
+
+The previous Teams integration relied on a customer-supplied incoming webhook URL (an Office 365 connector). Microsoft has retired that path: connector incoming webhooks roll out of Teams between **May 18 and May 22, 2026** ([Microsoft retirement announcement](https://devblogs.microsoft.com/microsoft365dev/retirement-of-office-365-connectors-within-microsoft-teams/)). Cardinal removed connector webhook support along with the rollout.
+
+The replacement is **agent (bot) delivery** backed by your own Entra app:
+
+- Capability is now `Agent`, not `Notify`.
+- You register an Entra app in your tenant and paste `(tenantId, clientId, clientSecret)` into Cardinal.
+- Cardinal mints Microsoft Graph tokens against your tenant directly. There is no Cardinal-side Microsoft asset and no Cardinal-controlled trust path — important for airgapped on-prem deployments.
+
+If you previously configured a Teams alerting webhook, that path no longer works — set up the agent app instead.
 
 ## Capabilities
 
 | Capability | Enabled |
 | ---------- | ------- |
-| Notify | Always |
+| Agent | When the OAuth triple is set and admin consent has been granted on the customer's Entra app |
+
+## v1 scope
+
+Supported:
+
+- 1:1 user messages (target identified by Microsoft Entra **object id**, not UPN)
+- Standard-channel messages (top-level thread, no replies)
+
+Out of scope in v1:
+
+- Private channels
+- Shared channels
+- Group chats
+- Threaded replies, message edits, message deletes
+- Adaptive Cards / attachments — plain text only
+- Reading channel/chat history
+- Presence and status lookups
 
 ## Configuration
 
@@ -24,37 +56,73 @@ With the Microsoft Teams integration, the AI agent can:
 
 | Field | Required | Description |
 | ----- | -------- | ----------- |
-| **Webhook URL** | Yes | Incoming webhook URL for your Teams channel (format: `https://outlook.office.com/webhook/...`) |
+| **Tenant ID** | Yes | Your Microsoft Entra directory (tenant) ID — a UUID |
+| **Client ID** | Yes | The application (client) ID of the Entra app you registered for Cardinal |
+| **Client Secret** | Yes | A client secret on that app (Cardinal stores it encrypted; never returned in API responses) |
 
-The webhook URL must use HTTPS and point to a Microsoft domain.
+Either all three are set or all three are absent. A partial triple is rejected at create/update time so a hand-edited row can't sit in a half-broken state.
 
 ## Prerequisites
 
-- A Microsoft Teams channel where you have permission to add connectors
-- An incoming webhook configured for the target channel
+- A **Microsoft 365 tenant** with **Entra admin** privileges
+- The ability to register an Entra app in that tenant and grant admin consent on it
+- Network egress from Maestro to `login.microsoftonline.com` and `graph.microsoft.com` (your network team may need to allow these in airgapped or restricted-egress deployments)
 
-### Creating an Incoming Webhook
+### Entra app registration
 
-1. In Microsoft Teams, navigate to the channel where you want to receive notifications
-2. Click the **...** menu on the channel > **Connectors** (or **Manage channel** > **Connectors**)
-3. Search for **Incoming Webhook** and click **Configure**
-4. Give the webhook a name (e.g., "Cardinal Notifications") and optionally upload an image
-5. Click **Create**
-6. Copy the generated **Webhook URL**
+1. Sign in to the [Microsoft Entra admin center](https://entra.microsoft.com) as a tenant admin.
+2. Go to **Identity → Applications → App registrations** and click **New registration**.
+3. Name the app something memorable (e.g., `Cardinal Teams Agent`).
+4. **Supported account types**: choose **Accounts in this organizational directory only**. The app does not need to be multi-tenant.
+5. Leave **Redirect URI** blank — the integration uses the OAuth client-credentials grant, not a redirect flow.
+6. Click **Register**. Copy the **Application (client) ID** and **Directory (tenant) ID** from the Overview page.
+
+### Required Graph API permissions
+
+Open the app's **API permissions** page and grant these **application permissions** (not delegated):
+
+| Permission | Used by |
+| ---------- | ------- |
+| `User.Read.All` | `find_user` (directory lookups) |
+| `Team.ReadBasic.All` | `find_channel` (team enumeration) |
+| `Channel.ReadBasic.All` | `find_channel` (channel enumeration) |
+| `TeamsAppInstallation.ReadWriteSelfForUser.All` | `send_message` (install in personal scope before 1:1 send) |
+| `TeamsAppInstallation.ReadWriteSelfForTeam.All` | `send_message` (install in team scope before channel send) |
+
+Click **Grant admin consent for [your tenant]**. The status column should turn green for every permission.
+
+### Client secret
+
+On the app's **Certificates & secrets** page, click **New client secret**, give it a description and an expiry, and **copy the value immediately** — Microsoft displays it only once. This is the **Client Secret** Cardinal stores.
 
 ## Setup
 
-1. Navigate to **Settings > Integrations** and click **Add Integration**
-2. Select **Microsoft Teams**
-3. Paste the **Webhook URL**
-4. Click **Test Connection** to verify the webhook is reachable
-5. Click **Save**
+1. In Cardinal, navigate to **Settings → Integrations** and click **Add Integration**.
+2. Select **Microsoft Teams**.
+3. Enter a **Name** and **Slug** for the integration.
+4. Paste your **Tenant ID**, **Client ID**, and **Client Secret**.
+5. Click **Test Connection** to verify Cardinal can mint a Graph token and reach the directory.
+6. Click **Save**.
 
-## What This Enables
+## How send_message addresses targets
 
-Once configured, the AI agent and automated workflows can send messages to Teams, such as:
-- Alert notifications when anomalies are detected
-- Incident summaries posted to on-call channels
-- Scheduled report digests
+For users, the agent must use the **Microsoft Entra object id** returned by `find_user` — not the UPN, not the email address. Microsoft's bot APIs use the object id as the durable proactive-send key.
+
+For channels, the agent uses the **`(team_id, channel_id)` pair** returned by `find_channel`. The same channel name (e.g., `general`) can exist in many teams; the team id disambiguates.
+
+## Errors you might see
+
+The agent surfaces a small, actionable error vocabulary:
+
+| Code | Meaning | Action |
+| ---- | ------- | ------ |
+| `teams_not_connected` | The integration row has no credentials, or only a partial triple | Re-enter all three fields and Save |
+| `AADSTS70011` | Microsoft rejected the tenant id | Confirm the Tenant ID matches your Entra directory id |
+| `AADSTS7000215` | Wrong or expired client secret | Generate a new secret in Entra and update the integration |
+| `AADSTS65001` | Admin consent has not been granted on the Entra app | Click **Grant admin consent** on the app's API permissions page |
+| `consent_missing` | Token minted, but Graph rejected the call | One of the required permissions is missing or not consented to |
+| `teams_app_not_installed` | The Cardinal Teams app couldn't be installed in the target's scope (or bot delivery isn't yet provisioned in this Cardinal deployment) | Confirm install permissions on the Entra app; contact Cardinal if the error persists |
+| `unsupported_target` | The agent tried to address a private/shared channel, a group chat, or an unknown target type | Address a user or a standard channel instead |
+| `message_delivery_blocked` | The user has blocked the bot or restricted bot delivery in their personal scope | Ask the user to re-enable the Cardinal Teams app |
 
 <SupportCallout />

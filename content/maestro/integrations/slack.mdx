@@ -2,7 +2,7 @@ import SupportCallout from '../../../components/SupportCallout';
 
 # Slack
 
-Connect Cardinal to Slack to send AI-generated notifications and alerts to your Slack channels.
+Connect Cardinal to Slack to send AI-generated notifications and alerts to channels, and to let the AI agent resolve users and channels and post messages on demand.
 
 ## Overview
 
@@ -11,12 +11,18 @@ With the Slack integration, the AI agent can:
 - **Send notifications** to specified Slack channels
 - **Deliver alerts** when triggered by monitoring rules or workflows
 - **Post summaries** of incidents, reports, or query results
+- **Find a user** by name, real name, display name, or email
+- **Find a channel** by name (public, private, DMs, multi-party DMs)
+- **Send a message** to a resolved user or channel
+
+The same bot token powers all of the above — Slack's permission model attaches scopes to the bot, not to individual API calls. Add the scopes you intend to use; leave out the ones you don't.
 
 ## Capabilities
 
 | Capability | Enabled |
 | ---------- | ------- |
 | Notify | Always |
+| Agent | When the bot has the discovery + send scopes (see below) |
 
 ## Configuration
 
@@ -24,40 +30,62 @@ With the Slack integration, the AI agent can:
 
 | Field | Required | Description |
 | ----- | -------- | ----------- |
-| **Bot Token** | Yes | Slack bot OAuth token with `chat:write` scope (format: `xoxb-...`) |
+| **Bot Token** | Yes | Slack bot OAuth token (format: `xoxb-...`) |
 
 ## Prerequisites
 
 - A Slack workspace where you have permission to install apps
-- A Slack app with a Bot Token that has the `chat:write` scope
-- The bot must be invited to any channels where you want it to post
+- A Slack app with a Bot User OAuth Token
+- The bot must be invited to any channel you want it to post in
+
+### Required Slack scopes
+
+The minimum is `chat:write` (notify-only). Each additional scope unlocks an agent capability:
+
+| Scope | What it enables |
+| ----- | --------------- |
+| `chat:write` | Sending messages to channels (notify + agent `send_message`) |
+| `chat:write.public` | Sending to public channels the bot hasn't been invited to (optional) |
+| `users:read` | `find_user` — listing workspace users |
+| `users:read.email` | Letting `find_user` match against and return user emails |
+| `channels:read` | `find_channel` — listing public channels |
+| `groups:read` | `find_channel` — listing private channels |
+| `im:read` | `find_channel` — listing direct-message channels |
+| `mpim:read` | `find_channel` — listing multi-party DM channels |
+
+If a scope is missing, the matching agent tool returns a clean error telling the planner to fall back. The notify path keeps working with `chat:write` alone.
 
 ### Creating a Slack App
 
-1. Go to [api.slack.com/apps](https://api.slack.com/apps)
-2. Click **Create New App** > **From scratch**
-3. Name the app (e.g., "Cardinal Bot") and select your workspace
-4. Navigate to **OAuth & Permissions**
-5. Under **Bot Token Scopes**, add:
-   - `chat:write` — send messages to channels
-   - `chat:write.public` — (optional) send to channels the bot hasn't been invited to
-6. Click **Install to Workspace** and authorize the app
-7. Copy the **Bot User OAuth Token** (starts with `xoxb-`)
+1. Go to [api.slack.com/apps](https://api.slack.com/apps).
+2. Click **Create New App** > **From scratch**.
+3. Name the app (e.g., "Cardinal Bot") and select your workspace.
+4. Navigate to **OAuth & Permissions**.
+5. Under **Bot Token Scopes**, add the scopes from the table above that match the capabilities you want.
+6. Click **Install to Workspace** and authorize the app.
+7. Copy the **Bot User OAuth Token** (starts with `xoxb-`).
+
+If you change the scope list after install, you must reinstall the app for the new scopes to take effect.
 
 ## Setup
 
-1. Navigate to **Settings > Integrations** and click **Add Integration**
-2. Select **Slack**
-3. Paste the **Bot Token** (`xoxb-...`)
-4. Click **Test Connection** to verify the token is valid
-5. Click **Save**
-6. Invite the bot to the desired channels using `/invite @Cardinal Bot` in Slack
+1. Navigate to **Settings → Integrations** and click **Add Integration**.
+2. Select **Slack**.
+3. Paste the **Bot Token** (`xoxb-...`).
+4. Click **Test Connection** to verify the token is valid.
+5. Click **Save**.
+6. Invite the bot to the desired channels using `/invite @Cardinal Bot` in Slack.
+
+For private channels, the bot must be a member before `find_channel` will return them. `chat:write.public` covers public-channel sends without invites; for any other case you need to invite the bot.
 
 ## What This Enables
 
-Once configured, the AI agent and automated workflows can send messages to Slack, such as:
-- Alert notifications when anomalies are detected
-- Incident summaries posted to on-call channels
-- Scheduled report digests
+Once configured, the AI agent and automated workflows can:
+
+- Send alert notifications when anomalies are detected
+- Post incident summaries to on-call channels
+- Deliver scheduled report digests
+- Resolve a name or email to a Slack user (`find_user`) and 1:1 message them (`send_message`)
+- Resolve a channel name to its id (`find_channel`) and post to it (`send_message`)
 
 <SupportCallout />
