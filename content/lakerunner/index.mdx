@@ -1,5 +1,6 @@
 import Image from 'next/image'
 import SupportCallout from '../../components/SupportCallout';
+import LakerunnerOverviewDiagram from '../../components/diagrams/LakerunnerOverviewDiagram';
 
 # Lakerunner
 
@@ -18,7 +19,11 @@ Lakerunner is an open-source observability data lake that stores logs, metrics, 
 
 ## Architecture
 
-![Lakerunner Architecture](/lakerunner-arch.jpeg)
+Lakerunner separates **ingest** and **query** into independent, horizontally scalable paths that share only object storage and a lightweight metadata index in PostgreSQL.
+
+<LakerunnerOverviewDiagram />
+
+For more detail, see the dedicated [Ingestion](/lakerunner/architecture/ingestion) and [Query](/lakerunner/architecture/query) architecture pages.
 
 ## Deployment Options
 
