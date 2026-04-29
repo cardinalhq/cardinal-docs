@@ -39,7 +39,9 @@
     "overrides": {
       "@xmldom/xmldom": ">=0.9.10",
       "dompurify": ">=3.4.0",
-      "lodash-es": ">=4.18.0"
+      "lodash-es": ">=4.18.0",
+      "postcss": ">=8.5.10",
+      "uuid": ">=14.0.0"
     }
   }
 }
