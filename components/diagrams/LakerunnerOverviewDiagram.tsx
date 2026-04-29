@@ -70,7 +70,7 @@ export default function LakerunnerOverviewDiagram() {
 
       <DiagramNode
         type="client"
-        title="Grafana / API / CLI"
+        title="Cardinal Agent"
       />
       <DiagramArrow label="LakeQL or PromQL / LogQL" />
 
@@ -123,7 +123,7 @@ export default function LakerunnerOverviewDiagram() {
 
       <DiagramNode
         type="client"
-        title="Grafana / API / CLI"
+        title="Cardinal Agent"
       />
     </div>
   );
