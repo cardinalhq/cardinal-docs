@@ -12,59 +12,100 @@ Lakerunner is Cardinal's observability data platform. With this integration, the
 - **Explore** available data sources, fields, and time ranges
 - **Receive alerts** from Lakerunner via webhook and respond to incidents automatically
 
+Maestro auto-provisions the alert webhook target on Lakerunner whenever
+alerting is enabled on the deployment, the admin API URL is set, and the
+admin API key is valid. There is no manual three-step setup anymore.
+
 ## Capabilities
 
 | Capability | Enabled |
 | ---------- | ------- |
 | Explore | Always |
 | Agent | Always |
-| Alerting | When Alert API URL and Notifier ID are configured |
+| Alerting | Admin-only stored capability. For Cardinal-managed Lakerunners, the superadmin enables it on the deployment row. For BYO (org-private) Lakerunners, the org owner sets the per-integration **Alerting available on this deployment** toggle and provides admin URL + key |
 
-## Configuration
+## Two deployment models
 
-### Settings
+### Cardinal-managed (SaaS)
+
+The Cardinal SaaS operator pre-configures the Lakerunner deployment in
+the superadmin **Managed Lakerunner Instances** page. URLs and admin
+credentials live on the deployment row. Once **Alerting available on
+this deployment** is checked there, every linked org integration auto-
+provisions on its next save (or immediately, for new links).
+
+Org owners do not see (and cannot set) the admin URL or key for managed
+Lakerunners.
+
+### Org-private (BYO)
+
+The org owner connects their own Lakerunner instance.
 
 | Field | Required | Description |
 | ----- | -------- | ----------- |
-| **Query API URL** | Yes | Base URL for query API requests (logs, metrics). Example: `https://lakerunner.example.com` |
-| **Alert API URL** | No | Base URL for alerting API requests. Defaults to the Query API URL if left empty |
-| **Notifier ID** | No | UUID assigned by Lakerunner when creating a webhook target. Required for alerting |
+| **Query API Key** | Yes | API key the agent uses to query logs/metrics (format: `lr_...`) |
+| **Admin API URL** | When alerting | Base URL of the Lakerunner admin API. Used only by maestro to upsert the alert webhook target |
+| **Admin API Key** | When alerting | Bearer token for the admin API |
+| **Alerting available on this deployment** | When alerting | Turn on once Lakerunner's `alerteval` and `webhooksend` workers are running. Off by default |
 
-### Credentials
+By default the admin API URL must be HTTPS. For self-hosted deployments
+that genuinely need HTTP, the superadmin can set the per-integration
+setting `lakerunner-allow-insecure-admin-api` to `true` via the admin
+API. Cardinal-fleet-operated deployments never set this override.
 
-| Field | Required | Description |
-| ----- | -------- | ----------- |
-| **API Key** | Yes | API key for authentication (format: `lr_...`) |
-| **Webhook Secret** | No | Shared secret used for HMAC verification of incoming webhook payloads. Required for alerting |
+## Auto-provisioning behavior
 
-## Setup
+When the gate above passes, maestro:
 
-### Basic Setup (Logs and Metrics)
+1. Probes Lakerunner with `GET /api/v1/alert/webhook-targets` to confirm
+   the admin URL is reachable, the key is valid, and the alerting
+   workers are wired (4xx classifies the integration as
+   `invalid_admin_credentials` or `not_supported`; transient errors
+   classify as `provisioning_error` and retry on the next reconcile
+   tick).
+2. Upserts a webhook target on Lakerunner via `PUT /api/v1/alert/webhook-target`
+   keyed on `notifier_id = integration.id` (the Cardinal integration's
+   UUID — stable, idempotent under retries).
+3. Stores the most recent callback URL on the integration row so a
+   subsequent change to `MAESTRO_BASE_URL` is detected and re-provisioned
+   by the reconcile cron (default cadence: 1 hour).
 
-1. Navigate to **Settings > Integrations** and click **Add Integration**
-2. Select **Lakerunner**
-3. Enter your **Query API URL** (e.g., `https://lakerunner.example.com`)
-4. Enter your **API Key** (starts with `lr_`)
-5. Click **Save**
+The status badge on the integration shows one of:
 
-### Alerting Setup (Optional)
+| Status | Meaning |
+| ------ | ------- |
+| **Disabled** | The deployment opt-in flag is off |
+| **Missing admin credentials** | Admin API URL or key is empty |
+| **Invalid admin credentials** | Lakerunner returned 401/403 on probe |
+| **Not supported** | The deployment doesn't have the alerting workers running |
+| **Provisioning error** | Transient error; auto-retries on the reconcile cron |
+| **Connected** | Webhook target is in place; alerts will flow |
 
-To enable bidirectional alerting, you need to configure a webhook in Lakerunner that points back to Cardinal.
+If the integration sits in any non-`connected`, non-`disabled` state for
+more than one reconcile tick, an org owner can click **Reconnect alerting**
+in the integration page to enqueue an immediate retry (rate-limited to
+1/minute per integration).
 
-1. Enter a **Webhook Secret** in the integration settings and click **Save**
-2. Copy the generated webhook URL displayed in the integration settings panel (format: `https://<your-maestro-url>/api/webhooks/lakerunner/alerts?integrationId=<id>`)
-3. In Lakerunner, navigate to **Alerting > Webhook Targets > Add Target**
-4. Paste the webhook URL and enter the same shared secret
-5. Copy the **Notifier ID** from the Lakerunner targets table
-6. Back in Cardinal, paste the Notifier ID and click **Save**
+## On delete
 
-> The **Alert API URL** field is only needed if your alerting API is hosted at a different URL than your query API.
+Deleting a Lakerunner integration (org owner DELETE, superadmin DELETE,
+managed-instance unlink, or org delete) runs the same pre-hook in every
+case:
 
-## What This Enables
+1. Sync-delete every alert rule the integration owns on Lakerunner. If
+   any deletion fails the request returns `502` and the local state is
+   not destroyed — fix the upstream issue and retry.
+2. Hard-delete local rules.
+3. Deprovision the webhook target on Lakerunner.
 
-Once configured, you can ask the AI agent questions like:
-- "Show me error logs from the last hour"
-- "What's the p99 latency for the checkout service?"
-- "Are there any active alerts?"
+## Migration from manual setup
+
+If you previously wired the webhook by hand (paste shared secret in
+Cardinal, create webhook target on Lakerunner, copy Notifier ID back),
+the migration leaves your `settings.notifierId` in place and your
+integration in `alerting_status='connected'` so existing rules continue
+to flow through the legacy notifier id. New rules created after the
+migration use `integration.id` as the notifier id once the next provision
+runs (e.g. on a deployment URL/key change or on reconnect).
 
 <SupportCallout />
