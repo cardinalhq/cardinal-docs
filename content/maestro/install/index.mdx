@@ -23,6 +23,7 @@ Both containers come from the same image — `public.ecr.aws/cardinalhq.io/maest
 - An OIDC provider (Keycloak, Okta, Auth0, Google Workspace, etc.) — required for login
 - An LLM backend — one of:
   - AWS Bedrock (via IRSA — recommended on EKS)
+  - Google Vertex AI (Gemini, or open models via MaaS)
   - Anthropic API
   - An OpenAI-compatible endpoint
 - A hostname and TLS cert for the ingress (Maestro expects to be reached at a single public URL)
@@ -107,6 +108,7 @@ curl http://localhost:4200/api/health
 2. [Environment variables](/maestro/install/environment) — full env var catalog
 3. [OIDC setup](/maestro/install/oidc) — wiring Keycloak, Okta, or any OIDC IdP
 4. [AWS Bedrock](/maestro/install/bedrock) — IRSA-based pod credentials
-5. [First steps as superadmin](/maestro/install/first-steps) — what to do after the first login
+5. [Google Vertex / Gemini](/maestro/install/vertex) — service-account JSON or Workload Identity
+6. [First steps as superadmin](/maestro/install/first-steps) — what to do after the first login
 
 <SupportCallout />

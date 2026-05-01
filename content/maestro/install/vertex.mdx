@@ -1,0 +1,199 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# Google Vertex / Gemini
+
+Maestro supports Google Vertex AI as an LLM backend through **two** providers that share the same GCP IAM and credential schema. Pick the one that matches the model you want to run:
+
+| Provider | Internal name | Surface | Catalog |
+| -------- | ------------- | ------- | ------- |
+| **Google Vertex / Gemini** | `google-vertex` | Gemini-native `:generateContent` | Gemini 2.5 Flash family |
+| **Google Vertex / Open Models (MaaS)** | `google-vertex-maas` | OpenAI-compatible `endpoints/openapi` | Gemma, Llama, Qwen, DeepSeek, gpt-oss |
+
+Both providers ship in the same release. You can configure either or both — they're selected per LLM config in the admin UI.
+
+## Which one do I pick?
+
+| If you want… | Use |
+| ------------ | --- |
+| Gemini 2.5 Flash for tool-using agents (battle-tested fidelity, native structured output) | `google-vertex` |
+| Gemma 4 26B IT, Llama 3.3, Qwen 3, DeepSeek, gpt-oss, or any other open model on Vertex MaaS | `google-vertex-maas` |
+| Gemini 2.5 Pro or Gemini 3 | **Not supported in this release** — those families require thoughtSignature round-tripping which Maestro does not yet preserve across tool-use turns |
+
+The two providers can coexist in the same Maestro install. Operators commonly run Gemini Flash as the default agent model and reach into MaaS for specific specialty models.
+
+### Capability tradeoffs
+
+| Capability | `google-vertex` | `google-vertex-maas` |
+| ---------- | --------------- | -------------------- |
+| Tool-use fidelity | Native; battle-tested | Per-upstream-model; verify before relying |
+| Structured output | Native (`responseJsonSchema`) | OpenAI JSON mode |
+| Reasoning / thinking tokens | Disabled (Flash models only in this release) | N/A (MaaS doesn't expose) |
+| Catalog | Curated Gemini Flash family | Anything the `endpoints/openapi` MaaS surface lists |
+| Embeddings | Phase-2 follow-on | Phase-2 follow-on |
+
+The MaaS layer is a translation owned by Google, not by the model author. Tool-use behavior varies per upstream model — verify your model with a representative tool-use prompt before relying on it for production. Documented caveats from Google as of this writing:
+
+- **DeepSeek**: function-calling quality drops when a system prompt is present.
+- **`openai/gpt-oss-120b-instruct-maas`** and **`openai/gpt-oss-20b-instruct-maas`**: want tool definitions in the system prompt, don't support named tool calling, and don't support `tool_choice = "required"`.
+- **Qwen**: best with `tool_choice = "auto"` (which is what Maestro sends when tools are present).
+
+## Choosing an auth method
+
+Both providers support two auth modes — pick once per provider config:
+
+| Method | Use when | How |
+| ------ | -------- | --- |
+| **Service-account JSON in admin UI** | Anywhere — non-GKE clusters, dev, fastest setup | Paste the SA key JSON into the LLM config form |
+| **Application Default Credentials + Workload Identity** | GKE, prefer no inline keys | Annotate the Kubernetes service account; leave the SA JSON field blank |
+
+The chart does **not** need to know which mode you picked. Service-account JSON is stored in the Maestro database and never touches Helm values; ADC just needs a workload-identity binding on the pod.
+
+## Service-account JSON setup (works everywhere)
+
+### 1. Enable the Vertex AI API
+
+In the GCP project that will run the inference, enable **Vertex AI API**:
+
+```bash
+gcloud services enable aiplatform.googleapis.com --project=YOUR_PROJECT
+```
+
+### 2. Create a service account with `roles/aiplatform.user`
+
+```bash
+gcloud iam service-accounts create maestro-vertex \
+  --project=YOUR_PROJECT \
+  --display-name="Maestro Vertex inference"
+
+gcloud projects add-iam-policy-binding YOUR_PROJECT \
+  --member="serviceAccount:maestro-vertex@YOUR_PROJECT.iam.gserviceaccount.com" \
+  --role="roles/aiplatform.user"
+```
+
+`roles/aiplatform.user` covers both `:generateContent` (Gemini-native) and `endpoints/openapi/chat/completions` (MaaS) — one role for both providers.
+
+### 3. Mint a JSON key
+
+```bash
+gcloud iam service-accounts keys create maestro-vertex.json \
+  --iam-account=maestro-vertex@YOUR_PROJECT.iam.gserviceaccount.com
+```
+
+Treat the resulting JSON like any other secret. It does not need to be persisted on disk after step 4.
+
+### 4. Configure the LLM in the UI
+
+Log in as a superadmin:
+
+1. Go to **Admin → LLM Configs**
+2. Click **Create Config**
+3. Pick provider **Google Vertex / Gemini** or **Google Vertex / Open Models (MaaS)**
+4. Enter the **GCP Project ID** and **Location** (e.g. `us-central1`, or `global` for cross-region MaaS)
+5. Paste the contents of `maestro-vertex.json` into **Service Account JSON**
+6. Save
+
+The key is stored encrypted in the Maestro database and masked when reading the config back. Repeat for the second provider if you need both.
+
+Then head to **Admin → LLM Model Catalog** and enable the models you want to expose.
+
+## Workload Identity setup (GKE — no inline keys)
+
+On GKE you can avoid handling SA JSON entirely by binding the Kubernetes service account to a Google service account.
+
+### 1. Enable Workload Identity on the cluster
+
+If the cluster wasn't created with Workload Identity, enable it:
+
+```bash
+gcloud container clusters update YOUR_CLUSTER \
+  --workload-pool=YOUR_PROJECT.svc.id.goog \
+  --region=YOUR_REGION
+```
+
+### 2. Create the GSA and grant Vertex access
+
+Same as the SA-JSON path:
+
+```bash
+gcloud iam service-accounts create maestro-vertex \
+  --project=YOUR_PROJECT \
+  --display-name="Maestro Vertex inference"
+
+gcloud projects add-iam-policy-binding YOUR_PROJECT \
+  --member="serviceAccount:maestro-vertex@YOUR_PROJECT.iam.gserviceaccount.com" \
+  --role="roles/aiplatform.user"
+```
+
+### 3. Bind the KSA to the GSA
+
+Replace `NAMESPACE` and `SA_NAME` to match the chart (`<release>-maestro` by default; pin with `serviceAccount.name`):
+
+```bash
+gcloud iam service-accounts add-iam-policy-binding \
+  maestro-vertex@YOUR_PROJECT.iam.gserviceaccount.com \
+  --role=roles/iam.workloadIdentityUser \
+  --member="serviceAccount:YOUR_PROJECT.svc.id.goog[NAMESPACE/SA_NAME]"
+```
+
+### 4. Annotate the Kubernetes service account
+
+In `values.yaml`:
+
+```yaml
+serviceAccount:
+  create: true
+  name: maestro            # pin the name to match the WIF binding
+  annotations:
+    iam.gke.io/gcp-service-account: maestro-vertex@YOUR_PROJECT.iam.gserviceaccount.com
+```
+
+### 5. Configure the LLM in the UI
+
+Same as the SA-JSON flow, **but leave the Service Account JSON field blank**. Maestro falls back to Application Default Credentials, which on a WIF-annotated pod resolve to the bound Google service account.
+
+## Picking a location
+
+Vertex models are region-pinned. Some models (notably the open MaaS catalog) are easier to find under `location = "global"`; Gemini Flash is broadly available in `us-central1`, `us-east4`, `europe-west4`, and `asia-northeast1`. The admin UI offers these as a datalist hint — any string is accepted.
+
+For `google-vertex`, the request URL embeds the location:
+
+```
+POST https://{location}-aiplatform.googleapis.com/v1/projects/{project}/locations/{location}/publishers/google/models/{modelId}:generateContent
+```
+
+For `google-vertex-maas`, similarly:
+
+```
+POST https://{location}-aiplatform.googleapis.com/v1/projects/{project}/locations/{location}/endpoints/openapi/chat/completions
+```
+
+When `location = "global"`, the host changes to `https://aiplatform.googleapis.com` (no region prefix). The admin UI handles this automatically.
+
+## Verifying it works
+
+After saving the config, head to **Admin → LLM Model Catalog**. Pick the new config and add a model entry — for `google-vertex`, `gemini-2.5-flash` is a good first choice; for `google-vertex-maas`, `gemma-4-26b-a4b-it-maas`.
+
+Open a chat thread, pick the new model, and send a prompt that triggers a tool call. The first inference will surface any auth or IAM problems in the Maestro pod logs:
+
+```bash
+kubectl -n maestro logs deploy/maestro-maestro | grep -iE 'vertex|aiplatform'
+```
+
+Common failures:
+
+| Symptom | Cause |
+| ------- | ----- |
+| `Vertex generateContent failed (401)` | Token mint succeeded but call was rejected — check `roles/aiplatform.user` on the SA |
+| `Vertex generateContent failed (403)` | Vertex AI API not enabled on the project, or the model isn't accessible in that region |
+| `Vertex generateContent failed (404)` | Wrong model ID or the model isn't published in that region |
+| `Vertex auth client returned no access token` | Workload Identity binding is missing or the KSA name doesn't match — check the `iam.gke.io/gcp-service-account` annotation |
+| `serviceAccountJson missing client_email` | The pasted JSON isn't a service-account key (e.g. it's an OAuth client JSON) |
+| `unknown_tool` warnings in logs after a tool call | A tool-call ID round-trip recovery happened; usually benign, but if the same tool keeps showing it, check that the orchestra executor isn't synthesizing its own IDs |
+
+The model catalog **deliberately excludes** Gemini 2.5 Pro and Gemini 3 from the `google-vertex` provider in this release. Hand-editing a catalog row to use one will fail fast at resolve time with `"Vertex model ... requires raw thoughtSignature round-tripping"` — this is intentional, not a bug.
+
+## What about embeddings?
+
+Phase 1 ships **chat inference only**. Both providers report `canEmbed: false`. The phase-2 follow-on adds Vertex embeddings (`text-embedding-004` / `gemini-embedding-001`) reusing the same auth helper. Until then, configure embeddings on a separate provider (OpenAI / Bedrock / etc.) — Maestro routes inference and embeddings independently.
+
+<SupportCallout />

@@ -4,5 +4,6 @@ export default {
   environment: 'Environment Variables',
   oidc: 'OIDC Setup',
   bedrock: 'AWS Bedrock',
+  vertex: 'Google Vertex / Gemini',
   'first-steps': 'First Steps',
 }
