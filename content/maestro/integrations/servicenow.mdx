@@ -39,6 +39,27 @@ The instance URL must use HTTPS and end with `.service-now.com` or `.servicenows
 
 Authentication uses HTTP Basic Auth.
 
+### Egress Proxy (optional)
+
+If your network requires outbound HTTPS to traverse a corporate egress proxy, configure it per integration. Leave these fields empty for a direct connection (the default).
+
+| Field | Required | Description |
+| ----- | -------- | ----------- |
+| **Proxy URL** | No | HTTPS egress proxy URL (e.g., `http://proxy.acme.internal:8080`). When set, all ServiceNow traffic — including the **Test Connection** check — is tunneled through this proxy. |
+| **Proxy Username** | No | Only required if your proxy enforces authentication. |
+| **Proxy Password** | No | Only required if your proxy enforces authentication. |
+
+When a proxy URL is configured, both the Cardinal runtime (in `mcp-gateway`) and the **Test Connection** flow (in `maestro`) honor it on every request to ServiceNow. No other Cardinal egress is affected — this setting is scoped to the ServiceNow integration only.
+
+#### TLS interception
+
+If your proxy performs TLS inspection (re-signs upstream certificates with a corporate root CA), you must additionally trust that CA inside the Cardinal containers — proxy URL alone is not enough. Mount the CA bundle and set:
+
+- `SSL_CERT_FILE=/path/to/corp-ca.pem` for the `mcp-gateway` container (Go)
+- `NODE_EXTRA_CA_CERTS=/path/to/corp-ca.pem` for the `maestro` container (Node)
+
+Without this, every TLS handshake to ServiceNow fails with an unknown-CA error. Coordinate with your operator if you're unsure whether the proxy intercepts TLS.
+
 ## Prerequisites
 
 - A ServiceNow instance with API access enabled
