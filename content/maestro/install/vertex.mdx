@@ -37,18 +37,15 @@ The MaaS layer is a translation owned by Google, not by the model author. Tool-u
 - **`openai/gpt-oss-120b-instruct-maas`** and **`openai/gpt-oss-20b-instruct-maas`**: want tool definitions in the system prompt, don't support named tool calling, and don't support `tool_choice = "required"`.
 - **Qwen**: best with `tool_choice = "auto"` (which is what Maestro sends when tools are present).
 
-## Choosing an auth method
+## Auth: just paste the service-account JSON
 
-Both providers support two auth modes — pick once per provider config:
+The default and recommended path is **paste the service-account JSON into the Maestro admin UI**. This works on every cluster — EKS, GKE, AKS, on-prem, anything — and is what Cardinal's own production deploy on AWS uses. There is no Kubernetes-side setup, no Helm value, no infra change required: a superadmin pastes the JSON in the LLM config form, hits Save, and Maestro can call Vertex.
 
-| Method | Use when | How |
-| ------ | -------- | --- |
-| **Service-account JSON in admin UI** | Anywhere — non-GKE clusters, dev, fastest setup | Paste the SA key JSON into the LLM config form |
-| **Application Default Credentials + Workload Identity** | GKE, prefer no inline keys | Annotate the Kubernetes service account; leave the SA JSON field blank |
+GKE operators who specifically want to avoid handling inline keys have an *optional* path using Application Default Credentials + GKE Workload Identity. That section is at the bottom of this page. **You do not need it on AWS or anywhere else** — and even on GKE, the SA-JSON path works fine if you prefer it.
 
-The chart does **not** need to know which mode you picked. Service-account JSON is stored in the Maestro database and never touches Helm values; ADC just needs a workload-identity binding on the pod.
+The chart does not need to know which mode you picked. Service-account JSON is stored encrypted in the Maestro database and never touches Helm values.
 
-## Service-account JSON setup (works everywhere)
+## Service-account JSON setup (works everywhere — EKS, GKE, on-prem, dev)
 
 ### 1. Enable the Vertex AI API
 
@@ -96,9 +93,35 @@ The key is stored encrypted in the Maestro database and masked when reading the 
 
 Then head to **Admin → LLM Model Catalog** and enable the models you want to expose.
 
-## Workload Identity setup (GKE — no inline keys)
+#### What is the GCP Project ID?
 
-On GKE you can avoid handling SA JSON entirely by binding the Kubernetes service account to a Google service account.
+This is the trip-wire most operators hit. The "Project ID" field expects the **project ID slug**, *not*:
+
+- the project's **display name** ("My Production Project")
+- the project's **number** (a 12-digit numeric ID)
+- the GCP organization's **domain** (`yourcompany.com`)
+
+The project ID is a short lowercase string like `my-company-prod-123456`. Find it in the GCP console under the project picker, in the row labelled **ID** — or run:
+
+```bash
+gcloud projects list --format="value(projectId)"
+```
+
+If you paste the wrong value, the first model call fails with HTTP 403 and `"reason": "CONSUMER_INVALID"` in the Maestro pod logs:
+
+```
+"message": "Permission denied on resource project yourcompany.com.",
+"reason": "CONSUMER_INVALID",
+"consumer": "projects/yourcompany.com"
+```
+
+Re-open the LLM config, replace the **GCP Project ID** with the correct slug, and save.
+
+## Workload Identity setup (GKE only — optional)
+
+> Skip this section unless you are on GKE **and** you specifically want to avoid handling inline service-account keys. The SA-JSON flow above works on GKE too. This path is **not applicable on EKS / AWS** — for an AWS-native equivalent you would need GCP Workload Identity Federation, which is out of scope here; the SA-JSON path is the supported AWS solution.
+
+On GKE you can bind the Kubernetes service account to a Google service account so the pod automatically gets Vertex credentials with no inline JSON.
 
 ### 1. Enable Workload Identity on the cluster
 
@@ -184,7 +207,8 @@ Common failures:
 | Symptom | Cause |
 | ------- | ----- |
 | `Vertex generateContent failed (401)` | Token mint succeeded but call was rejected — check `roles/aiplatform.user` on the SA |
-| `Vertex generateContent failed (403)` | Vertex AI API not enabled on the project, or the model isn't accessible in that region |
+| `Vertex generateContent failed (403)` with `CONSUMER_INVALID` | The **GCP Project ID** field is wrong (likely a domain or display name instead of the project ID slug) — see [What is the GCP Project ID?](#what-is-the-gcp-project-id) |
+| `Vertex generateContent failed (403)` (other) | Vertex AI API not enabled on the project, or the model isn't accessible in that region |
 | `Vertex generateContent failed (404)` | Wrong model ID or the model isn't published in that region |
 | `Vertex auth client returned no access token` | Workload Identity binding is missing or the KSA name doesn't match — check the `iam.gke.io/gcp-service-account` annotation |
 | `serviceAccountJson missing client_email` | The pasted JSON isn't a service-account key (e.g. it's an OAuth client JSON) |
