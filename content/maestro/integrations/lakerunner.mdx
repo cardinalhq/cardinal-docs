@@ -53,6 +53,35 @@ that genuinely need HTTP, the superadmin can set the per-integration
 setting `lakerunner-allow-insecure-admin-api` to `true` via the admin
 API. Cardinal-fleet-operated deployments never set this override.
 
+#### Perch operator key (BYO Lakerunner only)
+
+If your Lakerunner deployment also runs the Perch operator and you've
+pointed `perch.maestro.url` at this Maestro, you must hand Perch an
+ingest API key that this Maestro recognises — Perch sends collector
+inventory to your local Maestro, not to `app.cardinalhq.io`.
+
+1. After provisioning the integration above, copy the active ingest
+   API key from **Settings → Integrations → Lakerunner**.
+2. Create a Secret in the namespace where Lakerunner runs:
+
+   ```sh copy
+   kubectl create secret generic perch-local-maestro-key \
+     --from-literal=api-key='<paste plaintext key>'
+   ```
+
+3. Reference it from the Lakerunner Helm values:
+
+   ```yaml
+   perch:
+     maestro:
+       url: "http://maestro.<your-maestro-ns>.svc.cluster.local:4200"
+       apiKey:
+         existingSecret: "perch-local-maestro-key"
+   ```
+
+SaaS deployments (`perch.maestro.url` left at `https://app.cardinalhq.io`)
+do not need this — the license-derived key is already valid there.
+
 ## Auto-provisioning behavior
 
 When the gate above passes, maestro:
