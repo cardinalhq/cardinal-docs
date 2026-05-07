@@ -1,64 +1,45 @@
 import SupportCallout from '../../components/SupportCallout';
 import { HowToHero, Prerequisites, Steps, Step, NextSteps } from '../../components/HowTo';
 
-# Pulling OpenShift Prometheus Metrics into an OTel Collector
+# Polling OpenShift Prometheus Metrics from Outside the Cluster
 
 <HowToHero
   badge="How-To"
-  title="Pull OpenShift Prometheus into an OTel Collector"
-  lede="Wire the in-cluster prometheus-k8s stack on OpenShift into a collector pipeline you control — destination-agnostic, with upstream sample timestamps preserved."
+  title="Poll OpenShift Prometheus from an External Collector"
+  lede="Use the OpenShift prometheus-k8s federate route to pull selected cluster metrics into an OpenTelemetry Collector outside the OpenShift cluster."
 />
 
-This guide wires an OpenTelemetry Collector to the in-cluster Prometheus stack on OpenShift (the cluster-monitoring operator's `prometheus-k8s`) using the **federate** endpoint, and forwards the result to whatever destination you choose — S3, an OTLP endpoint, a SaaS observability vendor, or another Prometheus-compatible store.
+This guide configures an external OpenTelemetry Collector to poll OpenShift's in-cluster `prometheus-k8s` instance through the `/federate` endpoint. Use it when your collector runs in a central Kubernetes cluster, on a VM, or anywhere else that can reach the OpenShift apps domain over HTTPS.
 
-The guide is destination-agnostic. The only thing you swap is the exporter at the end of the pipeline.
+The example starts with the `debug` exporter so you can validate the scrape path first. Replace that exporter with S3, OTLP, Prometheus remote write, or another destination after the pull works.
 
 <Prerequisites
   items={[
     {
       icon: '☸',
-      title: 'OpenShift cluster-admin',
-      alt: <>Permission to create <code>ServiceAccount</code>, <code>ClusterRoleBinding</code>, and <code>Secret</code> in <code>openshift-monitoring</code>.</>,
+      title: 'OpenShift admin access',
+      alt: <>Permission to create a <code>ServiceAccount</code>, <code>ClusterRoleBinding</code>, and token <code>Secret</code> in <code>openshift-monitoring</code>.</>,
     },
     {
       icon: '◎',
-      title: 'OTel Collector',
-      alt: <>An <code>otelcol-contrib</code> build (or vendor distro) with the <code>prometheusreceiver</code> and your destination exporter.</>,
+      title: 'External OTel Collector',
+      alt: <>An <code>otelcol-contrib</code> build or vendor distribution with the <code>prometheusreceiver</code> and your destination exporter.</>,
     },
     {
       icon: '↔',
-      title: 'Network reachability',
-      alt: <>Collector → <code>prometheus-k8s-federate</code> Route on the OCP apps domain.</>,
+      title: 'Route reachability',
+      alt: <>HTTPS access from the collector to the OpenShift <code>prometheus-k8s-federate</code> Route.</>,
     },
   ]}
 />
-
-## What you get
-
-- A read-only authenticated pull from the OCP cluster's Prometheus, scoped by the `match[]` selectors you choose.
-- Federated samples carry their **upstream timestamps**, so downstream storage and query systems see the original scrape time, not your fetch time.
-- One collector instance "owns" the federation pull. There is **no** built-in deduplication if multiple collectors federate the same selectors — see [Singleton vs scaled](#singleton-vs-scaled--do-not-scale-this-naively) below.
-
-## What you don't get
-
-- Replication or streaming. Federation is a point-in-time pull. If you need every sample with original fidelity, use Prometheus `remote_write` or Thanos sidecars instead.
-- Per-target scrape diagnostics on the federation pull. You only see what the upstream Prometheus already collected, not the underlying targets.
-
-The federate Route is typically:
-
-```
-https://prometheus-k8s-federate-openshift-monitoring.apps.<cluster-base-domain>/federate
-```
 
 ## Installation
 
 <Steps>
 
-<Step title="Create a federation-reader ServiceAccount on OpenShift">
+<Step title="Create a federation reader in OpenShift">
 
-OpenShift's cluster-monitoring stack gates `/federate` behind oauth-proxy. The proxy accepts a Bearer token tied to a ServiceAccount with the `cluster-monitoring-view` ClusterRole.
-
-Apply on the OpenShift cluster:
+OpenShift protects `/federate` with oauth-proxy. Create a ServiceAccount with the `cluster-monitoring-view` ClusterRole and a token Secret for the external collector.
 
 ```yaml copy
 # ocp-federate-reader.yaml
@@ -81,9 +62,6 @@ subjects:
     name: prometheus-federate-reader
     namespace: openshift-monitoring
 ---
-# A long-lived service-account token. K8s 1.24+ stops auto-creating tokens
-# for ServiceAccounts; this Secret resource opts back in for a non-expiring
-# token.
 apiVersion: v1
 kind: Secret
 metadata:
@@ -95,76 +73,82 @@ type: kubernetes.io/service-account-token
 ```
 
 ```bash copy
-kubectl --kubeconfig=$OCP_KUBECONFIG apply -f ocp-federate-reader.yaml
+oc --kubeconfig="$OCP_KUBECONFIG" apply -f ocp-federate-reader.yaml
 ```
 
 </Step>
 
-<Step title="Extract and validate the bearer token">
+<Step title="Extract and test the token">
+
+Extract the token to a local file:
 
 ```bash copy
-kubectl --kubeconfig=$OCP_KUBECONFIG \
+oc --kubeconfig="$OCP_KUBECONFIG" \
   -n openshift-monitoring \
-  get secret prometheus-federate-reader-token \
-  -o jsonpath='{.data.token}' | base64 -d > /tmp/ocp.token
+  extract secret/prometheus-federate-reader-token \
+  --keys=token \
+  --to=- > ocp-federate.token
 ```
 
-Validate it before going further:
+Validate the token against the federate Route. The Route normally follows this pattern — substitute your cluster's apps base domain:
+
+```text copy
+https://prometheus-k8s-federate-openshift-monitoring.apps.<cluster-base-domain>/federate
+```
 
 ```bash copy
-TOKEN=$(cat /tmp/ocp.token)
-URL='https://prometheus-k8s-federate-openshift-monitoring.apps.<cluster-base-domain>/federate'
-curl -sk -H "Authorization: Bearer $TOKEN" "$URL?match[]=up" | head
+TOKEN=$(cat ocp-federate.token)
+URL="https://prometheus-k8s-federate-openshift-monitoring.apps.<cluster-base-domain>/federate"
+
+curl -skG \
+  -H "Authorization: Bearer $TOKEN" \
+  --data-urlencode 'match[]={__name__="up"}' \
+  "$URL" | head
 ```
 
 You should see `up{...} 1 <timestamp>` lines.
 
 | HTTP status | Meaning |
 | ----------- | ------- |
-| `401` | Token isn't attached to a SA with `cluster-monitoring-view`. |
-| `403` | Route is reachable but oauth-proxy denies — token expired or RBAC wrong. |
-| `200` (empty) | `match[]` selector matched nothing — try `match[]={__name__="up"}` to confirm the path. |
+| `401` | No bearer token, malformed token, or the token Secret is not populated yet. |
+| `403` | The token reached oauth-proxy, but the ServiceAccount does not have the expected RBAC. |
+| `200` with no samples | The `match[]` selector matched nothing. Retry with `match[]={__name__="up"}`. |
 
 </Step>
 
 <Step title="Make the token available to the collector">
 
-Create a Secret in the namespace where your collector runs (substitute your own namespace):
+The collector config below expects the token at `/etc/ocp/token`.
 
-```yaml copy
-apiVersion: v1
-kind: Secret
-metadata:
-  name: ocp-federate-token
-  namespace: <collector-namespace>
-type: Opaque
-stringData:
-  token: "<paste-token-here>"
+For a collector running as a Kubernetes Deployment outside the OpenShift cluster, create a Secret from the extracted token:
+
+```bash copy
+kubectl -n <collector-namespace> create secret generic ocp-federate-token \
+  --from-file=token=./ocp-federate.token
 ```
 
-> **Security note.** Anyone holding this token can read every metric in the OCP cluster, including potentially sensitive labels (pod names, image references, route hosts). Treat it like a database password. Rotate by deleting the `prometheus-federate-reader-token` Secret on OCP and re-applying — Kubernetes repopulates it. For production, prefer a SealedSecret or external-secret operator over committing it in plain form.
-
-Mount the token into the collector pod and point the receiver at the file:
+Mount it into the collector pod:
 
 ```yaml copy
-# Excerpt from your Deployment / DaemonSet spec
+# Excerpt from the collector Deployment spec
         volumeMounts:
-          - name: ocp-token
+          - name: ocp-federate-token
             mountPath: /etc/ocp
             readOnly: true
       volumes:
-        - name: ocp-token
+        - name: ocp-federate-token
           secret:
             secretName: ocp-federate-token
             defaultMode: 0400
-            items:
-              - key: token
-                path: token
 ```
+
+For a collector on a VM or bare host, place the same token file at `/etc/ocp/token` with permissions restricted to the collector process.
 
 </Step>
 
-<Step title="Add the prometheus receiver scrape job">
+<Step title="Add the Prometheus receiver scrape job">
+
+Add a `prometheusreceiver` scrape job that polls `/federate`, sends the ServiceAccount token, and passes selected metrics into the metrics pipeline.
 
 ```yaml copy
 receivers:
@@ -174,335 +158,155 @@ receivers:
         - job_name: openshift-federate
           scheme: https
           metrics_path: /federate
-          # See "Polling intervals" below — must be ≥ upstream's smallest
-          # scrape_interval, ideally exactly equal to it.
           scrape_interval: 30s
           scrape_timeout: 25s
-          # Federation passes through original target labels; without
-          # honor_labels=true the receiver would relabel them.
           honor_labels: true
-          # Carry upstream sample timestamps through to downstream storage.
           honor_timestamps: true
           tls_config:
-            # The OCP apps domain cert is often self-signed by the cluster's
-            # default ingress CA. Either skip verification, or fetch the
-            # default-ingress CA bundle and mount it as ca_file.
             insecure_skip_verify: true
           authorization:
             type: Bearer
             credentials_file: /etc/ocp/token
           params:
             "match[]":
-              # Curated starter set — see "Suggested metric sets" below.
+              - '{__name__="up"}'
               - '{job="node-exporter"}'
               - '{job="kube-state-metrics"}'
-              - '{job="apiserver"}'
-              - '{job="kubelet"}'
-              - '{__name__="up"}'
-              - '{__name__=~"prometheus_target_interval_length_seconds.*"}'
+              - '{__name__=~"cluster_version.*|cluster_operator.*"}'
           static_configs:
             - targets:
                 - prometheus-k8s-federate-openshift-monitoring.apps.<cluster-base-domain>:443
 
 processors:
-  # Tag every federated metric with a stable cluster identifier so downstream
-  # systems can distinguish it from your other clusters. `insert` only sets
-  # the attribute when missing — preserve any cluster name the upstream may
-  # have already stamped.
   resource/openshift:
     attributes:
       - { action: insert, key: k8s.cluster.name, value: "<your-ocp-cluster-name>" }
-
-  # Most modern observability backends prefer delta-temporality counters and
-  # batched payloads. Keep these unless you have a specific reason not to.
-  cumulativetodelta:
-    max_staleness: 15m
   batch:
     send_batch_size: 10000
     send_batch_max_size: 30000
     timeout: 10s
 
 exporters:
-  # Choose your destination here — see the table below.
-  destination:
-    # Example for OTLP/HTTP:
-    #   endpoint: https://your-collector.example/v1/metrics
-    #   headers:
-    #     authorization: "Bearer ${env:DEST_TOKEN}"
-    #   compression: gzip
+  debug:
+    verbosity: basic
 
 service:
   pipelines:
     metrics/openshift:
-      receivers:  [prometheus/openshift]
-      processors: [resource/openshift, cumulativetodelta, batch]
-      exporters:  [destination]
+      receivers: [prometheus/openshift]
+      processors: [resource/openshift, batch]
+      exporters: [debug]
 ```
 
-**Picking an exporter:**
+Use `insecure_skip_verify: true` only if you do not have the OpenShift ingress CA available to the collector. For a stricter configuration, mount the CA bundle and replace it with `ca_file`.
+
+Replace `debug` with your destination exporter when the scrape is working:
 
 | Exporter | Use when |
 | -------- | -------- |
-| `awss3` | Writing OTLP-proto chunks to an S3 bucket (e.g. for [Lakerunner](/lakerunner)). |
-| `otlphttp` | Sending to any OTLP/HTTP receiver — vendor SaaS, central gateway, another otelcol. |
-| `otlp` | Same as above, gRPC. |
-| `prometheusremotewrite` | Forwarding into a Prometheus-compatible long-term store (Mimir, Cortex, VictoriaMetrics). |
-| `debug` | Useful while validating end-to-end connectivity. |
+| `awss3` | Writing OTLP-proto metrics to S3 for Lakerunner. |
+| `otlphttp` or `otlp` | Sending to a vendor endpoint, central gateway, or another collector. |
+| `prometheusremotewrite` | Forwarding to a Prometheus-compatible backend such as Mimir, Cortex, or VictoriaMetrics. |
+| `debug` | Checking that samples reach the collector. |
+
+If your destination expects delta-temporality counters, add the `cumulativetodelta` processor before `batch`. Do not use that processor for `prometheusremotewrite`.
 
 </Step>
 
-<Step title="Roll the collector and confirm">
+<Step title="Roll out and confirm">
+
+Restart the collector so it picks up the token mount and config:
 
 ```bash copy
-# Restart the collector to pick up the new mount and config.
 kubectl -n <collector-namespace> rollout restart deployment <collector-deployment>
+```
 
-# Inspect logs for receiver and exporter startup.
+Check the collector logs:
+
+```bash copy
 kubectl -n <collector-namespace> logs deploy/<collector-deployment> | \
-  grep -iE 'prometheus|federate|exporter|error|fail'
+  grep -iE 'prometheus|openshift-federate|exporter|error|fail'
 ```
 
-Expected lines:
-
-```
-... prometheusreceiver  Starting discovery manager
-... targetallocator     Scrape job added  jobName=openshift-federate
-... prometheusreceiver  Starting scrape manager
-```
-
-No error or warning lines from the prometheus receiver or your exporter means metrics are flowing. Downstream visibility lag is normal — give it a couple of scrape intervals plus your storage's indexing time before declaring it broken.
-
-A useful self-check signal to query downstream:
-
-```promql
-# What scrape interval does the upstream use, per scrape pool?
-prometheus_target_interval_length_seconds{quantile="0.5"}
-```
-
-If your federate scrape interval is larger than this, you're losing samples between fetches; tighten yours or accept the loss.
+Normal startup includes the Prometheus receiver starting its discovery and scrape managers. There should be no `401`, `403`, TLS, timeout, or exporter errors.
 
 </Step>
 
 </Steps>
 
-## Polling intervals
+## Choose Metric Selectors
 
-OpenShift's cluster-monitoring stack defaults to `global.scrape_interval: 30s` and most pools (`apiserver`, `kubelet`, `kube-state-metrics`, `node-exporter`) inherit that. **Match the federation interval to that 30 s by default.**
-
-| Federate interval | Effect |
-| ----------------- | ------ |
-| **`<` upstream** | Wastes work — the same-timestamp samples are re-fetched. Don't. |
-| **`=` upstream** | Lossless cadence. Recommended. |
-| **`>` upstream** | Drops samples — for every two upstream samples you get one. Acceptable for low-cardinality dashboards, harmful for accurate `rate()`. |
-
-**Verify** the upstream cadence before committing — operators can override per-ServiceMonitor:
-
-```bash copy
-curl -sk -H "Authorization: Bearer $TOKEN" \
-  https://prometheus-k8s-openshift-monitoring.apps.<base>/api/v1/targets \
-  | jq '[.data.activeTargets[] | {pool: .scrapePool, interval: .scrapeInterval}] | unique_by(.pool)'
-```
-
-`scrape_timeout` should be slightly less than `scrape_interval` (e.g. 25 s for a 30 s interval). For large `match[]` selectors, raising the timeout past 30 s requires also raising the receiver's scrape interval — Prometheus rejects scrape configs where `scrape_timeout >= scrape_interval`.
-
-## Suggested metric sets
-
-The starter selectors pull a lot already. Numbers below are from one OCP 4.x 3-node compact cluster, idle, with `match[]` set to the starter list:
-
-| Selector | Unique series | Samples / scrape |
-| -------- | ------------: | ---------------: |
-| `{job="apiserver"}` | ~140 | ~140 k |
-| `{job="kubelet"}` (incl. cAdvisor) | ~225 (`kubelet_*` + `container_*` + `pod_*`) | ~70 k |
-| `{job="kube-state-metrics"}` | ~160 | ~17 k |
-| `{job="node-exporter"}` | ~310 | ~6 k |
-| `{__name__="up"}` | 1 | ~50 |
-| `prometheus_target_interval_length_seconds*` | 3 | tens |
-
-> **Bottom line.** Starter set ≈ 300 k samples per scrape, ~10 k samples/sec sustained at 30 s. Most of it is `apiserver` and cAdvisor (`container_*`).
-
-### Tighter alternatives by intent
-
-**Minimal node and cluster health** (< 1 k samples per scrape):
+The `match[]` selectors decide what the external collector pulls. Start with a small set, confirm it downstream, then add the metric families you need.
 
 ```yaml copy
 "match[]":
+  # Connectivity check
+  - '{__name__="up"}'
+
+  # OpenShift operator health
+  - '{__name__=~"cluster_version.*|cluster_operator.*"}'
+
+  # Node and Kubernetes object state
   - '{job="node-exporter"}'
-  - '{__name__=~"kube_node_status_.*"}'
-  - '{__name__=~"kube_pod_status_phase|kube_pod_container_status_restarts_total"}'
-  - '{__name__="up"}'
-```
-
-**API server SLI focus**:
-
-```yaml copy
-"match[]":
-  - '{__name__=~"apiserver_request_(total|duration_seconds_(bucket|count|sum))"}'
-  - '{__name__=~"apiserver_current_inflight_requests"}'
-  - '{__name__="up", job="apiserver"}'
-```
-
-**Workload introspection** (drops node-exporter, keeps cluster shape):
-
-```yaml copy
-"match[]":
   - '{job="kube-state-metrics"}'
+
+  # API server SLI metrics
+  - '{__name__=~"apiserver_request_(total|duration_seconds_(bucket|count|sum))"}'
+
+  # Workload CPU and memory
   - '{__name__=~"container_cpu_usage_seconds_total|container_memory_working_set_bytes"}'
-  - '{__name__="up"}'
 ```
 
-You can also exclude individual high-cardinality offenders inline:
+Kubelet/cAdvisor metrics and API server histograms are usually the largest selectors. Add them intentionally, and avoid broad selectors such as `{__name__=~".+"}` unless you have sized the destination for the full cluster.
 
-```yaml copy
-"match[]":
-  - '{job="apiserver", __name__!~"apiserver_request_body_size_bytes_bucket|apiserver_response_sizes_bucket"}'
-```
-
-OCP-specific extras you might want to add:
-
-- `{__name__=~"cluster_version.*|cluster_operator.*"}` — operator health.
-- `{__name__=~"openshift_.*"}` — anything from optional OCP-specific components.
-- **User-workload monitoring**: requires enabling that monitoring stack on OCP and scraping its separate federate route at `prometheus-user-workload-federate-openshift-user-workload-monitoring.apps...`.
-
-## Cardinality warnings
-
-Federation can flatten you. Three failure modes to plan for:
-
-1. **Time-series count blow-up downstream.** Every distinct label set you let through becomes a series. cAdvisor `container_*` carries `pod`, `container`, `image`, `id` (full cgroup path), and `name` — short-lived containers create churn that explodes label-value cardinality and hurts long-term storage. Either drop the high-churn metrics, or use a `metric_relabel_configs` block in the scrape job to `labeldrop` `id` and `image`.
-2. **Histogram buckets multiply.** Each bucket is a distinct series. A single `apiserver_request_duration_seconds_bucket` with verb × resource × code × `le` combinations produces tens of thousands of series. If you don't query specific quantiles often, consider switching to summaries or dropping buckets.
-3. **`match[]` regex selectors are inclusive, not anchored.** `{__name__=~".+"}` matches every series Prometheus has — that is *not* a valid production choice. Always start narrow and widen with measurement.
-
-Validate before deploying widely:
+To estimate the metric-name breadth of a selector before adding it:
 
 ```bash copy
-curl -sk -H "Authorization: Bearer $TOKEN" "$URL?match[]=<your-selector>" | \
-  awk '/^[a-zA-Z]/{sub(/[{ ].*/,""); print}' | sort -u | wc -l
+curl -skG \
+  -H "Authorization: Bearer $TOKEN" \
+  --data-urlencode 'match[]=<your-selector>' \
+  "$URL" | awk '/^[a-zA-Z_:]/{sub(/[{ ].*/,""); print}' | sort -u | wc -l
 ```
 
-That gives unique metric names. Multiply by typical label combinations to estimate active series.
+## Polling Interval and Replicas
 
-## Memory and CPU sizing
+OpenShift cluster-monitoring commonly scrapes these jobs every `30s`. Set the federate scrape interval to the same cadence unless your OpenShift monitoring configuration uses a different interval.
 
-The receiver materializes each scrape's full payload in memory before passing it through processors. Approximate budget for the starter selector set (~300 k samples × 30 s interval):
+Polling faster usually repeats samples with the same upstream timestamp. Polling slower skips samples. Keep `scrape_timeout` lower than `scrape_interval`, such as `25s` for a `30s` interval.
 
-| Resource | Suggested floor | Notes |
-| -------- | --------------: | ----- |
-| Memory | **2 GiB** | The Cardinal otelcol-distro started OOMing at 500 MiB with this set. Set `GOMEMLIMIT` slightly below the limit (the `cgroupruntime` extension does this automatically if used). |
-| CPU | 1 vCPU | Spikes during scrape (parsing, delta conversion, gzip-compress at the exporter), idle in between. Throttling shows up as `scrape_duration` creeping past the timeout. |
-| Disk | n/a | The federation collector itself is stateless — scrape is in-memory; durability is whoever your exporter sends to. |
-
-Watch the collector's own self-metrics if you can:
-
-- `otelcol_receiver_accepted_metric_points{receiver=prometheus/...}`
-- `otelcol_exporter_sent_metric_points` and `otelcol_exporter_send_failed_metric_points`
-- `otelcol_processor_batch_batch_send_size`
-- Process RSS via `process_resident_memory_bytes` if exposed.
-
-A growing gap between accepted and sent is the first sign of an exporter backpressure problem.
-
-## Singleton vs scaled — do not scale this naively
-
-The Prometheus receiver scrape configuration is **not coordinated across collector replicas.** If two pods both have the `prometheus/openshift` job loaded:
-
-- Both pull `/federate` every 30 s.
-- Both emit the same series with the same upstream timestamps.
-- Downstream storage either:
-  - Deduplicates by `(timestamp, series fingerprint)` and silently drops half the work (Prometheus, Mimir with HA dedupe enabled).
-  - Doubles the sample count, distorting all `rate()` and `sum()` queries.
-  - Errors out with `out-of-order sample` rejections.
-
-> **Run this collector as a singleton.** Use `replicas: 1` with `strategy: Recreate`, or a StatefulSet of size 1.
-
-If you need HA or scaling for unrelated reasons (e.g. you also do `otlp`/`otlphttp` ingest in the same collector), separate the federation job into a dedicated single-replica deployment. Don't merge "polling collector" and "scaling ingest collector" responsibilities.
-
-For real horizontal scale of metric pulls — multiple shards, each owning a different `match[]` subset — use the [OpenTelemetry Operator Target Allocator](https://github.com/open-telemetry/opentelemetry-operator/blob/main/cmd/otel-allocator/README.md), which deals out scrape targets to collector replicas. That's overkill for single-cluster federation; it's the right answer for hundreds of cluster federations.
+Run one collector replica for this federate scrape job. Multiple replicas polling the same `match[]` selectors emit duplicate samples with the same timestamps. If the collector also handles scalable OTLP ingest or other traffic, put this federation job in its own single-replica deployment.
 
 ## Troubleshooting
 
 | Symptom | Likely cause |
 | ------- | ------------ |
-| `401` from `/federate` curl | SA missing `cluster-monitoring-view` binding, or token Secret never populated (race with K8s controller — re-check `kubectl get secret prometheus-federate-reader-token -o yaml` for `data.token`). |
-| `403` from `/federate` curl | Reaching the route but oauth-proxy denies. Token expired (rare with this Secret) or RBAC binding is wrong. |
-| Empty `200 OK` | `match[]` selector matches no series. Try `match[]={__name__="up"}` to confirm the path. |
-| `tls: bad certificate` | OCP apps domain cert is self-signed. Either set `insecure_skip_verify: true` or mount the cluster's `default-ingress-cert` ConfigMap from `openshift-config-managed` and reference it as `ca_file`. |
-| Collector logs `context deadline exceeded` | Scrape took longer than `scrape_timeout`. Tighten `match[]` or raise both timeout and interval. |
-| Memory steadily climbing | Cardinality leak — likely cAdvisor churn. Add `metric_relabel_configs` to drop `id` and `name` labels, or remove `container_*` from the selector. |
-| Downstream sees doubled samples | You scaled past 1 replica. Scale back. |
-| Downstream sees half the samples | Federate interval is greater than upstream. Match it. |
-| Samples timestamped in the past | Expected. Federation passes through upstream timestamps; consumers should treat data as "as-of upstream scrape time", not "as-of now". |
-
-## Reference: full minimal collector config
-
-```yaml copy
-receivers:
-  prometheus/openshift:
-    config:
-      scrape_configs:
-        - job_name: openshift-federate
-          scheme: https
-          metrics_path: /federate
-          scrape_interval: 30s
-          scrape_timeout: 25s
-          honor_labels: true
-          honor_timestamps: true
-          tls_config:
-            insecure_skip_verify: true
-          authorization:
-            type: Bearer
-            credentials_file: /etc/ocp/token
-          params:
-            "match[]":
-              - '{job="node-exporter"}'
-              - '{job="kube-state-metrics"}'
-              - '{job="apiserver"}'
-              - '{job="kubelet"}'
-              - '{__name__="up"}'
-              - '{__name__=~"prometheus_target_interval_length_seconds.*"}'
-          static_configs:
-            - targets:
-                - prometheus-k8s-federate-openshift-monitoring.apps.<base>:443
-
-processors:
-  resource/openshift:
-    attributes:
-      - { action: insert, key: k8s.cluster.name, value: "<cluster-name>" }
-  cumulativetodelta:
-    max_staleness: 15m
-  batch:
-    send_batch_size: 10000
-    send_batch_max_size: 30000
-    timeout: 10s
-
-exporters:
-  destination:
-    # Choose your destination here: awss3, otlphttp, otlp,
-    # prometheusremotewrite, debug, etc.
-
-service:
-  pipelines:
-    metrics/openshift:
-      receivers:  [prometheus/openshift]
-      processors: [resource/openshift, cumulativetodelta, batch]
-      exporters:  [destination]
-```
+| `401` from `/federate` | Token missing, malformed, or not populated yet. Re-run the token extract command and confirm the file is non-empty. |
+| `403` from `/federate` | The ServiceAccount is missing the `cluster-monitoring-view` binding. |
+| Empty `200 OK` | The selector matched no series. Test with `match[]={__name__="up"}`. |
+| `tls: certificate signed by unknown authority` | The collector does not trust the OpenShift apps-domain certificate. Mount the ingress CA as `ca_file`, or use `insecure_skip_verify` while testing. |
+| `context deadline exceeded` | The scrape took longer than `scrape_timeout`. Narrow `match[]`, or raise both timeout and interval. |
+| Collector memory climbs during scrape | The selector set is too broad for the collector limit. Start by removing cAdvisor `container_*` metrics or API histogram buckets. |
+| Duplicate downstream samples | More than one collector replica is polling the same selector set. |
+| Samples appear timestamped in the past | Expected. Federation preserves the upstream Prometheus sample timestamp. |
 
 <NextSteps
   items={[
     {
       icon: '📦',
       title: 'Lakerunner',
-      description: 'Land your federated metrics in S3 and turn that bucket into a queryable observability stack.',
+      description: 'Land federated metrics in S3 and query them with Lakerunner.',
       href: '/lakerunner',
     },
     {
       icon: '📡',
       title: 'OpenTelemetry Collectors',
-      description: 'Recommended three-tier collector architecture if you also want logs, traces, and span-derived RED metrics.',
+      description: 'Collector architecture for logs, traces, and metrics.',
       href: '/lakerunner/collectors',
     },
     {
       icon: '📐',
       title: 'Sizing Estimator',
-      description: 'Plan capacity for the destination side — the federation pull is just the front door.',
+      description: 'Plan capacity for the destination side of the pipeline.',
       href: '/lakerunner/sizing',
     },
     {
