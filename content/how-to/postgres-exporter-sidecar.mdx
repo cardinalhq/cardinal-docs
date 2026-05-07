@@ -1,0 +1,273 @@
+import SupportCallout from '../../components/SupportCallout';
+import { Prerequisites, Steps, Step, NextSteps } from '../../components/HowTo';
+
+# PostgreSQL Metrics with postgres_exporter
+
+This example adds [`prometheuscommunity/postgres-exporter`](https://github.com/prometheus-community/postgres_exporter) to a PostgreSQL StatefulSet. The exporter connects over `localhost`, exposes Prometheus metrics on port `9187`, and the collector scrapes that port with Kubernetes pod discovery.
+
+Use a separate exporter Deployment for managed databases such as RDS or Cloud SQL.
+
+<Prerequisites
+  items={[
+    {
+      icon: '☸',
+      title: 'Kubernetes access',
+      alt: <>Permission to edit the PostgreSQL <code>StatefulSet</code> and <code>Service</code>, create Secrets, and grant pod discovery RBAC.</>,
+    },
+    {
+      icon: '◎',
+      title: 'OpenTelemetry Collector',
+      alt: <>An <code>otelcol-contrib</code> build or vendor distribution with the <code>prometheusreceiver</code>.</>,
+    },
+    {
+      icon: '🔐',
+      title: 'PostgreSQL access',
+      alt: <>Permission to create a role with <code>pg_monitor</code> membership.</>,
+    },
+  ]}
+/>
+
+## Installation
+
+<Steps>
+
+<Step title="Create the exporter role">
+
+Run as a PostgreSQL admin:
+
+```sql copy
+CREATE USER postgres_exporter WITH PASSWORD '<strong-password>';
+GRANT pg_monitor TO postgres_exporter;
+```
+
+Store the password in the PostgreSQL namespace:
+
+```bash copy
+kubectl -n <postgres-namespace> create secret generic postgres-exporter \
+  --from-literal=password='<strong-password>'
+```
+
+</Step>
+
+<Step title="Add the sidecar">
+
+Add `postgres-exporter` to the PostgreSQL pod template. The port name, `metrics`, is used by the collector scrape config.
+
+```yaml copy
+# Excerpt from the PostgreSQL StatefulSet pod spec
+        - name: postgres-exporter
+          image: quay.io/prometheuscommunity/postgres-exporter:v0.19.1
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+            seccompProfile:
+              type: RuntimeDefault
+          env:
+            - name: DATA_SOURCE_URI
+              value: "localhost:5432/postgres?sslmode=disable"
+            - name: DATA_SOURCE_USER
+              value: "postgres_exporter"
+            - name: DATA_SOURCE_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-exporter
+                  key: password
+          ports:
+            - name: metrics
+              containerPort: 9187
+              protocol: TCP
+```
+
+Keep `sslmode=disable` for this local pod connection. Use TLS settings for any network connection.
+
+The `securityContext` above lets the sidecar run under the `restricted` PodSecurity standard (OpenShift, GKE Autopilot, or any cluster with a baseline/restricted PodSecurity admission policy). `postgres_exporter` does not need to write to its filesystem, so `readOnlyRootFilesystem: true` is safe.
+
+</Step>
+
+<Step title="Expose the metrics port">
+
+Add the `metrics` port to the PostgreSQL Service so you can test the endpoint by service name. The collector config below still scrapes pod IPs.
+
+```yaml copy
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-headless
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - name: postgresql
+      port: 5432
+      targetPort: postgresql
+      protocol: TCP
+    - name: metrics
+      port: 9187
+      targetPort: metrics
+      protocol: TCP
+  selector:
+    app: postgres
+```
+
+</Step>
+
+<Step title="Verify the exporter">
+
+Apply the StatefulSet and Service changes:
+
+```bash copy
+kubectl -n <postgres-namespace> apply -f statefulset.yaml -f headless-service.yaml
+kubectl -n <postgres-namespace> rollout status statefulset/postgres
+```
+
+Check `/metrics` from inside the cluster:
+
+```bash copy
+kubectl -n <postgres-namespace> run curl --rm -it --restart=Never \
+  --image=curlimages/curl -- \
+  curl -s http://postgres-headless:9187/metrics | head
+```
+
+`pg_up 1` means the exporter can query PostgreSQL. `pg_up 0` means the exporter is running but cannot authenticate or connect.
+
+</Step>
+
+<Step title="Grant pod discovery access">
+
+The collector ServiceAccount needs pod discovery access in the PostgreSQL namespace:
+
+```yaml copy
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: collector-pod-discovery
+  namespace: <postgres-namespace>
+rules:
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: collector-pod-discovery
+  namespace: <postgres-namespace>
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: collector-pod-discovery
+subjects:
+  - kind: ServiceAccount
+    name: <collector-serviceaccount>
+    namespace: <collector-namespace>
+```
+
+The Role lives in the PostgreSQL namespace, but its `subjects` can reference a ServiceAccount in any namespace. The collector does not need to run in the PostgreSQL namespace.
+
+Skip this step entirely if the collector already discovers pods cluster-wide via a ClusterRole.
+
+</Step>
+
+<Step title="Add the collector scrape job">
+
+Add a `prometheus` receiver scrape job. Change `app=postgres` if your pods use a different label.
+
+```yaml copy
+receivers:
+  prometheus/postgresql:
+    config:
+      scrape_configs:
+        - job_name: postgresql
+          scrape_interval: 30s
+          kubernetes_sd_configs:
+            - role: pod
+              namespaces:
+                names: [<postgres-namespace>]
+          relabel_configs:
+            - source_labels:
+                - __meta_kubernetes_pod_label_app
+                - __meta_kubernetes_pod_container_port_name
+              action: keep
+              regex: postgres;metrics
+            - source_labels: [__meta_kubernetes_namespace]
+              target_label: k8s_namespace_name
+            - source_labels: [__meta_kubernetes_pod_name]
+              target_label: k8s_pod_name
+```
+
+Add the receiver to your metrics pipeline:
+
+```yaml copy
+service:
+  pipelines:
+    metrics:
+      receivers: [prometheus/postgresql]
+      processors: [cumulativetodelta, batch]
+      exporters: [otlphttp/upstream]
+```
+
+Keep `cumulativetodelta` for OTLP destinations that expect delta counters. Remove it for `prometheusremotewrite`.
+
+</Step>
+
+<Step title="Roll out the collector">
+
+Apply the collector config and restart the collector:
+
+```bash copy
+kubectl -n <collector-namespace> apply -f collector-configmap.yaml
+kubectl -n <collector-namespace> rollout restart deployment <collector-deployment>
+```
+
+Check for scrape errors:
+
+```bash copy
+kubectl -n <collector-namespace> logs deploy/<collector-deployment> | \
+  grep -iE 'prometheus|postgresql|scrape|error|fail'
+```
+
+Then query `pg_up` in your metrics destination. It should be `1` for each PostgreSQL pod.
+
+</Step>
+
+</Steps>
+
+## Troubleshooting
+
+| Symptom | Check |
+| ------- | ----- |
+| `pg_up 0` | Verify `DATA_SOURCE_USER`, `DATA_SOURCE_PASS`, database name, and `sslmode`. Check exporter logs for the PostgreSQL error. |
+| No scrape targets | Verify the pod label matches `app=postgres` and the sidecar port is named `metrics`. |
+| `pods is forbidden` in collector logs | Grant the collector ServiceAccount pod `get`, `list`, and `watch` access in the PostgreSQL namespace. |
+| `401 Unauthorized` while scraping | The target is probably not `postgres_exporter`; `/metrics` on port `9187` has no built-in auth. |
+| Duplicate samples | Only one collector replica should scrape a given pod unless you use the OpenTelemetry target allocator. |
+
+<NextSteps
+  items={[
+    {
+      icon: '📡',
+      title: 'OpenTelemetry Collectors',
+      description: 'Collector architecture for logs, traces, and metrics.',
+      href: '/lakerunner/collectors',
+    },
+    {
+      icon: '📦',
+      title: 'Lakerunner',
+      description: 'Land scraped metrics in S3 and query them with Lakerunner.',
+      href: '/lakerunner',
+    },
+    {
+      icon: '🧰',
+      title: 'More how-to guides',
+      description: 'Browse the rest of the how-to library.',
+      href: '/how-to',
+    },
+  ]}
+/>
+
+<SupportCallout />

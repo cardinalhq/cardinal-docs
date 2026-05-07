@@ -1,13 +1,7 @@
 import SupportCallout from '../../components/SupportCallout';
-import { HowToHero, Prerequisites, Steps, Step, NextSteps } from '../../components/HowTo';
+import { Prerequisites, Steps, Step, NextSteps } from '../../components/HowTo';
 
 # Polling OpenShift Prometheus Metrics from Outside the Cluster
-
-<HowToHero
-  badge="How-To"
-  title="Poll OpenShift Prometheus from an External Collector"
-  lede="Use the OpenShift prometheus-k8s federate route to pull selected cluster metrics into an OpenTelemetry Collector outside the OpenShift cluster."
-/>
 
 This guide configures an external OpenTelemetry Collector to poll OpenShift's in-cluster `prometheus-k8s` instance through the `/federate` endpoint. Use it when your collector runs in a central Kubernetes cluster, on a VM, or anywhere else that can reach the OpenShift apps domain over HTTPS.
 
