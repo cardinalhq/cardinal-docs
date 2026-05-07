@@ -1,10 +1,37 @@
 import SupportCallout from '../../components/SupportCallout';
+import { HowToHero, Prerequisites, Steps, Step, NextSteps } from '../../components/HowTo';
 
 # Pulling OpenShift Prometheus Metrics into an OTel Collector
+
+<HowToHero
+  badge="How-To"
+  title="Pull OpenShift Prometheus into an OTel Collector"
+  lede="Wire the in-cluster prometheus-k8s stack on OpenShift into a collector pipeline you control — destination-agnostic, with upstream sample timestamps preserved."
+/>
 
 This guide wires an OpenTelemetry Collector to the in-cluster Prometheus stack on OpenShift (the cluster-monitoring operator's `prometheus-k8s`) using the **federate** endpoint, and forwards the result to whatever destination you choose — S3, an OTLP endpoint, a SaaS observability vendor, or another Prometheus-compatible store.
 
 The guide is destination-agnostic. The only thing you swap is the exporter at the end of the pipeline.
+
+<Prerequisites
+  items={[
+    {
+      icon: '☸',
+      title: 'OpenShift cluster-admin',
+      alt: <>Permission to create <code>ServiceAccount</code>, <code>ClusterRoleBinding</code>, and <code>Secret</code> in <code>openshift-monitoring</code>.</>,
+    },
+    {
+      icon: '◎',
+      title: 'OTel Collector',
+      alt: <>An <code>otelcol-contrib</code> build (or vendor distro) with the <code>prometheusreceiver</code> and your destination exporter.</>,
+    },
+    {
+      icon: '↔',
+      title: 'Network reachability',
+      alt: <>Collector → <code>prometheus-k8s-federate</code> Route on the OCP apps domain.</>,
+    },
+  ]}
+/>
 
 ## What you get
 
@@ -17,17 +44,17 @@ The guide is destination-agnostic. The only thing you swap is the exporter at th
 - Replication or streaming. Federation is a point-in-time pull. If you need every sample with original fidelity, use Prometheus `remote_write` or Thanos sidecars instead.
 - Per-target scrape diagnostics on the federation pull. You only see what the upstream Prometheus already collected, not the underlying targets.
 
-## Prerequisites
+The federate Route is typically:
 
-- `kubectl` access to the OCP cluster with permission to create `ServiceAccount`, `ClusterRoleBinding`, and `Secret` in the `openshift-monitoring` namespace (cluster-admin or equivalent).
-- An OpenTelemetry Collector you can reconfigure — either an upstream `otelcol-contrib` build or any vendor distribution that includes the `prometheusreceiver` and your destination exporter.
-- Network reachability from the collector to the OCP `prometheus-k8s-federate` Route, typically:
+```
+https://prometheus-k8s-federate-openshift-monitoring.apps.<cluster-base-domain>/federate
+```
 
-  ```
-  https://prometheus-k8s-federate-openshift-monitoring.apps.<cluster-base-domain>/federate
-  ```
+## Installation
 
-## Step 1. Create a federation-reader ServiceAccount on OpenShift
+<Steps>
+
+<Step title="Create a federation-reader ServiceAccount on OpenShift">
 
 OpenShift's cluster-monitoring stack gates `/federate` behind oauth-proxy. The proxy accepts a Bearer token tied to a ServiceAccount with the `cluster-monitoring-view` ClusterRole.
 
@@ -71,7 +98,9 @@ type: kubernetes.io/service-account-token
 kubectl --kubeconfig=$OCP_KUBECONFIG apply -f ocp-federate-reader.yaml
 ```
 
-## Step 2. Extract the bearer token
+</Step>
+
+<Step title="Extract and validate the bearer token">
 
 ```bash copy
 kubectl --kubeconfig=$OCP_KUBECONFIG \
@@ -96,7 +125,9 @@ You should see `up{...} 1 <timestamp>` lines.
 | `403` | Route is reachable but oauth-proxy denies — token expired or RBAC wrong. |
 | `200` (empty) | `match[]` selector matched nothing — try `match[]={__name__="up"}` to confirm the path. |
 
-## Step 3. Make the token available to the collector
+</Step>
+
+<Step title="Make the token available to the collector">
 
 Create a Secret in the namespace where your collector runs (substitute your own namespace):
 
@@ -131,7 +162,9 @@ Mount the token into the collector pod and point the receiver at the file:
                 path: token
 ```
 
-## Step 4. Add the prometheus receiver scrape job
+</Step>
+
+<Step title="Add the prometheus receiver scrape job">
 
 ```yaml copy
 receivers:
@@ -206,7 +239,7 @@ service:
       exporters:  [destination]
 ```
 
-### Picking an exporter
+**Picking an exporter:**
 
 | Exporter | Use when |
 | -------- | -------- |
@@ -216,7 +249,9 @@ service:
 | `prometheusremotewrite` | Forwarding into a Prometheus-compatible long-term store (Mimir, Cortex, VictoriaMetrics). |
 | `debug` | Useful while validating end-to-end connectivity. |
 
-## Step 5. Roll the collector and confirm
+</Step>
+
+<Step title="Roll the collector and confirm">
 
 ```bash copy
 # Restart the collector to pick up the new mount and config.
@@ -245,6 +280,10 @@ prometheus_target_interval_length_seconds{quantile="0.5"}
 ```
 
 If your federate scrape interval is larger than this, you're losing samples between fetches; tighten yours or accept the loss.
+
+</Step>
+
+</Steps>
 
 ## Polling intervals
 
@@ -445,5 +484,34 @@ service:
       processors: [resource/openshift, cumulativetodelta, batch]
       exporters:  [destination]
 ```
+
+<NextSteps
+  items={[
+    {
+      icon: '📦',
+      title: 'Lakerunner',
+      description: 'Land your federated metrics in S3 and turn that bucket into a queryable observability stack.',
+      href: '/lakerunner',
+    },
+    {
+      icon: '📡',
+      title: 'OpenTelemetry Collectors',
+      description: 'Recommended three-tier collector architecture if you also want logs, traces, and span-derived RED metrics.',
+      href: '/lakerunner/collectors',
+    },
+    {
+      icon: '📐',
+      title: 'Sizing Estimator',
+      description: 'Plan capacity for the destination side — the federation pull is just the front door.',
+      href: '/lakerunner/sizing',
+    },
+    {
+      icon: '🧰',
+      title: 'More how-to guides',
+      description: 'Browse the rest of the how-to library.',
+      href: '/how-to',
+    },
+  ]}
+/>
 
 <SupportCallout />
