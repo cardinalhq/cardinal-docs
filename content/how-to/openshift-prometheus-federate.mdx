@@ -73,7 +73,7 @@ type: kubernetes.io/service-account-token
 ```
 
 ```bash copy
-oc --kubeconfig="$OCP_KUBECONFIG" apply -f ocp-federate-reader.yaml
+oc apply -f ocp-federate-reader.yaml
 ```
 
 </Step>
@@ -83,8 +83,7 @@ oc --kubeconfig="$OCP_KUBECONFIG" apply -f ocp-federate-reader.yaml
 Extract the token to a local file:
 
 ```bash copy
-oc --kubeconfig="$OCP_KUBECONFIG" \
-  -n openshift-monitoring \
+oc -n openshift-monitoring \
   extract secret/prometheus-federate-reader-token \
   --keys=token \
   --to=- > ocp-federate.token
