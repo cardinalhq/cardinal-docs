@@ -1,0 +1,320 @@
+import SupportCallout from '../../components/SupportCallout';
+import { HowToHero, Prerequisites, Steps, Step, NextSteps } from '../../components/HowTo';
+
+# Polling OpenShift Prometheus Metrics from Outside the Cluster
+
+<HowToHero
+  badge="How-To"
+  title="Poll OpenShift Prometheus from an External Collector"
+  lede="Use the OpenShift prometheus-k8s federate route to pull selected cluster metrics into an OpenTelemetry Collector outside the OpenShift cluster."
+/>
+
+This guide configures an external OpenTelemetry Collector to poll OpenShift's in-cluster `prometheus-k8s` instance through the `/federate` endpoint. Use it when your collector runs in a central Kubernetes cluster, on a VM, or anywhere else that can reach the OpenShift apps domain over HTTPS.
+
+The example starts with the `debug` exporter so you can validate the scrape path first. Replace that exporter with S3, OTLP, Prometheus remote write, or another destination after the pull works.
+
+<Prerequisites
+  items={[
+    {
+      icon: '☸',
+      title: 'OpenShift admin access',
+      alt: <>Permission to create a <code>ServiceAccount</code>, <code>ClusterRoleBinding</code>, and token <code>Secret</code> in <code>openshift-monitoring</code>.</>,
+    },
+    {
+      icon: '◎',
+      title: 'External OTel Collector',
+      alt: <>An <code>otelcol-contrib</code> build or vendor distribution with the <code>prometheusreceiver</code> and your destination exporter.</>,
+    },
+    {
+      icon: '↔',
+      title: 'Route reachability',
+      alt: <>HTTPS access from the collector to the OpenShift <code>prometheus-k8s-federate</code> Route.</>,
+    },
+  ]}
+/>
+
+## Installation
+
+<Steps>
+
+<Step title="Create a federation reader in OpenShift">
+
+OpenShift protects `/federate` with oauth-proxy. Create a ServiceAccount with the `cluster-monitoring-view` ClusterRole and a token Secret for the external collector.
+
+```yaml copy
+# ocp-federate-reader.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus-federate-reader
+  namespace: openshift-monitoring
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prometheus-federate-reader
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-monitoring-view
+subjects:
+  - kind: ServiceAccount
+    name: prometheus-federate-reader
+    namespace: openshift-monitoring
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: prometheus-federate-reader-token
+  namespace: openshift-monitoring
+  annotations:
+    kubernetes.io/service-account.name: prometheus-federate-reader
+type: kubernetes.io/service-account-token
+```
+
+```bash copy
+oc apply -f ocp-federate-reader.yaml
+```
+
+</Step>
+
+<Step title="Extract and test the token">
+
+Extract the token to a local file:
+
+```bash copy
+oc -n openshift-monitoring \
+  extract secret/prometheus-federate-reader-token \
+  --keys=token \
+  --to=- > ocp-federate.token
+```
+
+Validate the token against the federate Route. The Route normally follows this pattern — substitute your cluster's apps base domain:
+
+```text copy
+https://prometheus-k8s-federate-openshift-monitoring.apps.<cluster-base-domain>/federate
+```
+
+```bash copy
+TOKEN=$(cat ocp-federate.token)
+URL="https://prometheus-k8s-federate-openshift-monitoring.apps.<cluster-base-domain>/federate"
+
+curl -skG \
+  -H "Authorization: Bearer $TOKEN" \
+  --data-urlencode 'match[]={__name__="up"}' \
+  "$URL" | head
+```
+
+You should see `up{...} 1 <timestamp>` lines.
+
+| HTTP status | Meaning |
+| ----------- | ------- |
+| `401` | No bearer token, malformed token, or the token Secret is not populated yet. |
+| `403` | The token reached oauth-proxy, but the ServiceAccount does not have the expected RBAC. |
+| `200` with no samples | The `match[]` selector matched nothing. Retry with `match[]={__name__="up"}`. |
+
+</Step>
+
+<Step title="Make the token available to the collector">
+
+The collector config below expects the token at `/etc/ocp/token`.
+
+For a collector running as a Kubernetes Deployment outside the OpenShift cluster, create a Secret from the extracted token:
+
+```bash copy
+kubectl -n <collector-namespace> create secret generic ocp-federate-token \
+  --from-file=token=./ocp-federate.token
+```
+
+Mount it into the collector pod:
+
+```yaml copy
+# Excerpt from the collector Deployment spec
+        volumeMounts:
+          - name: ocp-federate-token
+            mountPath: /etc/ocp
+            readOnly: true
+      volumes:
+        - name: ocp-federate-token
+          secret:
+            secretName: ocp-federate-token
+            defaultMode: 0400
+```
+
+For a collector on a VM or bare host, place the same token file at `/etc/ocp/token` with permissions restricted to the collector process.
+
+</Step>
+
+<Step title="Add the Prometheus receiver scrape job">
+
+Add a `prometheusreceiver` scrape job that polls `/federate`, sends the ServiceAccount token, and passes selected metrics into the metrics pipeline.
+
+```yaml copy
+receivers:
+  prometheus/openshift:
+    config:
+      scrape_configs:
+        - job_name: openshift-federate
+          scheme: https
+          metrics_path: /federate
+          scrape_interval: 30s
+          scrape_timeout: 25s
+          honor_labels: true
+          honor_timestamps: true
+          tls_config:
+            insecure_skip_verify: true
+          authorization:
+            type: Bearer
+            credentials_file: /etc/ocp/token
+          params:
+            "match[]":
+              - '{__name__="up"}'
+              - '{job="node-exporter"}'
+              - '{job="kube-state-metrics"}'
+              - '{__name__=~"cluster_version.*|cluster_operator.*"}'
+          static_configs:
+            - targets:
+                - prometheus-k8s-federate-openshift-monitoring.apps.<cluster-base-domain>:443
+
+processors:
+  resource/openshift:
+    attributes:
+      - { action: insert, key: k8s.cluster.name, value: "<your-ocp-cluster-name>" }
+  batch:
+    send_batch_size: 10000
+    send_batch_max_size: 30000
+    timeout: 10s
+
+exporters:
+  debug:
+    verbosity: basic
+
+service:
+  pipelines:
+    metrics/openshift:
+      receivers: [prometheus/openshift]
+      processors: [resource/openshift, batch]
+      exporters: [debug]
+```
+
+Use `insecure_skip_verify: true` only if you do not have the OpenShift ingress CA available to the collector. For a stricter configuration, mount the CA bundle and replace it with `ca_file`.
+
+Replace `debug` with your destination exporter when the scrape is working:
+
+| Exporter | Use when |
+| -------- | -------- |
+| `awss3` | Writing OTLP-proto metrics to S3 for Lakerunner. |
+| `otlphttp` or `otlp` | Sending to a vendor endpoint, central gateway, or another collector. |
+| `prometheusremotewrite` | Forwarding to a Prometheus-compatible backend such as Mimir, Cortex, or VictoriaMetrics. |
+| `debug` | Checking that samples reach the collector. |
+
+If your destination expects delta-temporality counters, add the `cumulativetodelta` processor before `batch`. Do not use that processor for `prometheusremotewrite`.
+
+</Step>
+
+<Step title="Roll out and confirm">
+
+Restart the collector so it picks up the token mount and config:
+
+```bash copy
+kubectl -n <collector-namespace> rollout restart deployment <collector-deployment>
+```
+
+Check the collector logs:
+
+```bash copy
+kubectl -n <collector-namespace> logs deploy/<collector-deployment> | \
+  grep -iE 'prometheus|openshift-federate|exporter|error|fail'
+```
+
+Normal startup includes the Prometheus receiver starting its discovery and scrape managers. There should be no `401`, `403`, TLS, timeout, or exporter errors.
+
+</Step>
+
+</Steps>
+
+## Choose Metric Selectors
+
+The `match[]` selectors decide what the external collector pulls. Start with a small set, confirm it downstream, then add the metric families you need.
+
+```yaml copy
+"match[]":
+  # Connectivity check
+  - '{__name__="up"}'
+
+  # OpenShift operator health
+  - '{__name__=~"cluster_version.*|cluster_operator.*"}'
+
+  # Node and Kubernetes object state
+  - '{job="node-exporter"}'
+  - '{job="kube-state-metrics"}'
+
+  # API server SLI metrics
+  - '{__name__=~"apiserver_request_(total|duration_seconds_(bucket|count|sum))"}'
+
+  # Workload CPU and memory
+  - '{__name__=~"container_cpu_usage_seconds_total|container_memory_working_set_bytes"}'
+```
+
+Kubelet/cAdvisor metrics and API server histograms are usually the largest selectors. Add them intentionally, and avoid broad selectors such as `{__name__=~".+"}` unless you have sized the destination for the full cluster.
+
+To estimate the metric-name breadth of a selector before adding it:
+
+```bash copy
+curl -skG \
+  -H "Authorization: Bearer $TOKEN" \
+  --data-urlencode 'match[]=<your-selector>' \
+  "$URL" | awk '/^[a-zA-Z_:]/{sub(/[{ ].*/,""); print}' | sort -u | wc -l
+```
+
+## Polling Interval and Replicas
+
+OpenShift cluster-monitoring commonly scrapes these jobs every `30s`. Set the federate scrape interval to the same cadence unless your OpenShift monitoring configuration uses a different interval.
+
+Polling faster usually repeats samples with the same upstream timestamp. Polling slower skips samples. Keep `scrape_timeout` lower than `scrape_interval`, such as `25s` for a `30s` interval.
+
+Run one collector replica for this federate scrape job. Multiple replicas polling the same `match[]` selectors emit duplicate samples with the same timestamps. If the collector also handles scalable OTLP ingest or other traffic, put this federation job in its own single-replica deployment.
+
+## Troubleshooting
+
+| Symptom | Likely cause |
+| ------- | ------------ |
+| `401` from `/federate` | Token missing, malformed, or not populated yet. Re-run the token extract command and confirm the file is non-empty. |
+| `403` from `/federate` | The ServiceAccount is missing the `cluster-monitoring-view` binding. |
+| Empty `200 OK` | The selector matched no series. Test with `match[]={__name__="up"}`. |
+| `tls: certificate signed by unknown authority` | The collector does not trust the OpenShift apps-domain certificate. Mount the ingress CA as `ca_file`, or use `insecure_skip_verify` while testing. |
+| `context deadline exceeded` | The scrape took longer than `scrape_timeout`. Narrow `match[]`, or raise both timeout and interval. |
+| Collector memory climbs during scrape | The selector set is too broad for the collector limit. Start by removing cAdvisor `container_*` metrics or API histogram buckets. |
+| Duplicate downstream samples | More than one collector replica is polling the same selector set. |
+| Samples appear timestamped in the past | Expected. Federation preserves the upstream Prometheus sample timestamp. |
+
+<NextSteps
+  items={[
+    {
+      icon: '📦',
+      title: 'Lakerunner',
+      description: 'Land federated metrics in S3 and query them with Lakerunner.',
+      href: '/lakerunner',
+    },
+    {
+      icon: '📡',
+      title: 'OpenTelemetry Collectors',
+      description: 'Collector architecture for logs, traces, and metrics.',
+      href: '/lakerunner/collectors',
+    },
+    {
+      icon: '📐',
+      title: 'Sizing Estimator',
+      description: 'Plan capacity for the destination side of the pipeline.',
+      href: '/lakerunner/sizing',
+    },
+    {
+      icon: '🧰',
+      title: 'More how-to guides',
+      description: 'Browse the rest of the how-to library.',
+      href: '/how-to',
+    },
+  ]}
+/>
+
+<SupportCallout />

@@ -1,26 +1,55 @@
-/* ── Wrapper ── */
+/*
+  Shared layout primitives for How-To and Quick Start guides.
+  Use the components in components/HowTo/ rather than these classes directly.
+*/
+
+/* ── Wrapper / theme tokens ── */
 .wrapper {
-  --qs-orange: #ff5722;
-  --qs-amber: #ff9800;
-  --qs-gold: #ffc107;
-  --qs-surface: #faf9f7;
-  --qs-surface-elevated: #ffffff;
-  --qs-border: #e8e5e0;
-  --qs-text: #1a1715;
-  --qs-text-muted: #6b6560;
-  --qs-code-bg: #1e1e2e;
-  --qs-code-text: #cdd6f4;
+  --ht-orange: #ff5722;
+  --ht-amber: #ff9800;
+  --ht-gold: #ffc107;
+  --ht-surface: #faf9f7;
+  --ht-surface-elevated: #ffffff;
+  --ht-border: #e8e5e0;
+  --ht-text: #1a1715;
+  --ht-text-muted: #6b6560;
+  --ht-code-bg: #1e1e2e;
+  --ht-code-text: #cdd6f4;
   margin: 0 -1.5rem;
 }
 
 :global(.dark) .wrapper {
-  --qs-surface: #141210;
-  --qs-surface-elevated: #1c1a17;
-  --qs-border: #2e2a26;
-  --qs-text: #ede8e3;
-  --qs-text-muted: #9b9590;
-  --qs-code-bg: #0d0d14;
-  --qs-code-text: #cdd6f4;
+  --ht-surface: #141210;
+  --ht-surface-elevated: #1c1a17;
+  --ht-border: #2e2a26;
+  --ht-text: #ede8e3;
+  --ht-text-muted: #9b9590;
+  --ht-code-bg: #0d0d14;
+  --ht-code-text: #cdd6f4;
+}
+
+/*
+  When pieces are used inside MDX (not the QuickStartSteps wrapper) they need
+  their own theme-token scope. Each top-level component re-declares the same
+  tokens via .standalone so it works without the wrapper.
+*/
+.standalone {
+  --ht-orange: #ff5722;
+  --ht-amber: #ff9800;
+  --ht-gold: #ffc107;
+  --ht-surface: #faf9f7;
+  --ht-surface-elevated: #ffffff;
+  --ht-border: #e8e5e0;
+  --ht-text: #1a1715;
+  --ht-text-muted: #6b6560;
+}
+
+:global(.dark) .standalone {
+  --ht-surface: #141210;
+  --ht-surface-elevated: #1c1a17;
+  --ht-border: #2e2a26;
+  --ht-text: #ede8e3;
+  --ht-text-muted: #9b9590;
 }
 
 /* ── Hero ── */
@@ -30,8 +59,8 @@
   text-align: center;
   overflow: hidden;
   border-radius: 16px;
-  background: var(--qs-surface);
-  border: 1px solid var(--qs-border);
+  background: var(--ht-surface);
+  border: 1px solid var(--ht-border);
   margin-bottom: 2rem;
 }
 
@@ -60,7 +89,7 @@
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--qs-orange);
+  color: var(--ht-orange);
   background: rgba(255, 87, 34, 0.08);
   border: 1px solid rgba(255, 87, 34, 0.18);
   margin-bottom: 1rem;
@@ -70,7 +99,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--qs-orange);
+  background: var(--ht-orange);
   animation: pulse 2s ease-in-out infinite;
 }
 
@@ -83,7 +112,7 @@
   font-size: 2rem;
   font-weight: 750;
   letter-spacing: -0.03em;
-  color: var(--qs-text);
+  color: var(--ht-text);
   margin: 0 0 0.5rem;
   line-height: 1.15;
   border: none !important;
@@ -92,7 +121,7 @@
 
 .heroSub {
   font-size: 1.05rem;
-  color: var(--qs-text-muted);
+  color: var(--ht-text-muted);
   margin: 0;
   max-width: 480px;
   margin-inline: auto;
@@ -101,7 +130,7 @@
 
 /* ── Prerequisites ── */
 .prereqs {
-  margin-bottom: 2.5rem;
+  margin: 0 0 2.5rem;
 }
 
 .prereqTitle {
@@ -109,7 +138,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--qs-text-muted);
+  color: var(--ht-text-muted);
   margin: 0 0 0.75rem 0.25rem;
 }
 
@@ -129,13 +158,13 @@
   gap: 0.75rem;
   padding: 0.85rem 1rem;
   border-radius: 10px;
-  background: var(--qs-surface);
-  border: 1px solid var(--qs-border);
+  background: var(--ht-surface);
+  border: 1px solid var(--ht-border);
   transition: border-color 0.2s;
 }
 
 .prereqItem:hover {
-  border-color: var(--qs-orange);
+  border-color: var(--ht-orange);
 }
 
 .prereqIcon {
@@ -143,25 +172,25 @@
   width: 32px;
   text-align: center;
   flex-shrink: 0;
-  color: var(--qs-orange);
+  color: var(--ht-orange);
 }
 
 .prereqItem strong {
   display: block;
   font-size: 0.88rem;
   font-weight: 650;
-  color: var(--qs-text);
+  color: var(--ht-text);
 }
 
 .prereqAlt {
   display: block;
   font-size: 0.78rem;
-  color: var(--qs-text-muted);
+  color: var(--ht-text-muted);
   margin-top: 1px;
 }
 
 .prereqAlt a {
-  color: var(--qs-orange);
+  color: var(--ht-orange);
   text-decoration: none;
 }
 
@@ -169,10 +198,11 @@
   text-decoration: underline;
 }
 
-/* ── Timeline ── */
+/* ── Timeline (Steps) ── */
 .timeline {
   position: relative;
   padding-bottom: 1rem;
+  margin: 0 0 1rem;
 }
 
 .step {
@@ -203,7 +233,7 @@
   justify-content: center;
   font-size: 1.25rem;
   font-weight: 750;
-  color: var(--qs-orange);
+  color: var(--ht-orange);
   background: rgba(255, 87, 34, 0.08);
   border: 2px solid rgba(255, 87, 34, 0.2);
   flex-shrink: 0;
@@ -212,7 +242,7 @@
 
 .step:hover .stepNumber {
   background: rgba(255, 87, 34, 0.14);
-  border-color: var(--qs-orange);
+  border-color: var(--ht-orange);
   transform: scale(1.06);
 }
 
@@ -220,7 +250,7 @@
   width: 2px;
   flex: 1;
   min-height: 20px;
-  background: linear-gradient(to bottom, rgba(255, 87, 34, 0.25), var(--qs-border));
+  background: linear-gradient(to bottom, rgba(255, 87, 34, 0.25), var(--ht-border));
   border-radius: 1px;
 }
 
@@ -233,7 +263,7 @@
 .stepTitle {
   font-size: 1.15rem;
   font-weight: 700;
-  color: var(--qs-text);
+  color: var(--ht-text);
   margin: 0.65rem 0 0.5rem;
   letter-spacing: -0.01em;
   line-height: 1.3;
@@ -242,17 +272,21 @@
 }
 
 .stepContent {
-  color: var(--qs-text-muted);
-  font-size: 0.92rem;
+  color: var(--ht-text);
+  font-size: 0.95rem;
   line-height: 1.65;
 }
 
+.stepContent > :first-child { margin-top: 0; }
+.stepContent > :last-child { margin-bottom: 0; }
+
 .stepContent p {
   margin: 0 0 0.75rem;
+  color: var(--ht-text-muted);
 }
 
 .stepContent a {
-  color: var(--qs-orange);
+  color: var(--ht-orange);
   text-decoration: none;
   font-weight: 500;
 }
@@ -261,23 +295,28 @@
   text-decoration: underline;
 }
 
-.stepContent code {
+/*
+  Inline code only — block code (pre > code) is rendered by Nextra and should
+  keep its own styling. Scope the inline-code chip to direct children of
+  paragraphs/list-items so it doesn't bleed into <pre>.
+*/
+.stepContent :is(p, li, td, th) > code {
   font-size: 0.84rem;
   padding: 2px 7px;
   border-radius: 5px;
   background: rgba(255, 87, 34, 0.07);
   border: 1px solid rgba(255, 87, 34, 0.15);
-  color: var(--qs-text);
+  color: var(--ht-text);
   font-weight: 500;
 }
 
-/* ── Code blocks ── */
+/* ── Local (JSX-rendered) code block — used by QuickStartSteps ── */
 .codeBlock {
   border-radius: 10px;
   overflow: hidden;
-  border: 1px solid var(--qs-border);
+  border: 1px solid var(--ht-border);
   margin: 0.5rem 0 0.75rem;
-  background: var(--qs-code-bg);
+  background: var(--ht-code-bg);
 }
 
 .codeHeader {
@@ -327,7 +366,7 @@
   font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
   font-size: 0.82rem;
   line-height: 1.65;
-  color: var(--qs-code-text);
+  color: var(--ht-code-text);
   background: none !important;
   border: none !important;
   padding: 0 !important;
@@ -335,16 +374,16 @@
 
 /* ── Next Steps ── */
 .nextSection {
-  margin-top: 1rem;
+  margin-top: 2rem;
   padding-top: 2rem;
-  border-top: 1px solid var(--qs-border);
+  border-top: 1px solid var(--ht-border);
 }
 
 .nextTitle {
   font-size: 1.35rem;
   font-weight: 750;
   letter-spacing: -0.02em;
-  color: var(--qs-text);
+  color: var(--ht-text);
   margin: 0 0 1rem;
   border: none !important;
   padding-left: 0 !important;
@@ -366,15 +405,15 @@
   gap: 0.85rem;
   padding: 1rem 1.15rem;
   border-radius: 12px;
-  background: var(--qs-surface);
-  border: 1px solid var(--qs-border);
+  background: var(--ht-surface);
+  border: 1px solid var(--ht-border);
   text-decoration: none !important;
-  color: var(--qs-text);
+  color: var(--ht-text);
   transition: all 0.2s;
 }
 
 .nextCard:hover {
-  border-color: var(--qs-orange);
+  border-color: var(--ht-orange);
   background: rgba(255, 87, 34, 0.03);
   transform: translateY(-1px);
 }
@@ -391,20 +430,20 @@
 .nextCardTitle {
   font-size: 0.9rem;
   font-weight: 650;
-  color: var(--qs-text);
+  color: var(--ht-text);
   margin-bottom: 2px;
 }
 
 .nextCardDesc {
   font-size: 0.8rem;
-  color: var(--qs-text-muted);
+  color: var(--ht-text-muted);
   line-height: 1.4;
 }
 
 .nextArrow {
   margin-left: auto;
   flex-shrink: 0;
-  color: var(--qs-text-muted);
+  color: var(--ht-text-muted);
   opacity: 0;
   transform: translateX(-4px);
   transition: all 0.2s;
@@ -413,5 +452,5 @@
 .nextCard:hover .nextArrow {
   opacity: 1;
   transform: translateX(0);
-  color: var(--qs-orange);
+  color: var(--ht-orange);
 }
