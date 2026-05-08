@@ -1,0 +1,452 @@
+import SupportCallout from '../../components/SupportCallout';
+import { Prerequisites, Steps, Step, NextSteps } from '../../components/HowTo';
+
+# Collecting Pod Logs from OpenShift with an OTel Collector DaemonSet
+
+This guide deploys an OpenTelemetry Collector as a DaemonSet on OpenShift that tails every pod's container logs from `/var/log/pods` and ships them as OTLP to a destination of your choice (a central gateway, Lakerunner via S3, an OTLP-compatible vendor backend, etc.). Each node runs one collector pod that reads only the logs of pods scheduled to that node.
+
+The example uses the `filelog` receiver, `file_storage` extension, and `k8sattributes` processor. Replace the example `otlphttp` exporter with whatever destination you ship to.
+
+> **Heads up — the collector pod is privileged.** Reading CRI-O log files on RHCOS requires either an SELinux exception or running as a privileged container. This guide takes the latter route. That means binding the collector ServiceAccount to OpenShift's `privileged` SecurityContextConstraint and setting `securityContext.privileged: true` on the container. See [Required privileges](#required-privileges) below before you apply anything.
+
+<Prerequisites
+  items={[
+    {
+      icon: '☸',
+      title: 'OpenShift admin access',
+      alt: <>Cluster-admin or equivalent: you'll create a <code>Namespace</code>, <code>ServiceAccount</code>, <code>ClusterRole</code>/<code>Binding</code>, a <code>RoleBinding</code> against the <code>privileged</code> SCC, and a <code>DaemonSet</code> that runs privileged.</>,
+    },
+    {
+      icon: '◎',
+      title: 'OTel Collector image',
+      alt: <>An <code>otelcol-contrib</code> build (or vendor distribution) that includes the <code>filelog</code> receiver, <code>file_storage</code> extension, the <code>k8sattributes</code> processor, and your destination exporter.</>,
+    },
+    {
+      icon: '↔',
+      title: 'OTLP destination reachable',
+      alt: <>Network reachability from the OpenShift nodes to your collector gateway / Lakerunner / vendor OTLP endpoint.</>,
+    },
+  ]}
+/>
+
+## Required privileges
+
+Logs that container runtimes write under `/var/log/pods/<namespace>_<pod>_<uid>/<container>/N.log` are owned by `root` and labelled with SELinux types (`container_log_t`, `container_var_lib_t`, etc.) that an unprivileged container in the default `restricted-v2` SCC cannot read. There are two ways to handle this:
+
+1. **Privileged container** — what this guide uses. Simple, works out of the box, but the pod has full host capabilities.
+2. **A custom SCC** — narrower in capabilities, but you have to author and maintain it. Grant `hostPath` volumes, `runAsUser: RunAsAny`, and `seLinuxContext: RunAsAny` (or a specific `spc_t` type), then bind the SA to that SCC instead of `privileged`.
+
+Whichever you pick, two things must line up — getting only one of them yields confusing failures:
+
+| Layer | What you need |
+| ----- | ------------- |
+| RBAC | The collector ServiceAccount bound to a SCC that allows `hostPath` volumes and the SELinux context needed to read CRI-O logs. The default `system:openshift:scc:privileged` ClusterRole is the easy path. |
+| Pod spec | `securityContext.privileged: true` and `runAsUser: 0` on the collector container. |
+
+If your cluster or namespace explicitly enforces the Kubernetes `restricted` Pod Security profile, label the namespace with `pod-security.kubernetes.io/enforce: privileged` as shown below. OpenShift SCC admission is still the control that grants the privileged container.
+
+If you cannot grant `privileged` in your environment, see the [Restricted-environment alternative](#restricted-environment-alternative) section at the end of this guide.
+
+## Installation
+
+<Steps>
+
+<Step title="Create the namespace, ServiceAccount, and RBAC">
+
+Create the namespace, a ServiceAccount for the collector, and a ClusterRole that the `k8sattributes` processor needs for pod / namespace / owner enrichment. The Pod Security labels are included for environments that enforce namespace-level Pod Security admission.
+
+```yaml copy
+# 01-namespace-rbac.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: otel-logs
+  labels:
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/audit: privileged
+    pod-security.kubernetes.io/warn: privileged
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: otel-logs-agent
+  namespace: otel-logs
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: otel-logs-agent
+rules:
+  - apiGroups: [""]
+    resources: [pods, namespaces, nodes]
+    verbs: [get, list, watch]
+  - apiGroups: ["apps"]
+    resources: [replicasets, deployments, daemonsets, statefulsets]
+    verbs: [get, list, watch]
+  - apiGroups: ["batch"]
+    resources: [jobs, cronjobs]
+    verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: otel-logs-agent
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: otel-logs-agent
+subjects:
+  - kind: ServiceAccount
+    name: otel-logs-agent
+    namespace: otel-logs
+```
+
+```bash copy
+oc apply -f 01-namespace-rbac.yaml
+```
+
+</Step>
+
+<Step title="Bind the ServiceAccount to the privileged SCC">
+
+OpenShift ships a default ClusterRole `system:openshift:scc:privileged` whose only permission is `use` on the `privileged` SecurityContextConstraint. Bind it to the collector ServiceAccount via a namespace-scoped RoleBinding:
+
+```yaml copy
+# 02-scc-binding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: otel-logs-agent-scc-privileged
+  namespace: otel-logs
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:privileged
+subjects:
+  - kind: ServiceAccount
+    name: otel-logs-agent
+    namespace: otel-logs
+```
+
+```bash copy
+oc apply -f 02-scc-binding.yaml
+```
+
+The equivalent imperative form, if you prefer:
+
+```bash copy
+oc adm policy add-scc-to-user privileged -z otel-logs-agent -n otel-logs
+```
+
+Confirm the SA can use the `privileged` SCC:
+
+```bash copy
+oc auth can-i use scc/privileged \
+  --as=system:serviceaccount:otel-logs:otel-logs-agent
+# expected: yes
+```
+
+</Step>
+
+<Step title="Write the collector configuration">
+
+The configuration below tails every pod's stdout/stderr file, runs the `container` operator (auto-detects CRI-O / containerd / docker formats), persists file offsets on the node, enriches with k8s metadata, and exports to your OTLP/HTTP destination. The receiver-level `exclude` list drops noisy system namespaces — adjust to taste.
+
+```yaml copy
+# 03-configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-logs-agent-config
+  namespace: otel-logs
+data:
+  collector.yaml: |
+    receivers:
+      filelog:
+        include:
+          - /var/log/pods/*/*/*.log
+        exclude:
+          # Drop system namespaces. Pod log dir name is "<namespace>_<pod>_<uid>".
+          - /var/log/pods/openshift-*_*/*/*.log
+          - /var/log/pods/kube-*_*/*/*.log
+          - /var/log/pods/default_*/*/*.log
+          # Don't ingest our own log stream — would loop / amplify.
+          - /var/log/pods/otel-logs_*/*/*.log
+        start_at: end
+        storage: file_storage
+        include_file_path: true
+        include_file_name: false
+        poll_interval: 1s
+        operators:
+          # Auto-detects CRI-O / containerd / docker formats and extracts
+          # k8s metadata from the /var/log/pods path.
+          - type: container
+            id: container-parser
+            add_metadata_from_filepath: true
+
+    processors:
+      memory_limiter:
+        check_interval: 10s
+        limit_percentage: 80
+        spike_limit_percentage: 20
+      k8sattributes:
+        auth_type: serviceAccount
+        extract:
+          metadata:
+            - k8s.node.name
+            - k8s.namespace.name
+            - k8s.deployment.name
+            - k8s.replicaset.name
+            - k8s.daemonset.name
+            - k8s.statefulset.name
+            - k8s.cronjob.name
+            - k8s.job.name
+            - k8s.pod.name
+            - k8s.pod.uid
+            - k8s.pod.start_time
+            - k8s.container.name
+            - container.image.name
+            - container.image.tag
+        filter:
+          # Limit the API watch to this node only — drastically reduces API load
+          # at scale.
+          node_from_env_var: K8S_NODE_NAME
+        passthrough: false
+        pod_association:
+          - sources: [{ from: resource_attribute, name: k8s.pod.uid }]
+          - sources:
+              - { from: resource_attribute, name: k8s.namespace.name }
+              - { from: resource_attribute, name: k8s.pod.name }
+      resource:
+        attributes:
+          - { action: upsert, from_attribute: k8s.deployment.name,  key: service.name }
+          - { action: upsert, from_attribute: k8s.statefulset.name, key: service.name }
+          - { action: upsert, from_attribute: k8s.daemonset.name,   key: service.name }
+          - { action: upsert, from_attribute: k8s.cronjob.name,     key: service.name }
+          - { action: upsert, from_attribute: k8s.job.name,         key: service.name }
+          - { action: upsert, key: k8s.cluster.name, value: "<your-ocp-cluster-name>" }
+      batch:
+        send_batch_size: 5000
+        send_batch_max_size: 10000
+        timeout: 10s
+
+    exporters:
+      otlphttp:
+        endpoint: "http://<your-otlp-endpoint>:4318"
+        compression: gzip
+        timeout: 30s
+
+    extensions:
+      health_check:
+        endpoint: "0.0.0.0:13133"
+        path: /healthz
+      file_storage:
+        directory: /var/lib/otelcol/filelog-storage
+        create_directory: true
+
+    service:
+      extensions: [health_check, file_storage]
+      pipelines:
+        logs:
+          receivers: [filelog]
+          processors: [memory_limiter, k8sattributes, resource, batch]
+          exporters: [otlphttp]
+```
+
+```bash copy
+oc apply -f 03-configmap.yaml
+```
+
+Substitute:
+
+| Placeholder | What to put there |
+| ----------- | ----------------- |
+| `<your-ocp-cluster-name>` | A stable identifier for this cluster. It is stamped onto every record as `k8s.cluster.name`, which downstream consumers (Lakerunner, dashboards, alerting) use to partition by source. |
+| `<your-otlp-endpoint>` | Hostname or IP:port of your OTLP receiver. Use `https://...:4318` and add a `tls:` block if your destination terminates TLS, or a `headers:` block for bearer / API-key auth. |
+
+Replace `otlphttp` with whatever exporter fits your destination — `awss3` for direct-to-S3, `otlp` for gRPC, vendor-specific exporters as needed.
+
+</Step>
+
+<Step title="Deploy the DaemonSet">
+
+The DaemonSet runs one privileged collector pod per node. It mounts `/var/log/pods` (and `/var/lib/containers` for systems where pod log files are symlinks into container storage) as read-only `hostPath` volumes, plus a small writable host path for file offsets.
+
+```yaml copy
+# 04-daemonset.yaml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: otel-logs-agent
+  namespace: otel-logs
+  labels:
+    app.kubernetes.io/name: otel-logs-agent
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: otel-logs-agent
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 25%
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: otel-logs-agent
+    spec:
+      serviceAccountName: otel-logs-agent
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: collector
+          image: otel/opentelemetry-collector-contrib:0.141.0
+          imagePullPolicy: IfNotPresent
+          args: ["--config=/etc/otel/collector.yaml"]
+          env:
+            - name: K8S_NODE_NAME
+              valueFrom: { fieldRef: { fieldPath: spec.nodeName } }
+          ports:
+            - { containerPort: 13133, name: healthz, protocol: TCP }
+          readinessProbe:
+            httpGet: { path: /healthz, port: 13133 }
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          resources:
+            requests: { cpu: "200m", memory: 300Mi }
+            limits:   { cpu: "1",    memory: 500Mi }
+          securityContext:
+            # Required to read CRI-O log files on RHCOS — see "Required privileges".
+            privileged: true
+            runAsUser: 0
+          volumeMounts:
+            - { name: config,            mountPath: /etc/otel }
+            - { name: varlogpods,        mountPath: /var/log/pods,       readOnly: true }
+            - { name: varlibcontainers,  mountPath: /var/lib/containers, readOnly: true }
+            - { name: storage,           mountPath: /var/lib/otelcol }
+      volumes:
+        - name: config
+          configMap: { name: otel-logs-agent-config }
+        - name: varlogpods
+          hostPath: { path: /var/log/pods, type: Directory }
+        - name: varlibcontainers
+          hostPath: { path: /var/lib/containers, type: Directory }
+        - name: storage
+          hostPath: { path: /var/lib/otel-logs-agent, type: DirectoryOrCreate }
+```
+
+```bash copy
+oc apply -f 04-daemonset.yaml
+oc -n otel-logs rollout status daemonset/otel-logs-agent --timeout=5m
+```
+
+If you need the agent on control-plane or infra nodes, add tolerations that match those node taints. If the log agent is part of your cluster's critical operating baseline, you can also assign an appropriate `priorityClassName`.
+
+</Step>
+
+<Step title="Confirm logs are flowing">
+
+Each pod should report ready, start watching files, and then go quiet (only errors are logged at INFO):
+
+```bash copy
+oc -n otel-logs get pods -o wide
+oc -n otel-logs logs ds/otel-logs-agent --tail=100
+```
+
+Expected lines after startup include:
+
+```text
+... Everything is ready. Begin running and processing data.
+... Started watching file ... path: /var/log/pods/<ns>_<pod>_<uid>/<container>/0.log
+```
+
+To force traffic for a smoke test, restart any non-system pod so its container emits startup logs:
+
+```bash copy
+oc -n <some-ns> rollout restart deploy/<some-deploy>
+```
+
+Then confirm on the destination side that records arrive with `k8s.cluster.name=<your-ocp-cluster-name>` and `service.name=<your-deploy>`.
+
+</Step>
+
+</Steps>
+
+## Filtering and Trimming
+
+The default `exclude:` list drops `openshift-*`, `kube-*`, `default`, and the `otel-logs` namespace itself. Three further knobs are useful in practice:
+
+- **Take everything** — remove the `exclude:` block entirely. Expect log volume to multiply, often 10–50× depending on cluster size and operator chattiness.
+- **Drop a specific noisy app** — add a path-glob to `exclude:` (e.g., `/var/log/pods/<ns>_<workload>-*_*/*/*.log`).
+- **Drop by content** — add a `filter` processor after `k8sattributes` to drop records by attribute (level, container name, etc.):
+
+  ```yaml copy
+  processors:
+    filter/drop-debug:
+      logs:
+        log_record:
+          - 'severity_number < SEVERITY_NUMBER_INFO'
+  ```
+
+  Then add `filter/drop-debug` to the `processors` list of the `logs` pipeline.
+
+## Sizing
+
+A node running 100 pods with light log volume typically uses 50–150 MiB resident in the agent. Memory grows mainly with the number of files being watched and the batch sizes; CPU grows with line throughput.
+
+Start with the resource block in the example (`200m`/`300Mi` request, `1`/`500Mi` limit) and watch:
+
+```bash copy
+oc -n otel-logs top pods
+```
+
+If pods are OOM-killed under steady load, increase the memory limit before raising the `memory_limiter` percentage — the limiter throttles ingestion, but it cannot release memory the runtime has already allocated to file buffers.
+
+## Restricted-environment alternative
+
+If granting `privileged` is not acceptable in your cluster, use a custom SCC instead of the SCC binding in step 2. At minimum, it must allow `hostPath` volumes, `runAsUser: RunAsAny`, and an SELinux context that can read CRI-O log files. You can then remove `privileged: true` from the container, but keep `runAsUser: 0` because the log files are root-owned.
+
+Test that SCC on a non-production cluster before rolling it out broadly. Depending on your RHCOS version and SELinux policy, the collector may still hit `permission denied` reading log files; in that case, adjust the SCC's SELinux policy rather than weakening the rest of the DaemonSet.
+
+## Troubleshooting
+
+| Symptom | Likely cause |
+| ------- | ------------ |
+| Pod stuck in `CreateContainerConfigError` or admission rejects the pod | If your cluster enforces namespace-level Pod Security, confirm the Namespace has the three `pod-security.kubernetes.io/...` labels from step 1. Otherwise check the SCC binding and the pod's `openshift.io/scc` annotation. |
+| `securityContext.privileged: Invalid value: true: Privileged containers are not allowed` | The ServiceAccount is not bound to a SCC that allows privileged. Reapply the RoleBinding from step 2 and verify with `oc auth can-i use scc/privileged ...`. |
+| Filelog receiver logs `permission denied` opening `/var/log/pods/...` | Container is not actually running privileged, or your custom SCC doesn't grant the SELinux context. Check the running pod's `securityContext` and the SCC bound to the SA (`oc get pod -o yaml`, look for `openshift.io/scc:` annotation). |
+| Collector starts but no logs flow | `start_at: end` only picks up new lines for files with no stored offset. Restart any application pod to generate fresh stdout, or set `start_at: beginning` (warning: ingests historical files in full). |
+| Records lack `k8s.deployment.name` / `service.name` | The `k8sattributes` processor is missing RBAC. Reapply the ClusterRole from step 1 and check `oc -n otel-logs logs ds/otel-logs-agent` for `Failed to list *v1.ReplicaSet` style errors. |
+| Pods getting OOM-killed | Memory limit is too low for the line rate. Raise the limit before tuning `memory_limiter` percentages. |
+| Self-amplification — log lines about exporting appear in the destination | The `otel-logs` namespace is not in the filelog `exclude` list. Add `/var/log/pods/otel-logs_*/*/*.log`. |
+| Exporter shows `connection refused` / `no route to host` for the first ~30 seconds after rollout | Expected if the destination LoadBalancer / Service is being created in parallel. The retry sender backs off and recovers automatically. Persistent failures point at an actual network or auth problem. |
+
+<NextSteps
+  items={[
+    {
+      icon: '📦',
+      title: 'Lakerunner',
+      description: 'Land OTLP logs in S3 and query them with Lakerunner.',
+      href: '/lakerunner',
+    },
+    {
+      icon: '📡',
+      title: 'OpenTelemetry Collectors',
+      description: 'Collector architecture for logs, traces, and metrics.',
+      href: '/lakerunner/collectors',
+    },
+    {
+      icon: '🛰',
+      title: 'OpenShift Prometheus federate',
+      description: 'Pair pod logs with metrics by federating prometheus-k8s.',
+      href: '/how-to/openshift-prometheus-federate',
+    },
+    {
+      icon: '🧰',
+      title: 'More how-to guides',
+      description: 'Browse the rest of the how-to library.',
+      href: '/how-to',
+    },
+  ]}
+/>
+
+<SupportCallout />

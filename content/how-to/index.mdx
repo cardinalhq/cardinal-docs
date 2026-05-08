@@ -7,6 +7,7 @@ Step-by-step recipes for connecting external systems to Cardinal, wiring up coll
 ## Available guides
 
 - [Polling OpenShift Prometheus metrics from outside the cluster](/how-to/openshift-prometheus-federate) — pull selected `prometheus-k8s` metrics through the OpenShift federate Route into an external collector.
+- [Collecting pod logs from OpenShift](/how-to/openshift-pod-logs) — deploy a privileged OpenTelemetry Collector DaemonSet that tails `/var/log/pods` and ships OTLP to your destination.
 - [Collecting PostgreSQL metrics with postgres_exporter](/how-to/postgres-exporter-sidecar) — scrape a PostgreSQL StatefulSet from an in-cluster OpenTelemetry Collector.
 
 <SupportCallout />
