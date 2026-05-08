@@ -1,0 +1,192 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# Kubernetes
+
+Connect Cardinal to a Kubernetes cluster so the AI agent can investigate cluster state and so chart markers in **Explore** highlight when Kubernetes events (BackOff, FailedScheduling, Unhealthy, etc.) coincide with metric or log changes.
+
+## Overview
+
+The Kubernetes integration is **read-only**. It surfaces two capabilities:
+
+- **Chart markers** — `core/v1/Event` records appear as colored markers on the Metrics and Logs timelines, alongside any GitHub events you have enabled. Useful for correlating "what broke" with "what changed."
+- **Agent tools** — read-only kubectl-equivalent access for the AI agent: `list_events`, `list_resources`, `get_resource`, `get_logs`, `list_api_resources`.
+
+Cardinal never writes to your cluster. The integration stores your credentials encrypted at rest and transmits them per-request to the agent gateway.
+
+## Capabilities
+
+| Capability | Enabled |
+| ---------- | ------- |
+| Explore (chart markers) | Always |
+| Agent | Always |
+
+## Configuration
+
+The Kubernetes integration uses a multi-step setup wizard. After entering credentials, Cardinal connects to your cluster to validate access and let you choose namespaces and event types to surface in Explore.
+
+### Credentials
+
+Token authentication (recommended):
+
+| Field | Required | Description |
+| ----- | -------- | ----------- |
+| **API Server URL** | Yes | The cluster's external apiserver endpoint (e.g., `https://abc123.gr7.us-east-2.eks.amazonaws.com`) |
+| **CA Certificate** | Yes | The cluster's CA in PEM format |
+| **Bearer Token** | Yes | A long-lived ServiceAccount token (see Prerequisites below) |
+| **Default Namespace** | No | Used when a tool call omits one |
+
+Client-certificate authentication is also supported as an alternative to bearer tokens.
+
+### Optional Metadata
+
+| Field | Description |
+| ----- | ----------- |
+| **Name** | Display name for this integration |
+| **Description** | Human-readable description |
+| **Planner Hint** | Guidance for the AI on when to use this integration (e.g., "Use for the prod-us cluster running checkout and payments") |
+
+## Prerequisites
+
+- A Kubernetes cluster (1.24+) reachable from Cardinal's egress
+- Cluster-admin (or equivalent) access to install the recommended `ClusterRole` and `ServiceAccount`
+
+### Recommended ClusterRole
+
+Cardinal ships with a default `ClusterRole` that grants exactly the read verbs the agent and Explore need. **Secrets are deliberately excluded.**
+
+Apply this manifest to your cluster:
+
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cardinal-mcp-reader
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cardinal-mcp-reader
+rules:
+  - apiGroups: [""]
+    resources:
+      - pods
+      - namespaces
+      - services
+      - endpoints
+      - events
+      - configmaps
+      - nodes
+      - persistentvolumeclaims
+      - persistentvolumes
+      - serviceaccounts
+      - replicationcontrollers
+      - resourcequotas
+      - limitranges
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses", "networkpolicies"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["policy"]
+    resources: ["poddisruptionbudgets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apiextensions.k8s.io"]
+    resources: ["customresourcedefinitions"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["authorization.k8s.io"]
+    resources: ["selfsubjectaccessreviews"]
+    verbs: ["create"]
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["pods", "nodes"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cardinal-mcp-reader
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cardinal-mcp-reader
+subjects:
+  - kind: ServiceAccount
+    name: cardinal-mcp-reader
+    namespace: kube-system
+```
+
+### Generating a long-lived token
+
+Kubernetes 1.24+ no longer auto-creates secrets for ServiceAccounts. Create one manually:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cardinal-mcp-reader-token
+  namespace: kube-system
+  annotations:
+    kubernetes.io/service-account.name: cardinal-mcp-reader
+type: kubernetes.io/service-account-token
+```
+
+Then extract the token and CA:
+
+```bash
+kubectl -n kube-system get secret cardinal-mcp-reader-token -o jsonpath='{.data.token}' | base64 -d
+kubectl -n kube-system get secret cardinal-mcp-reader-token -o jsonpath='{.data.ca\.crt}' | base64 -d
+```
+
+The API server URL comes from your kubeconfig:
+
+```bash
+kubectl config view --raw -o jsonpath='{.clusters[?(@.name=="<your-context>")].cluster.server}'
+```
+
+## Setup
+
+1. Apply the `ClusterRole` and `ServiceAccount` manifests above to your cluster.
+2. Create the long-lived token secret and extract the token, CA, and API server URL.
+3. In Cardinal, navigate to **Settings > Integrations** and click **Add Integration**.
+4. Select **Kubernetes**.
+5. Enter the **API Server URL**, **CA Certificate**, and **Bearer Token**.
+6. Click **Test Connection** — Cardinal verifies the credentials and confirms the role is read-only via a `SelfSubjectAccessReview` preflight.
+7. Fill in **Name**, **Description**, and **Planner Hint** as needed.
+8. Click **Create**.
+
+## Using Explore correlation
+
+Once the integration is created:
+
+1. Open any **Metrics** or **Logs** dashboard in Explore.
+2. Click **Event Sources** in the chart toolbar.
+3. Toggle **Kubernetes** on and step through the wizard: pick a cluster, namespaces (or `*` for all), and event reasons to surface.
+4. Markers appear inline on the chart with reason-based colors (BackOff and FailedScheduling are red; Unhealthy and Killing are amber; informational reasons are neutral).
+
+## What This Enables
+
+Once configured, you can ask the AI agent questions like:
+
+- "What pods are crashing in the ingress namespace right now?"
+- "Show me events for the checkout deployment in the last 30 minutes."
+- "Get logs for the api-server-7d4c pod's app container."
+- "List all CRDs installed on this cluster."
+
+## Security Posture
+
+- **Credentials are encrypted at rest** using your Cardinal deployment's signing keys.
+- **Read-only enforcement is layered**: the recommended `ClusterRole` excludes mutating verbs and `secrets`. The agent's MCP server registers no `create`, `update`, or `delete` tools. Each first-time tool call against a cluster runs a `SelfSubjectAccessReview` preflight; if any mutating verb is mistakenly granted to the bound credentials, Cardinal logs a high-severity warning so you can tighten the role.
+- **No `secrets` access** is required or granted by the recommended role.
+
+<SupportCallout />

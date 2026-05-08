@@ -6,6 +6,7 @@ export default {
   github: 'GitHub',
   bigquery: 'Google BigQuery',
   jira: 'Jira',
+  kubernetes: 'Kubernetes',
   lakerunner: 'Lakerunner',
   teams: 'Microsoft Teams',
   pagerduty: 'PagerDuty',
