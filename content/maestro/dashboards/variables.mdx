@@ -1,0 +1,60 @@
+# Dashboard variables
+
+Variables let one dashboard cover many slices of your fleet. Define a `service` variable once; every panel's query that references `$service` gets the picked value substituted at render time. Selections live in the URL so dashboard links carry context.
+
+## Defining a variable
+
+Open a dashboard, click **Edit**, then click **Variables…**. Each variable has:
+
+| Field | Description |
+|---|---|
+| **Name** | The substitution key. Must match `[a-zA-Z_][a-zA-Z0-9_]*`. Reference it in queries as `$<name>` or `${<name>}`. |
+| **Label** | Optional human-friendly name shown above the picker chip. Defaults to **Name**. |
+| **Signal** | `Metrics` (resolves via the metric tag-values endpoint) or `Logs` (log tag-values endpoint). |
+| **Label** (under signal) | The label name to fetch values for, e.g. `service`, `namespace`. |
+| **Metric name** | (Metrics signal only) The metric to scope tag-value resolution against. |
+| **Pre-filter expr** | (Logs signal only, optional) PromQL/LogQL filter applied during resolution. |
+| **Sort** | Picker order: A→Z, Z→A, 0→9, 9→0. |
+| **Filter regex** | Optional client-side regex to drop options (e.g. `^(?!internal-).+`). |
+| **Multi-select** | Allow picking multiple values. |
+| **Include "All" option** | Add an "All" option that matches every value (only with multi-select). |
+
+A live preview under each form shows the actual options that will appear in the picker.
+
+## How values are substituted
+
+Each `$<name>` / `${<name>}` token in a panel query is rewritten according to the picked value(s) and the surrounding context.
+
+| Where the token appears | Single value | Multiple values | All |
+|---|---|---|---|
+| `service="$service"` (matcher with `=`) | `service="api"` | `service=~"api\|web"` | `service=~".+"` |
+| `service!="$service"` (matcher with `!=`) | `service!="api"` | `service!~"api\|web"` | `service!~".+"` |
+| `service=~"$service"` (matcher with `=~`) | `service=~"api"` | `service=~"api\|web"` | `service=~".+"` |
+| `service!~"$service"` (matcher with `!~`) | `service!~"api"` | `service!~"api\|web"` | `service!~".+"` |
+| Anywhere else (free text) | `api` | `api\|web` | `.+` |
+
+When a multi-select fires inside a `=` matcher, the operator gets rewritten to `=~` so the result is a regex match — a literal-string `service="api|web"` would silently match the string "api|web" instead of either of the two services. Multi-value substitutions are regex-escaped: `foo.bar` becomes `foo\.bar` in the resulting query.
+
+The "All" option doesn't enumerate every fetched value — it substitutes `.+` directly. This avoids regex-blowup on high-cardinality labels like `pod` or `instance`.
+
+## URL contract
+
+Each variable's selection appears under a `var-<name>` query param.
+
+| Selection | URL |
+|---|---|
+| Single | `?var-service=api` |
+| Multi (multiple values) | `?var-service=api&var-service=web` |
+| Multi ("All") | `?var-service=$__all` |
+
+Sharing a dashboard URL carries the picked values along. The literal `$__all` is the sentinel for "every value" and matches Grafana's URL convention.
+
+## Limitations
+
+The first cut intentionally ships a narrow surface area. The following are out of scope and will land in follow-ups:
+
+- **Static-list, constant, and free-text variable kinds** — only query-driven variables are supported today.
+- **Dependent variables** (one variable's options derived from another's value).
+- **"All" enumeration mode** (`a|b|c|...`) — only the regex-injection mode is available.
+- **Per-panel scoping / overrides** — variables apply to every panel on the dashboard.
+- **Ad-hoc filters** — Grafana's separate filter-pill feature has no equivalent.

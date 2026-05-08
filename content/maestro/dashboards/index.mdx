@@ -1,0 +1,7 @@
+# Dashboards
+
+Dashboards in Maestro stitch together panels backed by PromQL or LogQL queries against Lakerunner. Each dashboard owns a time-range selector and a grid of panels (timeseries, stat, gauge, bar, pie, label) that share that window.
+
+## What's here
+
+- **Variables** — define `service`, `namespace`, etc. as picker chips at the top of the dashboard. Selected values get interpolated into every panel's queries. See [Variables](/maestro/dashboards/variables).
