@@ -5,4 +5,5 @@ export default {
   },
   install: 'Installation',
   integrations: 'Integrations',
+  dashboards: 'Dashboards',
 }
