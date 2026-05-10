@@ -1,0 +1,51 @@
+# Token Limits
+
+Maestro caps daily LLM token consumption in two complementary ways.
+
+- **Org aggregate cap** (set by your CardinalHQ administrator) — the **sum of all users'** daily tokens for a given model in your organization cannot exceed this number.
+- **Per-user cap** (set by org owners) — each user's own daily tokens for a given model cannot exceed their effective per-user limit. Org owners assign each user a value of `Default`, `Unlimited`, or a custom number, with an org-wide per-user default applied to anyone without an explicit override.
+
+Both caps are evaluated independently at request entry. A request is admitted only if **neither** cap has been reached. The total counts `input + output + cache_read + cache_write` tokens. Embedding usage is excluded.
+
+## Resets
+
+All caps reset at **00:00 UTC**.
+
+## Where to manage limits
+
+### CardinalHQ administrators (per-org aggregate)
+
+Per-org aggregate caps live on the **Organization Detail** page (administration UI), in the **Daily Aggregate Token Limits** section. Pick a model, set a daily cap (or leave blank for unlimited), toggle Enabled, Save.
+
+### Org owners (per-user)
+
+In your organization's **Settings → Token Limits** page:
+
+- **Per-user default** — sets the daily cap that applies to each user in the org by default. Can be `Unlimited` or a custom number.
+- **Overrides — by user** — pick a member, choose `Default` / `Unlimited` / `Custom: <n>` per model.
+- **Overrides — by model** — pick a model, see every user's current override and today's usage at a glance.
+
+The org aggregate cap is shown read-only on this page so org owners know the operator-imposed ceiling.
+
+## Over-limit behavior
+
+When a request would start while a cap is already met, Maestro responds with HTTP **429 Too Many Requests**. The body identifies which cap tripped:
+
+```json
+{
+  "code": "token_limit_exceeded",
+  "scope": "user",
+  "model": "claude-sonnet-4-6",
+  "used": 1234567,
+  "limit": 1000000,
+  "resetAt": "2026-05-10T00:00:00Z"
+}
+```
+
+`scope` is `"user"` (this user has hit their personal cap) or `"org"` (the organization has hit its aggregate cap). When both caps are over, the response reports `"org"`.
+
+A turn that started below the cap is allowed to finish; the **next** request is what bounces.
+
+## v1 caveat
+
+This first cut of token-limit enforcement counts only the LLM calls that the orchestra adapter currently records to `maestro_llm_usage_records` (turn-completion events). Internal calls made by the planner, the chat formatter, and compaction are not yet ledgered, so real consumption may be slightly higher than what the cap sees. We're closing this gap as a follow-up.
