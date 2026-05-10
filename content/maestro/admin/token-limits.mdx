@@ -46,6 +46,3 @@ When a request would start while a cap is already met, Maestro responds with HTT
 
 A turn that started below the cap is allowed to finish; the **next** request is what bounces.
 
-## v1 caveat
-
-This first cut of token-limit enforcement counts only the LLM calls that the orchestra adapter currently records to `maestro_llm_usage_records` (turn-completion events). Internal calls made by the planner, the chat formatter, and compaction are not yet ledgered, so real consumption may be slightly higher than what the cap sees. We're closing this gap as a follow-up.
