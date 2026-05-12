@@ -291,6 +291,110 @@ Paste those three values into **Settings > Integrations > Add Integration > Kube
 
 **Uninstall**: `oc delete project cardinal-mcp && oc delete clusterrole cardinal-mcp-reader && oc delete clusterrolebinding cardinal-mcp-reader`.
 
+### Namespace-scoped install (no ClusterRole)
+
+If your cluster admin can't grant a `ClusterRole` — common on shared OpenShift instances or regulated environments — install Cardinal's read access scoped to a single namespace instead. The integration's surface narrows to that namespace: chart-marker events come from there, agent tool calls (`list_resources`, `get_logs`, `list_events`) operate on that namespace only, and node / persistent-volume / cluster-wide CRD discovery are unavailable.
+
+Replace step 1 with a `Role` + `RoleBinding` in the target namespace:
+
+```bash
+TARGET_NS=checkout-prod   # the project you want Cardinal to see
+
+oc apply -f - <<EOF
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cardinal-mcp-reader
+  namespace: ${TARGET_NS}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cardinal-mcp-reader
+  namespace: ${TARGET_NS}
+rules:
+  - apiGroups: [""]
+    resources:
+      - pods
+      - services
+      - endpoints
+      - events
+      - configmaps
+      - serviceaccounts
+      - replicationcontrollers
+      - persistentvolumeclaims
+      - resourcequotas
+      - limitranges
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses", "networkpolicies"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["policy"]
+    resources: ["poddisruptionbudgets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["route.openshift.io"]
+    resources: ["routes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps.openshift.io"]
+    resources: ["deploymentconfigs"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cardinal-mcp-reader
+  namespace: ${TARGET_NS}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: cardinal-mcp-reader
+subjects:
+  - kind: ServiceAccount
+    name: cardinal-mcp-reader
+    namespace: ${TARGET_NS}
+EOF
+```
+
+Steps 2 (token Secret) and 3 (extract values) are identical — just use the same namespace:
+
+```bash
+oc apply -f - <<EOF
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cardinal-mcp-reader-token
+  namespace: ${TARGET_NS}
+  annotations:
+    kubernetes.io/service-account.name: cardinal-mcp-reader
+type: kubernetes.io/service-account-token
+EOF
+
+oc -n ${TARGET_NS} get secret cardinal-mcp-reader-token \
+  -o jsonpath='{.data.token}' | base64 -d
+oc -n ${TARGET_NS} get secret cardinal-mcp-reader-token \
+  -o jsonpath='{.data.ca\.crt}' | base64 -d
+```
+
+When you register the integration in Cardinal, fill in the **Default Namespace** field with the target namespace (e.g. `checkout-prod`). Cardinal detects that the token is namespace-scoped and:
+
+- Skips cluster-wide LIST during connection-test — namespace count reports `1`.
+- Skips the wizard's namespace picker — only the bound namespace is shown.
+- Narrows the agent's tool calls to that namespace.
+
+**Uninstall**: `oc -n ${TARGET_NS} delete role cardinal-mcp-reader rolebinding/cardinal-mcp-reader serviceaccount/cardinal-mcp-reader secret/cardinal-mcp-reader-token`.
+
 ## Using Explore correlation
 
 Once the integration is created:
