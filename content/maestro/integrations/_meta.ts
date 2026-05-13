@@ -3,6 +3,7 @@ export default {
   athena: 'Amazon Athena',
   clickhouse: 'ClickHouse',
   confluence: 'Confluence',
+  databricks: 'Databricks',
   github: 'GitHub',
   bigquery: 'Google BigQuery',
   jira: 'Jira',
