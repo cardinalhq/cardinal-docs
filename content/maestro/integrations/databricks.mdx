@@ -1,0 +1,68 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# Databricks
+
+Connect Cardinal to a Databricks SQL warehouse to explore Unity Catalog schemas and query your lakehouse using natural language.
+
+## Overview
+
+With the Databricks integration, the AI agent can:
+
+- **Explore catalogs and schemas** — browse tables, columns, and data types in Unity Catalog
+- **Run queries** — answer questions about your data using natural language
+- **Analyze lakehouse data** — leverage Databricks SQL warehouses for analytical queries
+
+## Capabilities
+
+| Capability | Enabled |
+| ---------- | ------- |
+| Explore | Always |
+| Agent | Always |
+
+## Configuration
+
+### Settings
+
+| Field | Required | Default | Description |
+| ----- | -------- | ------- | ----------- |
+| **Server Hostname** | Yes | — | Workspace hostname without `https://` (e.g., `dbc-xxxxxxxx-xxxx.cloud.databricks.com`) |
+| **HTTP Path** | Yes | — | SQL warehouse HTTP path (e.g., `/sql/1.0/warehouses/abc123def456`) |
+| **Catalog** | Yes | — | Unity Catalog name to query (e.g., `main`, `samples`) |
+| **Schema** | Yes | — | Schema within the catalog. Comma-separated for multiple schemas |
+
+### Credentials
+
+| Field | Required | Description |
+| ----- | -------- | ----------- |
+| **Access Token** | Yes | Databricks personal access token (starts with `dapi`) |
+
+## Prerequisites
+
+- A Databricks workspace with a running (or auto-resumable) **SQL warehouse**
+- A **personal access token** (or service principal token) with read access to the catalog and schemas you want to explore — read-only is recommended
+- The token's principal granted `USE CATALOG` / `USE SCHEMA` / `SELECT` on the relevant Unity Catalog objects
+
+## Finding Your Connection Details
+
+In the Databricks workspace, open **SQL Warehouses**, click the warehouse you want to use, and open the **Connection details** tab. Copy the **Server hostname** and **HTTP path** from there.
+
+To create an access token: click your avatar (top-right) → **Settings** → **Developer** → **Access tokens** → **Generate new token**.
+
+## Setup
+
+1. Navigate to **Settings > Integrations** and click **Add Integration**
+2. Select **Databricks**
+3. Enter the **Server Hostname** and **HTTP Path** from the warehouse's Connection details
+4. Enter the **Catalog** and **Schema** you want the agent to explore
+5. Enter the **Access Token**
+6. Click **Test Connection** to verify connectivity
+7. Click **Save**
+
+## What This Enables
+
+Once configured, you can ask the AI agent questions like:
+- "What's the total revenue by region this quarter?"
+- "Show me the schema for the orders table"
+- "How many distinct users had a session yesterday?"
+
+<SupportCallout />
