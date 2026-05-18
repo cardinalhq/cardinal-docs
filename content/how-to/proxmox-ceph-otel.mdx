@@ -1,0 +1,511 @@
+import SupportCallout from '../../components/SupportCallout';
+import { Prerequisites, Steps, Step, NextSteps } from '../../components/HowTo';
+
+# Shipping Proxmox & Ceph Telemetry with a Per-Node OTel Collector
+
+This guide installs an OpenTelemetry Collector on every Proxmox VE node, alongside `ceph-exporter`, and ships hostmetrics, Ceph metrics, and Ceph + systemd logs as OTLP to a destination of your choice (a gateway collector, Lakerunner via S3, vendor backend, etc.). Each node runs one collector that scrapes local endpoints on `127.0.0.1`, so one node's telemetry path does not depend on another node.
+
+The pattern works for any Proxmox cluster running Proxmox-packaged Ceph (Squid / 19.x verified, Reef / 18.x compatible). It uses `host_metrics` instead of a separate `node_exporter`, the modern `ceph-exporter` daemon for per-daemon perf counters, and the mgr `prometheus` module for cluster-wide state.
+
+<Prerequisites
+  items={[
+    {
+      icon: '🖥',
+      title: 'Root SSH on every PVE node',
+      alt: <>The collector and <code>ceph-exporter</code> are installed and configured per node. SSH key access to every node in the cluster makes this much less painful.</>,
+    },
+    {
+      icon: '⚙',
+      title: 'Proxmox VE with packaged Ceph',
+      alt: <>This guide assumes Proxmox VE 8 / Debian Trixie with Ceph from <code>download.proxmox.com/debian/ceph-squid</code>. The <code>ceph-exporter</code> package, <code>pmxcfs</code> shared <code>/etc/pve</code>, and the <code>[client]</code> keyring path quirks are all PVE-specific.</>,
+    },
+    {
+      icon: '↔',
+      title: 'OTLP destination reachable',
+      alt: <>Network path from the PVE management network to your collector gateway / Lakerunner / vendor OTLP endpoint, on gRPC <code>:4317</code> (or HTTP <code>:4318</code>).</>,
+    },
+  ]}
+/>
+
+## Installation
+
+<Steps>
+
+<Step title="Enable Ceph metrics once per cluster">
+
+Run once from any mon node. The mgr module binds `*:9283` on the active mgr. The cephx user is read-only and is stored in `/etc/pve/priv/` which `pmxcfs` automatically replicates to every PVE node.
+
+```bash copy
+# Mgr prometheus module: cluster-wide metrics on :9283 on the active mgr.
+ceph mgr module enable prometheus
+
+# Read-only user for ceph-exporter. The keyring lands in pmxcfs and
+# auto-propagates to every PVE node.
+ceph auth get-or-create client.ceph-exporter \
+  mon 'profile ceph-exporter' \
+  mgr 'allow r' \
+  osd 'allow r' \
+  mds 'allow r' \
+  -o /etc/pve/priv/ceph.client.ceph-exporter.keyring
+```
+
+Optional: enable per-RBD-image metrics for specific pools. Cardinality is per image, so opt in deliberately:
+
+```bash copy
+ceph config set mgr mgr/prometheus/rbd_stats_pools <pool1>,<pool2>
+# Refresh interval defaults to 300s; lower if you need fresher data:
+ceph config set mgr mgr/prometheus/rbd_stats_pools_refresh_interval 60
+```
+
+</Step>
+
+<Step title="Install ceph-exporter on Ceph nodes">
+
+On every node that runs Ceph daemons (any node with `mon`, `mgr`, `mds`, `osd`, or `rgw`):
+
+```bash copy
+apt-get install -y ceph-exporter
+```
+
+Two things are wrong with the Proxmox-packaged unit out of the box, and the daemon will fail to start until both are addressed:
+
+1. **The keyring is not readable by the `ceph` user.** Files in `/etc/pve/priv/` are root-owned, group `www-data`, mode 0600 — the `ceph` user can't read them. PVE's convention is to copy keyrings out of pmxcfs into `/etc/ceph/` with `root:ceph 0640`:
+
+   ```bash copy
+   install -m 0640 -o root -g ceph \
+     /etc/pve/priv/ceph.client.ceph-exporter.keyring \
+     /etc/ceph/ceph.client.ceph-exporter.keyring
+   ```
+
+2. **The unit ships with `ExecStart=/usr/bin/ceph-exporter -f --id %i …`** but is **not** a templated `@.service`, so `%i` expands to empty and `client..keyring` is searched, which doesn't exist. The `[client]` section in `/etc/pve/ceph.conf` *also* pins the keyring search path to `/etc/pve/priv/$cluster.$name.keyring`, which the `ceph` user still can't read — so we have to pass `--keyring` explicitly too.
+
+   Drop in this systemd override:
+
+   ```ini copy
+   # /etc/systemd/system/ceph-exporter.service.d/override.conf
+   [Service]
+   ExecStart=
+   ExecStart=/usr/bin/ceph-exporter -f --id ceph-exporter \
+     --keyring /etc/ceph/ceph.client.ceph-exporter.keyring \
+     --setuser ceph --setgroup ceph
+   ```
+
+```bash copy
+systemctl daemon-reload
+systemctl reset-failed ceph-exporter
+systemctl restart ceph-exporter
+
+# Smoke test
+curl -s http://127.0.0.1:9926/metrics | head
+```
+
+You should see Prometheus-format counters beginning `ceph_…`.
+
+</Step>
+
+<Step title="Install otelcol-contrib on every node">
+
+The deb release ships from the OpenTelemetry Collector Releases GitHub project. Install on every PVE node — including non-Ceph nodes, so you still get host metrics from them.
+
+```bash copy
+VERSION=0.152.0
+ARCH=amd64
+curl -sSLO https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v${VERSION}/otelcol-contrib_${VERSION}_linux_${ARCH}.deb
+apt-get install -y --no-install-recommends ./otelcol-contrib_${VERSION}_linux_${ARCH}.deb
+```
+
+The packaged service runs as user `otelcol-contrib`, which **cannot** read `/var/log/ceph/*.log` (those files are mode 0600 `ceph:ceph` and Ceph rotates them internally, so an ACL doesn't survive rotation). The simplest correct fix is a drop-in that runs the collector as root:
+
+```ini copy
+# /etc/systemd/system/otelcol-contrib.service.d/override.conf
+[Service]
+User=root
+Group=root
+```
+
+```bash copy
+systemctl daemon-reload
+```
+
+If running as root is a non-starter in your environment, run as `otelcol-contrib` but add it to the `systemd-journal` group (for `journald`) and skip the `file_log` receivers — you'll still get the same cluster events via `journald` on the mon daemons, just less structured.
+
+</Step>
+
+<Step title="Classify each node">
+
+Run this from your workstation or from one PVE node with SSH access to the rest of the cluster:
+
+```bash copy
+for host in <pve-host-1> <pve-host-2> <pve-host-3>; do
+  echo "== ${host} =="
+  ssh root@${host} \
+    "systemctl list-units --type=service --all 'ceph-*.service' --no-legend | awk '{print \$1}' | sort"
+done
+```
+
+Assign one config role to each host:
+
+| Role | Use on hosts with | What the collector reads |
+| ---- | ----------------- | ------------------------ |
+| `role-base` | no Ceph daemons besides `ceph-crash` | host metrics and PVE systemd logs |
+| `role-osd` | `ceph-osd@*.service` only | host metrics, local `ceph-exporter`, and Ceph daemon journald logs |
+| `role-mon` | `ceph-mon@*.service` without `ceph-mgr@*.service` | `role-osd` plus `/var/log/ceph/ceph.log` and `/var/log/ceph/ceph.audit.log` |
+| `role-mon-mgr` | `ceph-mgr@*.service` | `role-mon` plus the mgr Prometheus endpoint on `127.0.0.1:9283` |
+
+If a node has both `ceph-mon@*.service` and `ceph-mgr@*.service`, use `role-mon-mgr`. If a node has RGW, keep it in the same role it already matches; the journald list below includes `ceph-radosgw@*.service`.
+
+</Step>
+
+<Step title="Write the collector config for each role">
+
+Create `/etc/otelcol-contrib/config.yaml` on each host from the role you assigned in the previous step. Replace these placeholders before restarting the service:
+
+| Placeholder | What to put there |
+| ----------- | ----------------- |
+| `<your-otlp-endpoint>` | Hostname or IP of your OTLP gRPC destination. The gateway port is `:4317` for gRPC. Keep `tls.insecure: true` for an insecure gateway, or replace it with your TLS settings. |
+| `<your-environment>` | Environment label such as `prod`, `staging`, or `home-lab`. |
+| `<your-cluster-name>` | A stable identifier for this Ceph / Proxmox cluster. Stamped onto every record as `proxmox.cluster.name`; downstream consumers (Lakerunner, dashboards, alerts) use it to partition by source. |
+| `<your-ceph-fsid>` | The Ceph FSID from `ceph fsid`. Use it only on Ceph nodes. |
+
+Start every role with the same host metrics receiver:
+
+```yaml copy
+receivers:
+  host_metrics:
+    collection_interval: 30s
+    scrapers:
+      cpu:
+        metrics:
+          system.cpu.utilization:
+            enabled: true
+      load: {}
+      memory:
+        metrics:
+          system.memory.utilization:
+            enabled: true
+      disk: {}
+      filesystem:
+        exclude_mount_points:
+          mount_points:
+            - /dev/*
+            - /proc/*
+            - /sys/*
+            - /run/*
+            - /var/lib/lxcfs/*
+            - /var/lib/docker/*
+            - /var/lib/containers/*
+            - /snap/*
+            - /etc/pve
+          match_type: regexp
+        exclude_fs_types:
+          fs_types:
+            - tmpfs
+            - devtmpfs
+            - devpts
+            - proc
+            - sysfs
+            - cgroup
+            - cgroup2
+            - securityfs
+            - debugfs
+            - tracefs
+            - pstore
+            - autofs
+            - mqueue
+            - rpc_pipefs
+            - nsfs
+            - bpf
+            - fusectl
+            - configfs
+            - fuse.lxcfs
+            - fuse.pmxcfs
+            - overlay
+            - ramfs
+            - hugetlbfs
+          match_type: strict
+      network: {}
+      paging: {}
+```
+
+Use this processor and exporter block on every role. On `role-base`, omit the `ceph.cluster.name` and `ceph.cluster.fsid` attributes. On `role-osd`, `role-mon`, and `role-mon-mgr`, keep both Ceph attributes and set `<your-ceph-fsid>` from `ceph fsid`.
+
+```yaml copy
+processors:
+  resourcedetection:
+    detectors: [env, system]
+    system:
+      hostname_sources: [os]
+      resource_attributes:
+        host.name:
+          enabled: true
+        host.id:
+          enabled: true
+        os.type:
+          enabled: true
+
+  resource/common:
+    attributes:
+      - key: deployment.environment
+        value: <your-environment>
+        action: upsert
+      - key: proxmox.cluster.name
+        value: <your-cluster-name>
+        action: upsert
+      - key: ceph.cluster.name
+        value: ceph
+        action: upsert
+      - key: ceph.cluster.fsid
+        value: <your-ceph-fsid>
+        action: upsert
+      - key: service.name
+        value: proxmox-host
+        action: upsert
+
+  batch:
+    send_batch_size: 8192
+    timeout: 10s
+
+exporters:
+  otlp_grpc/gateway:
+    endpoint: <your-otlp-endpoint>:4317
+    tls:
+      insecure: true
+    sending_queue:
+      enabled: true
+      num_consumers: 2
+      queue_size: 5000
+    retry_on_failure:
+      enabled: true
+```
+
+Each role below adds receivers and pipelines to the shared blocks above. Build one YAML file per role by merging entries under the existing top-level `receivers:`, `processors:`, `exporters:`, and `service:` keys.
+
+For `role-base`, add the PVE systemd receiver and use one metrics pipeline plus one logs pipeline:
+
+```yaml copy
+receivers:
+  journald/system:
+    units:
+      - ceph-crash.service
+      - pveproxy.service
+      - pvedaemon.service
+      - pvestatd.service
+      - pve-cluster.service
+      - corosync.service
+    priority: info
+
+service:
+  pipelines:
+    metrics:
+      receivers: [host_metrics]
+      processors: [resourcedetection, resource/common, batch]
+      exporters: [otlp_grpc/gateway]
+    logs:
+      receivers: [journald/system]
+      processors: [resourcedetection, resource/common, batch]
+      exporters: [otlp_grpc/gateway]
+  telemetry:
+    logs: { level: warn }
+```
+
+For `role-osd`, add the local `ceph-exporter` scrape and Ceph journald receiver:
+
+```yaml copy
+receivers:
+  prometheus/ceph-exporter:
+    config:
+      scrape_configs:
+        - job_name: ceph-exporter
+          scrape_interval: 30s
+          static_configs:
+            - targets: ['127.0.0.1:9926']
+
+  journald/ceph:
+    units:
+      - ceph-osd@*.service
+      - ceph-crash.service
+      - ceph-exporter.service
+      - pveproxy.service
+      - pvedaemon.service
+      - pvestatd.service
+      - pve-cluster.service
+      - corosync.service
+    priority: info
+
+service:
+  pipelines:
+    metrics:
+      receivers: [host_metrics, prometheus/ceph-exporter]
+      processors: [resourcedetection, resource/common, batch]
+      exporters: [otlp_grpc/gateway]
+    logs:
+      receivers: [journald/ceph]
+      processors: [resourcedetection, resource/common, batch]
+      exporters: [otlp_grpc/gateway]
+  telemetry:
+    logs: { level: warn }
+```
+
+For `role-mon`, start from `role-osd`. Add `ceph-mon@*.service` and `ceph-mds@*.service` to `journald/ceph.units`, then add the filelog receivers for the cluster-aggregated `ceph.log` and `ceph.audit.log` files:
+
+```yaml copy
+receivers:
+  file_log/ceph-cluster:
+    include:
+      - /var/log/ceph/ceph.log
+    include_file_path: true
+    start_at: end
+    operators:
+      - type: regex_parser
+        regex: '^(?P<ts>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+[+-]\d{4})\s+(?P<rest>.*)$'
+        timestamp:
+          parse_from: attributes.ts
+          layout_type: gotime
+          layout: '2006-01-02T15:04:05.000000-0700'
+      - type: add
+        field: attributes["ceph.log"]
+        value: cluster
+
+  file_log/ceph-audit:
+    include:
+      - /var/log/ceph/ceph.audit.log
+    include_file_path: true
+    start_at: end
+    operators:
+      - type: regex_parser
+        regex: '^(?P<ts>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+[+-]\d{4})\s+(?P<rest>.*)$'
+        timestamp:
+          parse_from: attributes.ts
+          layout_type: gotime
+          layout: '2006-01-02T15:04:05.000000-0700'
+      - type: add
+        field: attributes["ceph.log"]
+        value: audit
+
+service:
+  pipelines:
+    logs:
+      receivers: [journald/ceph, file_log/ceph-cluster, file_log/ceph-audit]
+      processors: [resourcedetection, resource/common, batch]
+      exporters: [otlp_grpc/gateway]
+```
+
+For `role-mon-mgr`, start from `role-mon`. Add `ceph-mgr@*.service` and `ceph-radosgw@*.service` to `journald/ceph.units`, then add the mgr scrape receiver to the metrics pipeline:
+
+```yaml copy
+receivers:
+  prometheus/ceph-mgr:
+    config:
+      scrape_configs:
+        - job_name: ceph-mgr
+          scrape_interval: 30s
+          static_configs:
+            - targets: ['127.0.0.1:9283']
+
+service:
+  pipelines:
+    metrics:
+      receivers: [host_metrics, prometheus/ceph-exporter, prometheus/ceph-mgr]
+      processors: [resourcedetection, resource/common, batch]
+      exporters: [otlp_grpc/gateway]
+```
+
+The `journald` `units:` list uses globs (`ceph-osd@*.service`), which are passed through to `journalctl --unit=` and expanded there. A unit that does not exist on a node is silently empty rather than an error.
+
+```bash copy
+scp role-<role>.yaml root@<host>:/etc/otelcol-contrib/config.yaml
+ssh root@<host> 'systemctl daemon-reload && systemctl restart otelcol-contrib'
+```
+
+</Step>
+
+<Step title="Confirm telemetry is flowing">
+
+Each collector exposes its own self-metrics on `:8888`. The two counters that matter are the per-exporter sent/failed metric points and log records:
+
+```bash copy
+ssh root@<host> 'curl -s http://127.0.0.1:8888/metrics | grep -E "^otelcol_exporter_(sent|send_failed)_(metric_points|log_records)"'
+```
+
+Expected output (counters climb, `send_failed_*` stays at 0):
+
+```text
+otelcol_exporter_sent_metric_points{exporter="otlp_grpc/gateway",…} 7168
+otelcol_exporter_sent_log_records{exporter="otlp_grpc/gateway",…}   129
+otelcol_exporter_send_failed_metric_points{…} 0
+otelcol_exporter_send_failed_log_records{…}   0
+```
+
+On the destination side, the cleanest end-to-end signal is `ceph_health_status` — exactly one sample per cluster, low cardinality, easy to spot. If you see it stamped with `proxmox.cluster.name=<your-cluster-name>`, the pipeline is working.
+
+</Step>
+
+</Steps>
+
+## What's collected
+
+**Host metrics (every node)** — OTel `system.*` semantic conventions: CPU per-state, load average 1/5/15m, memory per-state, disk I/O / ops / io_time, filesystem usage/utilization per mount, network I/O / packets / errors / dropped, paging usage / operations / faults.
+
+**Ceph metrics (Ceph nodes)** —
+
+- *Cluster state, from the mgr* (`ceph-mgr` scrape, ~100 families): `ceph_health_status`, `ceph_mon_quorum_status`, `ceph_osd_up` / `ceph_osd_in`, `ceph_pg_total` / `ceph_pg_active` / `ceph_pg_degraded` / `ceph_pg_recovering` / etc., `ceph_cluster_total_bytes`, `ceph_cluster_total_used_bytes`, `ceph_pool_{stored, max_avail, percent_used, rd, wr, …}`, `ceph_osd_apply_latency_ms`, `ceph_osd_commit_latency_ms`, `ceph_healthcheck_slow_ops`.
+
+- *Per-daemon performance, from `ceph-exporter`* (~500 families per OSD-heavy node): `ceph_osd_op{_r,_w,_rw}` ops/bytes/latency, `ceph_bluestore_*` (BlueStore internals, RocksDB stages, KV sync latencies), `ceph_bluefs_*`, `ceph_mon_*`, `ceph_paxos_*`, `ceph_rocksdb_*`, `ceph_objecter_*`, and `ceph_rgw_*` if RGW is running.
+
+**Logs (every node)** — systemd journald: `pveproxy`, `pvedaemon`, `pvestatd`, `pve-cluster`, `corosync`, `ceph-crash`.
+
+**Logs (Ceph nodes)** —
+
+- *journald* for every Ceph daemon present (`ceph-mon@*`, `ceph-mgr@*`, `ceph-mds@*`, `ceph-osd@*`, `ceph-radosgw@*`, `ceph-exporter`).
+- *filelog* for `/var/log/ceph/ceph.log` (cluster-aggregated events: health transitions, OSD up/down, PG state, slow ops) and `/var/log/ceph/ceph.audit.log` on mon hosts. Each mon writes its own copy, so on a 3-mon cluster you will see ~3× duplicated records for cluster-wide events; this is intentional — no single point of log loss across mon failover.
+
+## RGW per-bucket metrics — known gap
+
+Per-bucket S3 stats look like they should work via `rgw_bucket_counters_cache` + `rgw_user_counters_cache`, but on Proxmox-packaged Ceph Squid 19.2.3 those configuration options are flagged `(bool, dev)` and emit **no** labelled counters even with the cache enabled and real S3 traffic against the buckets. Separately, the `mgr/rgw` module that would expose per-bucket sync stats is not built into Proxmox's `ceph-mgr-modules-core`. Until both are addressed upstream, expect cluster-wide RGW counters only (no bucket label):
+
+```text
+ceph_rgw_req, ceph_rgw_failed_req
+ceph_rgw_op_{get, put, del, list, copy}_obj_{ops, bytes, lat_sum, lat_count}
+ceph_rgw_cache_hit, ceph_rgw_cache_miss, ceph_rgw_qlen, ceph_rgw_qactive
+```
+
+If per-bucket attribution becomes important, a workable interim path is a small periodic exporter that runs `radosgw-admin bucket stats --bucket=<name>` and writes Prometheus text — outside the scope of this guide.
+
+## Troubleshooting
+
+| Symptom | Likely cause |
+| ------- | ------------ |
+| `ceph-exporter` fails with `unable to find a keyring on /etc/pve/priv/ceph.client..keyring` | The package ships `ExecStart=... --id %i` on a non-templated unit, so `%i` is empty. Add the systemd drop-in from step 2 (`--id ceph-exporter --keyring /etc/ceph/...`). |
+| `ceph-exporter` fails with `Permission denied` on a keyring path | The `ceph` user can't read `/etc/pve/priv/`. The `--keyring` flag in the drop-in must point at `/etc/ceph/ceph.client.ceph-exporter.keyring`, which is `root:ceph 0640` and readable. |
+| `ceph auth get-or-create client.ceph-exporter ...` returns `key for client.ceph-exporter exists but cap mon does not match` | A prior attempt with different caps left a stale auth entry. `ceph auth del client.ceph-exporter` and retry. |
+| `:9283` not listening even after `ceph mgr module enable prometheus` | Module enable is asynchronous; allow ~10 s. Verify with `ceph mgr services` (should show the http endpoint of the active mgr) and `ss -tln \| grep 9283` on the mgr host. |
+| `file_log` receiver `permission denied` on `/var/log/ceph/ceph.log` | Collector isn't running as root and `ceph` log files are mode 0600. Either keep the root drop-in from step 3, or drop the `file_log` receivers and rely on journald only. |
+| `journalctl` is empty when the collector calls it | Collector user not in `systemd-journal` group (only relevant if you're running as a non-root user). |
+| Collector logs deprecation warnings about `otlp` / `hostmetrics` / `filelog` | Older receiver/exporter aliases. Use `otlp_grpc`, `host_metrics`, `file_log` (the canonical names used in this guide). |
+| `send_failed_metric_points` climbing | Network path or TLS misconfig. Check that the gateway IP resolves and the port is open from the PVE host; if the gateway terminates TLS, drop `tls.insecure: true` and add a proper `tls:` block with the CA bundle. |
+| Records arrive without `host.name` / `host.id` | `resourcedetection` processor missing from the pipeline. All four roles include it — confirm it's listed in `processors:` for both `metrics` and `logs` pipelines. |
+
+<NextSteps
+  items={[
+    {
+      icon: '📦',
+      title: 'Lakerunner',
+      description: 'Land OTLP metrics and logs in S3 and query them with Lakerunner.',
+      href: '/lakerunner',
+    },
+    {
+      icon: '📡',
+      title: 'OpenTelemetry Collectors',
+      description: 'Collector architecture and topology recommendations.',
+      href: '/lakerunner/collectors',
+    },
+    {
+      icon: '🧰',
+      title: 'More how-to guides',
+      description: 'Browse the rest of the how-to library.',
+      href: '/how-to',
+    },
+  ]}
+/>
+
+<SupportCallout />
