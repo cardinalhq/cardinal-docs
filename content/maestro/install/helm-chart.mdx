@@ -53,29 +53,33 @@ An `initContainer` waits for the MCP gateway service to accept connections befor
 
 ## MCP Gateway workload
 
+Starting with chart **0.8.0**, the MCP gateway runs as a Kubernetes native sidecar (initContainer with `restartPolicy: Always`) inside every Maestro pod and every github-cache pod. There is no standalone Deployment or Service by default — Maestro talks to it over `localhost`, so every MCP session stays pod-local. The `mcpGateway.enabled` and `mcpGateway.replicas` fields from older chart versions no longer exist.
+
 ```yaml
 mcpGateway:
-  enabled: true
-  replicas: 1
   port: 8080
   debugPort: 9090
   apiKey: ""
+  apiKeySecret:
+    name: ""
+    key: "MCP_API_KEY"
+  service:
+    enabled: false
   resources: {}
-  labels: {}
-  annotations: {}
-  nodeSelector: {}
-  tolerations: []
-  affinity: {}
   env: []
 ```
 
 | Field | Default | Notes |
 | ----- | ------- | ----- |
-| `mcpGateway.enabled` | `true` | Must be enabled for integrations to work |
-| `mcpGateway.port` | `8080` | Maestro reaches the gateway at `http://<release>-mcp-gateway:8080` |
-| `mcpGateway.debugPort` | `9090` | pprof / debug endpoints — do **not** expose externally |
-| `mcpGateway.apiKey` | `""` | Injected as `MCP_API_KEY`. Leave empty for in-cluster trust; set it if the gateway is reachable beyond the namespace |
-| `mcpGateway.env` | `[]` | Extra env for the gateway (e.g. `AWS_REGION` for Bedrock embeddings) |
+| `mcpGateway.port` | `8080` | Sidecar listen port. Maestro reaches it at `http://localhost:8080`. |
+| `mcpGateway.debugPort` | `9090` | pprof / debug endpoints — do **not** expose externally. |
+| `mcpGateway.apiKey` | `""` | Plaintext value injected as `MCP_API_KEY`. Convenient for local dev; leak risk in checked-in values. |
+| `mcpGateway.apiKeySecret.name` | `""` | Name of an existing Secret holding the API key. The chart injects it as `valueFrom.secretKeyRef`. `apiKey` wins when both are set. |
+| `mcpGateway.apiKeySecret.key` | `"MCP_API_KEY"` | Key within the Secret. |
+| `mcpGateway.service.enabled` | `false` | When `true`, creates `<release>-mcp-gateway` ClusterIP Service that targets the sidecar's port. Required if you want to front the gateway with an Ingress. See [Connect AI Clients](/maestro/mcp-clients). |
+| `mcpGateway.env` | `[]` | Extra env for the sidecar (e.g. `AWS_REGION` for Bedrock embeddings). |
+
+Leave `apiKey` and `apiKeySecret.name` both empty if the gateway is only reached over loopback inside the pod — the sidecar will run unauthenticated, which is safe at that scope. The moment you flip `service.enabled: true` or add your own Ingress, set the API key.
 
 ## Database
 

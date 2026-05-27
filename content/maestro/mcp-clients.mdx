@@ -1,0 +1,262 @@
+import SupportCallout from '../../components/SupportCallout';
+
+# Connect AI clients to the MCP gateway
+
+Cardinal Maestro ships with a built-in **MCP gateway** that exposes every connected integration (Lakerunner, GitHub, Jira, Kubernetes, Slack, and so on) as Model Context Protocol tools. By default the gateway is only reachable from inside the Maestro pod, but you can expose it as an HTTP endpoint so external AI clients — Claude Code, Codex CLI, and other MCP-aware tools — can drive the same toolset directly against your own org's data.
+
+This page covers both deployment modes:
+
+- **In your VPC (self-hosted)** — the common case. You stand up the gateway endpoint inside your cluster and front it with an Ingress you control. Cardinal data never leaves your network.
+- **Cardinal Cloud (SaaS)** — for customers on `app.cardinalhq.io`. We host the endpoint at `mcp.cardinalhq.io` and your Cardinal admin shares an API key.
+
+<SupportCallout />
+
+## How the gateway is exposed
+
+The Maestro pod runs the MCP gateway as a sidecar container. By default the chart does **not** create an external Service for the sidecar — Maestro talks to it over `localhost`, so the wire format is unauthenticated and pod-local.
+
+To make the gateway reachable from outside the pod you need three things:
+
+1. **A ClusterIP Service** in front of the sidecar — gated by `mcpGateway.service.enabled` (chart 0.8.4+).
+2. **An Ingress** (Traefik IngressRoute, plain `Ingress`, or whatever your cluster uses) routing a public hostname to that Service on port `8080`.
+3. **An API key** — once the gateway is reachable beyond the pod, you must require `X-CardinalHQ-API-Key` on every call.
+
+The gateway never speaks OAuth; it gates every request on this single header (or `?apiKey=…` query param). Treat the key like an admin token.
+
+## Endpoint anatomy
+
+Every MCP server lives at:
+
+```
+https://<your-host>/org/<orgId>/integrations/<driver>/mcp
+```
+
+- `<orgId>` is the UUID of the org whose integrations you want to talk to. You can find it in Maestro's admin UI under **Org settings → ID**, or by visiting `GET /org/<orgId>/integrations` once auth works (see below).
+- `<driver>` is `lakerunner`, `github`, `kube`, `jira`, `slack`, `common`, etc. The full list comes back from the discovery endpoint.
+
+The discovery endpoint enumerates available drivers for an org:
+
+```bash
+curl -H "X-CardinalHQ-API-Key: $CARDINAL_MCP_API_KEY" \
+  https://<your-host>/org/<orgId>/integrations
+```
+
+Returns a JSON document with every integration's `mountPath`, transport (always `streamable-http`), and per-instance metadata. Use these mount paths directly when wiring up clients.
+
+A health check is available without auth:
+
+```bash
+curl https://<your-host>/healthz   # → "ok"
+```
+
+## In your VPC (self-hosted)
+
+This is the recommended path for any customer running Maestro inside their own Kubernetes cluster.
+
+### 1. Update your `values.yaml`
+
+Bump the chart to **0.8.4 or later** and add the following to your existing Maestro values:
+
+```yaml
+mcpGateway:
+  service:
+    enabled: true
+  apiKeySecret:
+    name: "mcp-gateway-creds"   # an Opaque Secret you create
+    key: "MCP_API_KEY"
+```
+
+- `service.enabled: true` creates `<release>-mcp-gateway` as a ClusterIP Service that targets the sidecar's `mcp` port.
+- `apiKeySecret` points the chart at an existing Secret holding the API key. Plaintext `mcpGateway.apiKey: "<value>"` also works, but we recommend the secret path — especially if your `values.yaml` lives in git.
+
+See the [Helm Chart Reference](/maestro/install/helm-chart) for full field docs.
+
+### 2. Create the API-key Secret
+
+Generate a strong random key (at minimum 32 bytes of entropy) and store it under whatever secret-management scheme your cluster uses (Sealed Secrets, External Secrets Operator, raw `kubectl create secret`, etc.).
+
+```bash
+# Generate a 64-character URL-safe key
+openssl rand -base64 48 | tr -d '\n=' | tr '/+' '_-'
+```
+
+Plain `kubectl` example (use your secret manager in real deployments):
+
+```bash
+kubectl -n maestro create secret generic mcp-gateway-creds \
+  --from-literal=MCP_API_KEY="<paste-the-generated-key>"
+```
+
+Save a copy of the cleartext in your team password manager — you cannot read it back out of the Secret afterwards without re-extracting via `kubectl get secret`.
+
+### 3. Add an Ingress
+
+The chart does not create one — pick whatever ingress controller your cluster uses. A Traefik example:
+
+```yaml
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: mcp-cert
+  namespace: maestro
+spec:
+  secretName: mcp-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  commonName: mcp.example.internal
+  dnsNames:
+    - mcp.example.internal
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: mcp-ingress
+  namespace: maestro
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`mcp.example.internal`)
+      kind: Rule
+      services:
+        - name: maestro-mcp-gateway
+          port: 8080
+  tls:
+    secretName: mcp-tls
+```
+
+Plain `Ingress` works too; the Service name is `<release>-mcp-gateway` and the port is `8080`.
+
+### 4. Lock it down
+
+Because one API key gates the entire gateway and the orgId is in the URL path, anyone with the key can hit every org on your installation. Treat it like an admin token:
+
+- Prefer **private DNS** + a VPN/Tailscale entry point over a public hostname.
+- If the endpoint must be public, put it behind an additional access layer (Cloudflare Access, an IP allowlist on your ingress controller, mTLS) — the API key alone is fine for an internal-only endpoint, not for the open internet.
+- Rotate by re-issuing the secret value and doing `kubectl -n maestro rollout restart deploy/<release>-maestro`. Maestro picks up the new key on the next pod start.
+
+### 5. Verify
+
+```bash
+export CARDINAL_MCP_API_KEY="<the-key>"
+export CARDINAL_MCP_HOST="https://mcp.example.internal"
+export CARDINAL_ORG_ID="<your-org-uuid>"
+
+curl "$CARDINAL_MCP_HOST/healthz"
+
+curl -H "X-CardinalHQ-API-Key: $CARDINAL_MCP_API_KEY" \
+  "$CARDINAL_MCP_HOST/org/$CARDINAL_ORG_ID/integrations" | jq '.integrations[].type'
+```
+
+The second command should list every integration you have configured.
+
+## Cardinal Cloud (SaaS)
+
+If you use the hosted Cardinal Cloud at `app.cardinalhq.io`, the MCP gateway is already exposed at:
+
+```
+https://mcp.cardinalhq.io
+```
+
+You do **not** stand up your own Service or Ingress. What you need from Cardinal:
+
+- The **API key** (provisioned per team; shared via your password manager).
+- Your **org UUID** (visible in Maestro under **Org settings**, or returned from the discovery endpoint).
+
+Both values come from your Cardinal admin contact. Treat the key as sensitive — it gates every integration on the hosted gateway.
+
+```bash
+export CARDINAL_MCP_API_KEY="<from-your-admin>"
+export CARDINAL_MCP_HOST="https://mcp.cardinalhq.io"
+export CARDINAL_ORG_ID="<your-org-uuid>"
+
+curl "$CARDINAL_MCP_HOST/healthz"
+curl -H "X-CardinalHQ-API-Key: $CARDINAL_MCP_API_KEY" \
+  "$CARDINAL_MCP_HOST/org/$CARDINAL_ORG_ID/integrations" | jq '.integrations[].type'
+```
+
+The rest of this page works identically whether `CARDINAL_MCP_HOST` is `https://mcp.cardinalhq.io` or `https://mcp.example.internal`.
+
+## Configure Claude Code
+
+[Claude Code](https://docs.claude.com/en/docs/claude-code/overview) accepts streamable-HTTP MCP servers via `claude mcp add`. Register each integration you want to expose:
+
+```bash
+# Logs / metrics / traces via Lakerunner
+claude mcp add --transport http --scope user cardinal-lakerunner \
+  "$CARDINAL_MCP_HOST/org/$CARDINAL_ORG_ID/integrations/lakerunner/mcp" \
+  --header "X-CardinalHQ-API-Key: $CARDINAL_MCP_API_KEY"
+
+# Built-in helpers (time resolution, chart rendering)
+claude mcp add --transport http --scope user cardinal-common \
+  "$CARDINAL_MCP_HOST/org/$CARDINAL_ORG_ID/integrations/common/mcp" \
+  --header "X-CardinalHQ-API-Key: $CARDINAL_MCP_API_KEY"
+
+# Code search / PR / issue lookup
+claude mcp add --transport http --scope user cardinal-github \
+  "$CARDINAL_MCP_HOST/org/$CARDINAL_ORG_ID/integrations/github/mcp" \
+  --header "X-CardinalHQ-API-Key: $CARDINAL_MCP_API_KEY"
+```
+
+`--scope user` puts the registration in `~/.claude.json` (available across all your projects). Drop the flag to scope it to the current project instead.
+
+Verify with `claude mcp list` — each server should show `✓ Connected`. Tools from each driver are then available in your Claude Code session under the configured names.
+
+To remove a registration: `claude mcp remove cardinal-lakerunner`.
+
+## Configure Codex CLI
+
+[OpenAI Codex CLI](https://github.com/openai/codex) keeps its config in `~/.codex/config.toml`. It supports streamable-HTTP MCP servers with custom headers via the `env_http_headers` table.
+
+Export the key once (drop it in your shell profile so every Codex session sees it):
+
+```bash
+export CARDINAL_MCP_API_KEY="<your-key>"
+```
+
+Then append entries to `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.cardinal-lakerunner]
+url = "https://mcp.example.internal/org/<org-uuid>/integrations/lakerunner/mcp"
+env_http_headers = { "X-CardinalHQ-API-Key" = "CARDINAL_MCP_API_KEY" }
+
+[mcp_servers.cardinal-common]
+url = "https://mcp.example.internal/org/<org-uuid>/integrations/common/mcp"
+env_http_headers = { "X-CardinalHQ-API-Key" = "CARDINAL_MCP_API_KEY" }
+
+[mcp_servers.cardinal-github]
+url = "https://mcp.example.internal/org/<org-uuid>/integrations/github/mcp"
+env_http_headers = { "X-CardinalHQ-API-Key" = "CARDINAL_MCP_API_KEY" }
+```
+
+`env_http_headers` reads the header value from the named environment variable at request time, so the cleartext key never lands in the TOML file.
+
+Verify with `codex mcp list`. To remove an entry: `codex mcp remove cardinal-lakerunner`.
+
+## Picking which drivers to wire up
+
+Discovery returns every active integration on the org. Most teams expose a small set:
+
+| Driver | What it does | Useful when |
+| ------ | ------------ | ----------- |
+| `lakerunner` | Logs, metrics, traces, service-graph queries | Day-to-day debugging, incident response |
+| `common` | Time resolution, chart rendering | Almost always — small, no creds needed |
+| `github` | Code search, file read, PR/issue lookup | Pairs well with `lakerunner` for "what changed?" |
+| `jira` | Issue search and read | Ops/incident workflows |
+| `kube` | Cluster-aware kubectl-style tools | When the AI needs to inspect a specific Kubernetes integration's cluster |
+| `slack` | Read messages, post into channels | Status updates, escalation |
+| `servicenow` | Incident lookup | If ServiceNow is your ticketing system |
+
+`databricks`, `collector-editor`, and other drivers appear in discovery when configured. Add what you'll use; don't add what you won't (each connected server is loaded at client startup).
+
+## Troubleshooting
+
+- **`Unauthorized: missing API key`** — header name is case-insensitive but the spelling matters: `X-CardinalHQ-API-Key`. Confirm with `curl -H "X-CardinalHQ-API-Key: $CARDINAL_MCP_API_KEY" "$CARDINAL_MCP_HOST/healthz"` should still return `ok` (healthz is auth-exempt) — if that fails the endpoint isn't reachable, not an auth problem.
+- **`Forbidden` or empty discovery** — your `<orgId>` is wrong or your key is for a different installation. Hit `/org/<orgId>/integrations` directly with `curl` and inspect the body.
+- **`Failed to connect` in `claude mcp list`** — usually local DNS staleness right after a fresh Ingress comes up. On macOS: `sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder`. Confirm independently with `curl` first.
+- **`kube` tools return "missing cluster credentials"** — the `kube` driver expects `X-Kube-Cluster` headers populated by Maestro's UI proxy. Driving it directly from Claude/Codex without those headers will only work for cluster-list operations; the maestro proxy path at `/api/orgs/<orgId>/integrations/kube/mcp` is the supported route for full Kubernetes access.
+- **Tool calls succeed but return empty results** — check that the underlying integration is enabled and `active` in Maestro (Org settings → Integrations).
+
+<SupportCallout />
