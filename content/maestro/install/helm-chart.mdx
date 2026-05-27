@@ -76,10 +76,10 @@ mcpGateway:
 | `mcpGateway.apiKey` | `""` | Plaintext value injected as `MCP_API_KEY`. Convenient for local dev; leak risk in checked-in values. |
 | `mcpGateway.apiKeySecret.name` | `""` | Name of an existing Secret holding the API key. The chart injects it as `valueFrom.secretKeyRef`. `apiKey` wins when both are set. |
 | `mcpGateway.apiKeySecret.key` | `"MCP_API_KEY"` | Key within the Secret. |
-| `mcpGateway.service.enabled` | `false` | When `true`, creates `<release>-mcp-gateway` ClusterIP Service that targets the sidecar's port. Required if you want to front the gateway with an Ingress. See [Connect AI Clients](/maestro/mcp-clients). |
+| `mcpGateway.service.enabled` | `false` | When `true`, creates `<release>-mcp-gateway` ClusterIP Service targeting the sidecar's port. **Only useful for single-pod installs**; for any multi-replica deployment, expose the MCP entry point through Maestro instead (`MAESTRO_MCP_API_KEY` on the Maestro container — see [Connect AI Clients](/maestro/mcp-clients)). |
 | `mcpGateway.env` | `[]` | Extra env for the sidecar (e.g. `AWS_REGION` for Bedrock embeddings). |
 
-Leave `apiKey` and `apiKeySecret.name` both empty if the gateway is only reached over loopback inside the pod — the sidecar will run unauthenticated, which is safe at that scope. The moment you flip `service.enabled: true` or add your own Ingress, set the API key.
+Leave `apiKey` and `apiKeySecret.name` both empty for most installs — the sidecar runs unauthenticated on `localhost`, and external auth is enforced at the Maestro entry point via `MAESTRO_MCP_API_KEY`. The `mcpGateway.apiKey*` knobs only matter if you also flipped `service.enabled: true` to expose the sidecar directly (a single-pod-only path; in multi-replica installs, route external MCP traffic through Maestro per [Connect AI Clients](/maestro/mcp-clients)).
 
 ## Database
 
