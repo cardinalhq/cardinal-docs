@@ -1,4 +1,5 @@
 import SizingEstimator from '../../components/SizingEstimator';
+import QuerySizingEstimator from '../../components/QuerySizingEstimator';
 import SupportCallout from '../../components/SupportCallout';
 
 # Sizing Estimator
@@ -6,5 +7,13 @@ import SupportCallout from '../../components/SupportCallout';
 Use this calculator to estimate the compute resources (vCPU and memory) required for your Lakerunner deployment based on your expected telemetry throughput.
 
 <SizingEstimator />
+
+## Query sizing from usage
+
+The estimator above takes the number of query workers as a direct input. If you don't have a feel for that number yet, this calculator derives it from how your team uses the product — dashboards, alerts, and engineers — and estimates the compute cost across business and off-peak hours.
+
+The model assumes query pods scale down outside business hours, when only alert evaluation drives load. Pods are sized in 4-pod groups, where each group of 2-vCPU / 4-GiB pods handles up to 30 QPS.
+
+<QuerySizingEstimator />
 
 <SupportCallout />

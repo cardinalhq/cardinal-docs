@@ -150,3 +150,131 @@ export function formatMemoryGi(mi: number): string {
 export function formatCpu(cpu: number): string {
   return cpu.toFixed(2);
 }
+
+// ---------------------------------------------------------------------------
+// Query sizing — derives QPS, pod groups, and monthly cost from usage signals.
+// ---------------------------------------------------------------------------
+
+// 4 pods @ 2 vCPU + 4 GiB each handle up to 30 QPS, so a "group" of 4 pods
+// is the unit we scale in. Each pod is 7.5 QPS; we round up to 4-pod groups
+// with a minimum of one group for HA.
+export const QUERY_POD_GROUP_SIZE = 4;
+export const QUERY_GROUP_QPS_CAPACITY = 30;
+export const QUERY_POD_CPU = 2;
+export const QUERY_POD_MEMORY_MI = 4096;
+
+export interface QuerySizingInput {
+  dashboards: number;
+  alerts: number;
+  engineers: number;
+
+  // Tunable assumptions (exposed in the UI as "Advanced").
+  alertEvalIntervalSec: number;          // how often each alert evaluates
+  panelsPerDashboard: number;            // avg query-emitting panels per dashboard
+  panelRefreshSec: number;               // dashboard panel auto-refresh interval
+  dashboardConcurrency: number;          // dashboards actively viewed per engineer at peak
+  adhocQueriesPerEngineerPerHour: number;
+  peakHoursPerDay: number;
+  peakDaysPerWeek: number;
+  costPerPodHourUsd: number;
+  headroomFactor: number;                // multiplier applied to QPS before sizing (slow queries, retries, latency variance)
+  minPodGroups: number;                  // minimum pod groups for HA, even at low QPS
+}
+
+export interface QuerySizingResult {
+  alertQps: number;
+  dashboardQps: number;
+  adhocQps: number;
+  peakQps: number;
+  offPeakQps: number;
+  peakPods: number;
+  offPeakPods: number;
+  peakHoursPerMonth: number;
+  offPeakHoursPerMonth: number;
+  monthlyCostUsd: number;
+  peakMonthlyCostUsd: number;
+  offPeakMonthlyCostUsd: number;
+  peakCpu: number;
+  peakMemoryMi: number;
+  offPeakCpu: number;
+  offPeakMemoryMi: number;
+}
+
+export const QUERY_SIZING_DEFAULTS: Omit<QuerySizingInput, 'dashboards' | 'alerts' | 'engineers'> = {
+  alertEvalIntervalSec: 60,
+  panelsPerDashboard: 12,
+  panelRefreshSec: 20,
+  dashboardConcurrency: 1.0,
+  adhocQueriesPerEngineerPerHour: 5,
+  peakHoursPerDay: 10,
+  peakDaysPerWeek: 5,
+  costPerPodHourUsd: 0.06,
+  headroomFactor: 3.0,
+  minPodGroups: 2,
+};
+
+const WEEKS_PER_MONTH = 4.345;
+const HOURS_PER_WEEK = 168;
+
+function podsForQps(qps: number, headroomFactor: number, minPodGroups: number): number {
+  const effectiveQps = Math.max(0, qps) * Math.max(0, headroomFactor);
+  const minGroups = Math.max(1, Math.floor(minPodGroups));
+  const groups = Math.max(minGroups, Math.ceil(effectiveQps / QUERY_GROUP_QPS_CAPACITY));
+  return groups * QUERY_POD_GROUP_SIZE;
+}
+
+export function calculateQuerySizing(input: QuerySizingInput): QuerySizingResult {
+  const dashboards = Math.max(0, input.dashboards);
+  const alerts = Math.max(0, input.alerts);
+  const engineers = Math.max(0, input.engineers);
+  const alertEvalIntervalSec = Math.max(1, input.alertEvalIntervalSec);
+  const panelsPerDashboard = Math.max(0, input.panelsPerDashboard);
+  const panelRefreshSec = Math.max(1, input.panelRefreshSec);
+  const dashboardConcurrency = Math.max(0, input.dashboardConcurrency);
+  const adhocPerHour = Math.max(0, input.adhocQueriesPerEngineerPerHour);
+  const peakHoursPerDay = Math.min(24, Math.max(0, input.peakHoursPerDay));
+  const peakDaysPerWeek = Math.min(7, Math.max(0, input.peakDaysPerWeek));
+  const costPerPodHourUsd = Math.max(0, input.costPerPodHourUsd);
+  const headroomFactor = Math.max(1, input.headroomFactor);
+  const minPodGroups = Math.max(1, Math.floor(input.minPodGroups));
+
+  const alertQps = alerts / alertEvalIntervalSec;
+
+  const concurrentDashboards = Math.min(dashboards, engineers * dashboardConcurrency);
+  const dashboardQps = (concurrentDashboards * panelsPerDashboard) / panelRefreshSec;
+
+  const adhocQps = (engineers * adhocPerHour) / 3600;
+
+  const peakQps = alertQps + dashboardQps + adhocQps;
+  const offPeakQps = alertQps;
+
+  const peakPods = podsForQps(peakQps, headroomFactor, minPodGroups);
+  const offPeakPods = podsForQps(offPeakQps, headroomFactor, minPodGroups);
+
+  const peakHoursPerWeek = Math.min(HOURS_PER_WEEK, peakHoursPerDay * peakDaysPerWeek);
+  const offPeakHoursPerWeek = HOURS_PER_WEEK - peakHoursPerWeek;
+  const peakHoursPerMonth = peakHoursPerWeek * WEEKS_PER_MONTH;
+  const offPeakHoursPerMonth = offPeakHoursPerWeek * WEEKS_PER_MONTH;
+
+  const peakMonthlyCostUsd = peakPods * peakHoursPerMonth * costPerPodHourUsd;
+  const offPeakMonthlyCostUsd = offPeakPods * offPeakHoursPerMonth * costPerPodHourUsd;
+
+  return {
+    alertQps,
+    dashboardQps,
+    adhocQps,
+    peakQps,
+    offPeakQps,
+    peakPods,
+    offPeakPods,
+    peakHoursPerMonth,
+    offPeakHoursPerMonth,
+    monthlyCostUsd: peakMonthlyCostUsd + offPeakMonthlyCostUsd,
+    peakMonthlyCostUsd,
+    offPeakMonthlyCostUsd,
+    peakCpu: peakPods * QUERY_POD_CPU,
+    peakMemoryMi: peakPods * QUERY_POD_MEMORY_MI,
+    offPeakCpu: offPeakPods * QUERY_POD_CPU,
+    offPeakMemoryMi: offPeakPods * QUERY_POD_MEMORY_MI,
+  };
+}
