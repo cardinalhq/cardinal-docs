@@ -14,7 +14,7 @@
   "packageManager": "pnpm@10.30.1",
   "license": "MIT",
   "dependencies": {
-    "next": "^16.2.4",
+    "next": "^16.2.6",
     "nextra": "^4.6.0",
     "nextra-theme-docs": "^4.6.0",
     "react": "^19.0.0",
