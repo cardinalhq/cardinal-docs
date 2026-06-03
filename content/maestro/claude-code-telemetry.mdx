@@ -1,0 +1,183 @@
+import SupportCallout from '../../components/SupportCallout';
+
+# Stream Claude Code telemetry to Cardinal
+
+Claude Code emits OpenTelemetry — sessions, tool calls, token usage, cost, and (beta) traces. Pointing those at Cardinal turns every engineer's local Claude Code into a feed the **Outcomes Dashboard** can classify, score, and roll up by workflow, team, repo, and cost.
+
+This page covers three onboarding paths, ranked by friction. They all end at the same place: Claude Code → OTLP HTTP → Lakerunner.
+
+<SupportCallout />
+
+## Pick a path
+
+| Path | Who it's for | Effort |
+| --- | --- | --- |
+| **1. Web** — Cardinal mints the key, you paste the env block | Anyone with a Cardinal account | ~1 minute, no install |
+| **2. Plugin** — `/cardinal:connect` runs a small script | Claude Code users who want a one-command flow | ~3 minutes, one-time `claude plugin install` |
+| **3. Raw env vars** — set `OTEL_*` by hand | CI runners, headless environments, power users | depends |
+
+The fastest is path 1. Pick path 2 if you'd rather automate the file write (plus handle re-rotation, status checks, and disconnect later). Path 3 is the escape hatch for environments without a browser or a plugin manager.
+
+## Path 1 — Cardinal web app (recommended)
+
+1. Sign in to **[app.cardinalhq.io](https://app.cardinalhq.io)**.
+2. Navigate to **Settings → Connect Claude Code**.
+3. Click **Generate**. The page mints a fresh ingest API key and renders an env block with the key, your org slug, your email, and the right region endpoint inlined.
+4. Copy the env block.
+5. Open `~/.claude/settings.json`. If the file doesn't exist, create it with the snippet as the entire content. If it does, merge the `env` block into your existing top-level `env` key — replace any `OTEL_*` or `CLAUDE_CODE_*` keys that already exist, and leave any other keys (like `theme` or `enabledPlugins`) alone.
+6. **Save**. The file must stay valid JSON; one syntax error and Claude Code silently ignores the entire file.
+7. **Fully quit Claude Code** (`Cmd-Q` on macOS) and start a new session. The env block is read once at process start — an in-flight session won't pick it up.
+
+The key is shown **once**. Store it in your password manager or just re-run the flow if you need a fresh one.
+
+### What the env block looks like
+
+```json
+{
+  "env": {
+    "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
+    "CLAUDE_CODE_ENHANCED_TELEMETRY_BETA": "1",
+    "OTEL_METRICS_EXPORTER": "otlp",
+    "OTEL_LOGS_EXPORTER": "otlp",
+    "OTEL_TRACES_EXPORTER": "otlp",
+    "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
+    "OTEL_EXPORTER_OTLP_ENDPOINT": "https://otelhttp.intake.<your-region>.aws.cardinalhq.io",
+    "OTEL_EXPORTER_OTLP_HEADERS": "x-cardinalhq-api-key=<your-key>",
+    "OTEL_RESOURCE_ATTRIBUTES": "service.name=claude-code,agent.runtime=claude-code,deployment.environment=prod,user.email=you@example.com,cardinal.org=your-org-slug",
+    "OTEL_LOG_TOOL_DETAILS": "1"
+  }
+}
+```
+
+The endpoint host varies by region — the web page inlines the right one for your workspace. `OTEL_LOG_TOOL_DETAILS` is on by default; see [Privacy gates](#privacy-gates) for what it does and when to turn it off.
+
+## Path 2 — Cardinal Claude plugin
+
+The plugin automates the file-merge step (which is the most common place onboarding breaks). One install, three commands.
+
+```bash
+claude plugin marketplace add cardinalhq/cardinal-claude-plugin
+claude plugin install cardinal@cardinalhq-claude-plugin
+```
+
+Then, inside Claude Code:
+
+```
+/cardinal:connect \
+  --ingest-endpoint https://otelhttp.intake.us-east-2.aws.cardinalhq.io \
+  --key <paste-key-from-web-page> \
+  --org your-org-slug \
+  --user-email you@example.com
+```
+
+The plugin merges the env block into `~/.claude/settings.json` safely (preserves any keys it doesn't own), runs a reachability check before touching local files, and records non-secret metadata in `~/.claude/cardinal.json` so the companion commands have something to read.
+
+Other commands:
+
+- `/cardinal:status` — verify the wiring, ping the endpoint, report key age.
+- `/cardinal:disconnect` — clean local config. (v0.1 does not yet revoke the key server-side — revoke at [app.cardinalhq.io/settings/api-keys](https://app.cardinalhq.io/settings/api-keys).)
+
+See the [plugin repo](https://github.com/cardinalhq/cardinal-claude-plugin#readme) for the full command reference and roadmap.
+
+## Path 3 — Manual env vars
+
+For CI / headless / power users.
+
+```bash
+export CLAUDE_CODE_ENABLE_TELEMETRY=1
+export CLAUDE_CODE_ENHANCED_TELEMETRY_BETA=1
+export OTEL_METRICS_EXPORTER=otlp
+export OTEL_LOGS_EXPORTER=otlp
+export OTEL_TRACES_EXPORTER=otlp
+export OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+export OTEL_EXPORTER_OTLP_ENDPOINT="https://otelhttp.intake.<your-region>.aws.cardinalhq.io"
+export OTEL_EXPORTER_OTLP_HEADERS="x-cardinalhq-api-key=<your-key>"
+export OTEL_RESOURCE_ATTRIBUTES="service.name=claude-code,agent.runtime=claude-code,deployment.environment=prod,user.email=$USER_EMAIL,cardinal.org=<your-org-slug>"
+export OTEL_LOG_TOOL_DETAILS=1
+```
+
+Mint the key once via the Cardinal web app (Path 1, steps 1–3) or via the maestro API directly. Store it in your CI secret store; don't commit it to a repo.
+
+## Privacy gates
+
+Three OpenTelemetry switches control how much detail Claude Code emits about each tool call. Set deliberately:
+
+| Env var | What it does | Cardinal default | Why |
+| --- | --- | --- | --- |
+| `OTEL_LOG_TOOL_DETAILS` | Emits `file_path` on Read/Edit/Write spans and `full_command` on Bash spans. | **on** | Required for per-repo and per-service attribution in the Outcomes Dashboard. Without this, every session shows `repo=unknown`. |
+| `OTEL_LOG_USER_PROMPTS` | Emits the full text of every user prompt. | **off** (never set by the plugin) | High PII surface — prompts often contain proprietary code, ticket numbers, customer names. Leave off unless your org has explicit consent. |
+| `OTEL_LOG_TOOL_CONTENT` | Emits tool input and output bodies as span events. | **off** (never set by the plugin) | Largest data surface. Useful for deep forensics; never on by default. |
+
+If your org's privacy policy forbids capturing command lines or file paths, pass `--no-tool-details` to `/cardinal:connect` (or omit `OTEL_LOG_TOOL_DETAILS` if you're setting env vars by hand). The Outcomes Dashboard will then attribute every session as `repo=unknown` / `service=unknown` — that's the cost of opting out, and the dashboard surfaces it clearly so you know which sessions need better instrumentation.
+
+## What attributes you get
+
+Claude Code's OTel resource attributes get set once at process start and are immutable for the lifetime of that session. The web page and plugin both write:
+
+| Attribute | Source | Notes |
+| --- | --- | --- |
+| `service.name=claude-code` | constant | OTel-spec-compliant identifier |
+| `agent.runtime=claude-code` | constant | Schema slot for future Cursor/Codex/Cline support |
+| `deployment.environment` | derived from host (`prod` for `app.cardinalhq.io`) | Set by `/cardinal:connect` or by hand |
+| `user.email` | from your Cardinal account | Stable per (user, install) |
+| `cardinal.org` | from your Cardinal account | Stable per (install, org) |
+| `cardinal.plugin_version` | plugin's `plugin.json` semver | Only present when the plugin wrote the env |
+
+### What you DON'T get at resource-attribute time, and why
+
+`repo`, `branch`, `service`, `cwd` are **not** set as resource attributes — and shouldn't be. A coding session can `cd` between repos partway through; resource attrs would be wrong the moment that happened. The Outcomes pipeline derives `repo` per-step from `file_path` on Read/Edit/Write spans, `branch` from `git` commands on Bash spans, and `service` from a path-pattern heuristic (or an org-tunable mapping registry). This is why `OTEL_LOG_TOOL_DETAILS=1` matters: without it, the pipeline has nothing to derive from.
+
+## Verify it's working
+
+Three quick checks, in order:
+
+**1. Endpoint reachability.** A tiny POST against the OTLP metrics path should return 200 (or 400 for the empty body — both prove the endpoint is up and the key is accepted):
+
+```bash
+curl -sS -o /dev/null -w '%{http_code}\n' \
+  -X POST \
+  -H 'content-type: application/x-protobuf' \
+  -H "x-cardinalhq-api-key: $YOUR_KEY" \
+  --data-binary '' \
+  "https://otelhttp.intake.<your-region>.aws.cardinalhq.io/v1/metrics"
+```
+
+A `200` or `400` is good. `401` or `403` means the key is wrong or revoked.
+
+**2. Service registered.** Within ~30 seconds of your first Claude Code session, the service shows up in Cardinal's service inventory:
+
+```bash
+curl -sS -H "x-cardinalhq-api-key: $YOUR_KEY" \
+  "https://app.cardinalhq.io/api/orgs/$YOUR_ORG_UUID/lakerunner/v1/services?service_name=claude" \
+  | jq '.services'
+```
+
+You should see `claude-code` listed with `signals: ["logs", "metrics"]`.
+
+**3. Real events landing.** Use the Cardinal app's Explore → Logs view (or the plugin's `/cardinal:status` command) to query for `service_name="claude-code"` over the last few minutes. You should see event names like `claude_code.user_prompt`, `claude_code.tool_decision`, `claude_code.tool_result`, `claude_code.api_request`.
+
+If you don't see events within five minutes:
+
+- Check that `~/.claude/settings.json` is valid JSON. Run `python3 -m json.tool < ~/.claude/settings.json` — if it errors, Claude Code is silently ignoring the entire file.
+- Check that you **fully quit and relaunched** Claude Code. Env is read once at process start.
+- Check that the key in `OTEL_EXPORTER_OTLP_HEADERS` is the same one you saw on the Connect Claude Code page (the page shows it once at mint time).
+
+## Cost and retention
+
+Claude Code's telemetry footprint is small per session — typically tens of events at a few KB each, plus the API-request metric. For a single engineer using Claude Code a few hours a day, expect on the order of a few MB/day of ingest.
+
+Default retention for raw telemetry on Cardinal Cloud is 30 days; derived rollups (the data the Outcomes Dashboard reads) are retained longer. Self-hosted Lakerunner deployments inherit whatever retention you've configured for your bucket.
+
+## Manage and rotate keys
+
+Mint a fresh key any time at **Settings → Connect Claude Code** (it generates a new key on each visit; the previous one stays valid until you revoke it explicitly).
+
+To revoke a key:
+
+1. **Settings → API Keys** in the Cardinal app.
+2. Find the key (the plugin labels keys as `claude-code-telemetry/user_email=…/host=…/issued=YYYY-MM-DD` so per-user / per-machine keys are easy to identify).
+3. Click **Revoke**. The Lakerunner-side revoke is queued and typically completes within seconds.
+
+Re-running `/cardinal:connect --rotate` (or the web flow) any time lets you mint a fresh key without touching the old one — useful when sharing a workstation or before going on extended leave.
+
+<SupportCallout />

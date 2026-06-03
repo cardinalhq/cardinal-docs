@@ -6,4 +6,5 @@ export default {
   install: 'Installation',
   integrations: 'Integrations',
   'mcp-clients': 'Connect AI Clients',
+  'claude-code-telemetry': 'Claude Code Telemetry',
 }
