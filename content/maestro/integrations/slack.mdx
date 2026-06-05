@@ -4,6 +4,8 @@ import SupportCallout from '../../../components/SupportCallout';
 
 Connect Cardinal to Slack to send AI-generated notifications and alerts to channels, and to let the AI agent resolve users and channels and post messages on demand.
 
+Each org registers their own Slack app (via a manifest YAML Cardinal generates for you) and completes a one-click OAuth install. The bot's scopes are locked to exactly what Cardinal calls at runtime — Slack rejects an install whose declared scopes are missing what we ask for, with a clear `invalid_scope` at install time rather than a silent `missing_scope` at first send.
+
 ## Overview
 
 With the Slack integration, the AI agent can:
@@ -15,77 +17,99 @@ With the Slack integration, the AI agent can:
 - **Find a channel** by name (public, private, DMs, multi-party DMs)
 - **Send a message** to a resolved user or channel
 
-The same bot token powers all of the above — Slack's permission model attaches scopes to the bot, not to individual API calls. Add the scopes you intend to use; leave out the ones you don't.
-
 ## Capabilities
 
 | Capability | Enabled |
 | ---------- | ------- |
 | Notify | Always |
-| Agent | When the bot has the discovery + send scopes (see below) |
-
-## Configuration
-
-### Credentials
-
-| Field | Required | Description |
-| ----- | -------- | ----------- |
-| **Bot Token** | Yes | Slack bot OAuth token (format: `xoxb-...`) |
-
-## Prerequisites
-
-- A Slack workspace where you have permission to install apps
-- A Slack app with a Bot User OAuth Token
-- The bot must be invited to any channel you want it to post in
-
-### Required Slack scopes
-
-The minimum is `chat:write` (notify-only). Each additional scope unlocks an agent capability:
-
-| Scope | What it enables |
-| ----- | --------------- |
-| `chat:write` | Sending messages to channels (notify + agent `send_message`) |
-| `chat:write.public` | Sending to public channels the bot hasn't been invited to (optional) |
-| `users:read` | `find_user` — listing workspace users |
-| `users:read.email` | Letting `find_user` match against and return user emails |
-| `channels:read` | `find_channel` — listing public channels |
-| `groups:read` | `find_channel` — listing private channels |
-| `im:read` | `find_channel` — listing direct-message channels |
-| `mpim:read` | `find_channel` — listing multi-party DM channels |
-
-If a scope is missing, the matching agent tool returns a clean error telling the planner to fall back. The notify path keeps working with `chat:write` alone.
-
-### Creating a Slack App
-
-1. Go to [api.slack.com/apps](https://api.slack.com/apps).
-2. Click **Create New App** > **From scratch**.
-3. Name the app (e.g., "Cardinal Bot") and select your workspace.
-4. Navigate to **OAuth & Permissions**.
-5. Under **Bot Token Scopes**, add the scopes from the table above that match the capabilities you want.
-6. Click **Install to Workspace** and authorize the app.
-7. Copy the **Bot User OAuth Token** (starts with `xoxb-`).
-
-If you change the scope list after install, you must reinstall the app for the new scopes to take effect.
+| Agent | Always (the manifest declares every scope the agent uses) |
 
 ## Setup
 
+The flow is three steps: create your Slack app from a manifest YAML Cardinal generates, paste back the app's Client ID + Client Secret, click Install to Workspace.
+
+### 1. Download the app manifest
+
 1. Navigate to **Settings → Integrations** and click **Add Integration**.
 2. Select **Slack**.
-3. Paste the **Bot Token** (`xoxb-...`).
-4. Click **Test Connection** to verify the token is valid.
-5. Click **Save**.
-6. Invite the bot to the desired channels using `/invite @Cardinal Bot` in Slack.
+3. On the setup card, click **Download App Manifest**. A `cardinal-slack-app-manifest.yaml` file downloads. It already carries:
+   - The bot scope set Cardinal needs (`channels:read`, `chat:write`, `files:write`, `groups:read`, `im:read`, `mpim:read`, `reactions:write`, `users:read`, `users:read.email`).
+   - The redirect URI Slack will send users back to after install (matches your deployment's `MAESTRO_BASE_URL`).
+   - Sensible defaults for the bot's display name and capabilities.
 
-For private channels, the bot must be a member before `find_channel` will return them. `chat:write.public` covers public-channel sends without invites; for any other case you need to invite the bot.
+### 2. Create the Slack app
 
-## What This Enables
+1. Open [api.slack.com/apps](https://api.slack.com/apps) in a new tab.
+2. Click **Create New App** → **From a manifest**.
+3. Pick the workspace you want the bot to live in.
+4. Paste (or upload) the YAML from step 1. Slack pre-fills name, scopes, and redirect URI from the manifest — no per-scope toggling.
+5. Review and click **Create**.
 
-Once configured, the AI agent and automated workflows can:
+Slack drops you on the app's **Basic Information** page, which carries the two values you'll paste back into Cardinal:
 
-- Send alert notifications when anomalies are detected
-- Post incident summaries to on-call channels
-- Deliver scheduled report digests
-- Resolve a name or email to a Slack user (`find_user`) and 1:1 message them (`send_message`)
-- Resolve a channel name to its id (`find_channel`) and post to it (`send_message`)
+- **Client ID** (public; shown plain text)
+- **Client Secret** (click **Show** to reveal)
+
+If you rename the bot or change its avatar later, do that here. The manifest is just the starting point — Slack's app config is canonical from this point on.
+
+### 3. Install to workspace
+
+1. Back in Cardinal, finish the integration form:
+   - **Name** — your choice (e.g. "Engineering Slack").
+   - **Client ID** — paste from Slack's Basic Information page.
+   - **Client Secret** — paste from Slack's Basic Information page.
+2. Click **Save**. Cardinal stores the credentials and stamps the integration as **Pending Install**.
+3. Open the row and click **Install to Workspace**. Your browser redirects to Slack's authorize screen. Click **Allow**.
+4. Slack redirects you back to Cardinal with a success banner. The integration's status flips to **Connected to *(workspace name)***.
+5. Invite the bot to any channel you want it to post in: `/invite @Cardinal Bot` (or whatever you named it in the manifest).
+
+## Reinstall
+
+Slack scopes drift if you edit the app at `api.slack.com/apps` after installing. To pick up the changes:
+
+1. Open the Slack integration row in Cardinal.
+2. Click **Reinstall**. Cardinal runs the OAuth flow again against the same app.
+3. The new access token replaces the previous one. Channel memberships are unaffected.
+
+You can also use Reinstall to rotate the Client Secret after generating a new one in Slack.
+
+## What the app requests
+
+Cardinal hardcodes the scope set into the OAuth install URL. The manifest in step 1 declares exactly this set on the Slack app side, so Slack grants exactly what Cardinal asks for — no more, no less.
+
+| Scope | What Cardinal uses it for |
+| ----- | ------------------------- |
+| `chat:write` | Posting alerts, AI summaries, and threaded replies |
+| `files:write` | Attaching chart images to alerts |
+| `reactions:write` | Acknowledging and resolving incidents via emoji |
+| `channels:read` | `find_channel` over public channels |
+| `groups:read` | `find_channel` over private channels |
+| `im:read` | `find_channel` over direct-message channels |
+| `mpim:read` | `find_channel` over multi-party DM channels |
+| `users:read` | `find_user` over the workspace |
+| `users:read.email` | `find_user` matching by email |
+
+Scopes that Cardinal does **not** request:
+
+- `chat:write.public` — sending to public channels the bot hasn't been invited to. Cardinal requires the bot to be invited.
+- `channels:history`, `groups:history` — reading message history. Cardinal does not read messages.
+
+## Legacy bot-token configuration
+
+Older Slack integrations were configured by pasting a bot user OAuth token (`xoxb-...`) directly. Manual bot-token entry is **deprecated** — new integrations must go through the OAuth flow above.
+
+Existing legacy integrations continue to work without changes. If you want to migrate, delete the legacy row and create a fresh one using the steps above.
+
+## Troubleshooting
+
+**"Missing required scopes" on Test Connection.** Cardinal compares the granted scopes (from Slack's `x-oauth-scopes` response header) against the set Cardinal needs. The named scopes are missing from your Slack app's declared scope list. Edit the app at `api.slack.com/apps`, add the missing scopes, then Reinstall from Cardinal — Slack only grants a scope after it's declared on the app AND requested at install.
+
+**"Invalid state" or "Install link expired."** The OAuth state nonce expires after 10 minutes. Click Install to Workspace again from the integration row.
+
+**Slack returns `invalid_client` during install.** The Client ID or Client Secret in Cardinal doesn't match the Slack app. Re-paste both values from `api.slack.com/apps → your-app → Basic Information`.
+
+**Bot isn't posting to a public channel.** The bot must be a member. Invite with `/invite @Cardinal Bot` from inside the channel.
+
+**Private channel doesn't show up in `find_channel`.** The bot must be a member of the private channel for it to be listable. Invite as above.
 
 <SupportCallout />
