@@ -1,60 +1,24 @@
 import SupportCallout from '../../components/SupportCallout';
 
-# Connect AI clients to the MCP gateway
+# Connect AI clients to Cardinal
 
-Cardinal Maestro ships with a built-in **MCP gateway** that exposes every connected integration (Lakerunner, GitHub, Jira, Kubernetes, Slack, and so on) as Model Context Protocol tools. The gateway runs as a sidecar inside every Maestro pod; external clients reach it through Maestro's HTTP server, not the sidecar directly. This page covers wiring **Claude Code** and **OpenAI Codex CLI** up to your Maestro instance.
+Cardinal exposes every connected integration (Lakerunner, GitHub, Jira, Kubernetes, Slack, ServiceNow, …) as Model Context Protocol tools through Maestro's built-in MCP gateway. This page covers wiring two clients up to your Maestro instance:
 
-Two deployment modes are covered, in the order most readers will encounter them:
+- **Claude Code**, via the official [`cardinal-claude-plugin`](https://github.com/cardinalhq/cardinal-claude-plugin). One command installs the plugin, one more authorizes it in your browser, and your Claude Code session sees every Cardinal tool your org has configured.
+- **OpenAI Codex CLI**, by editing `~/.codex/config.toml` directly — there's no plugin for Codex yet.
 
-- **In your VPC (self-hosted)** — the common case. Maestro is already exposed inside your cluster; you add a shared API key and point your AI clients at it.
-- **Cardinal Cloud (SaaS)** — for customers on `app.cardinalhq.io`. Cardinal hosts the endpoint and your admin shares an API key.
+Both clients work the same way against either deployment:
+
+- **Cardinal Cloud (SaaS)** — `app.cardinalhq.io`. The endpoint is already live; sign in with your Cardinal account and you're done.
+- **Self-hosted Maestro** — your operator exposes Maestro on your cluster's Ingress and provisions a shared API key. The plugin and Codex point at that host.
 
 <SupportCallout />
 
-## How requests reach the gateway
+## Self-hosted: prepare your Maestro instance
 
-External MCP clients make HTTPS calls to Maestro at:
+Skip this section if you're on Cardinal Cloud — your endpoint is `https://app.cardinalhq.io` and there's nothing to install on your side.
 
-```
-https://<your-maestro-host>/api/orgs/<orgId>/integrations/<driver>/mcp
-```
-
-Maestro authenticates the call (see below), then forwards it over `localhost` to its in-pod gateway sidecar. The gateway runs in **stateless mode**, so any Maestro replica can serve any request — there are no sticky-session concerns, no `Mcp-Session-Id` continuity requirements, and no special routing rules in your Ingress.
-
-The endpoint path has three placeholders:
-
-- `<orgId>` is the UUID of the org whose integrations you want to talk to. Find it in Maestro under **Org settings → ID**, or use the discovery endpoint below.
-- `<driver>` is one of `lakerunner`, `common`, `github`, `jira`, `slack`, `servicenow`, `kube`, etc. The discovery endpoint enumerates what's active for an org.
-- The host is whatever Maestro listens on — `app.cardinalhq.io` for Cardinal Cloud, or whatever Ingress hostname your operator chose for the self-hosted install.
-
-### Authentication
-
-External callers send `X-CardinalHQ-API-Key: <your-key>` on every request. Maestro validates it against the `MAESTRO_MCP_API_KEY` env var on the Maestro container; a match grants a service-account context with cross-org access. The header is also accepted as `?apiKey=…` in the query string for clients that can't set headers (though we strongly recommend the header form — query-string secrets leak into request logs).
-
-Treat the key like an admin token: it gates every integration on every org in your installation. Rotate by re-issuing the secret value and doing `kubectl -n maestro rollout restart deploy/<release>-maestro`.
-
-### Discovery
-
-Before configuring clients, list the integrations active for your org:
-
-```bash
-export CARDINAL_MCP_HOST="https://app.cardinalhq.io"
-export CARDINAL_MCP_API_KEY="<your-key>"
-export CARDINAL_ORG_ID="<your-org-uuid>"
-
-curl -H "X-CardinalHQ-API-Key: $CARDINAL_MCP_API_KEY" \
-  "$CARDINAL_MCP_HOST/api/orgs/$CARDINAL_ORG_ID/integrations" | jq '.integrations[].type'
-```
-
-Health check (no auth required):
-
-```bash
-curl "$CARDINAL_MCP_HOST/api/health"
-```
-
-## In your VPC (self-hosted)
-
-This is the path for any customer running Maestro inside their own Kubernetes cluster. You already have a hostname pointing at Maestro (your existing Ingress for the web UI); we add the API-key env var and you're done.
+For self-hosted Maestro you provision one shared API key that gates the MCP endpoint. The plugin signs in through your browser like the rest of Maestro, but Codex CLI and the manual setup below use this shared key directly.
 
 ### 1. Provision the API key
 
@@ -97,7 +61,7 @@ Because one API key gates the entire installation and the orgId is in the URL pa
 - Prefer **private DNS** + a VPN/Tailscale entry point over an internet-facing hostname.
 - If the endpoint must be reachable from the internet, put it behind an additional access layer (Cloudflare Access, an IP allowlist on your ingress controller, mTLS) — the API key alone is fine for an internal-only endpoint, not for the open internet.
 
-### 4. Verify
+### 4. Verify reachability
 
 ```bash
 export CARDINAL_MCP_HOST="https://maestro.example.internal"
@@ -112,28 +76,154 @@ curl -H "X-CardinalHQ-API-Key: $CARDINAL_MCP_API_KEY" \
 
 The second command should list every integration you have configured.
 
-## Cardinal Cloud (SaaS)
+## Claude Code via the cardinal-claude-plugin
 
-If you use Cardinal Cloud at `app.cardinalhq.io`, the MCP entry point is already live. You don't stand up any infrastructure. From your Cardinal admin contact you'll need:
+The plugin handles three things on your behalf:
 
-- The **API key** (provisioned per team; shared via your password manager).
-- Your **org UUID** (visible in Maestro under **Org settings**, or returned from the discovery endpoint).
+- Registers a single `cardinal` MCP server with Claude Code. As your admin enables more Cardinal integrations later, the new tools show up automatically — you do not need to re-connect.
+- Streams your Claude Code activity to Cardinal so your team can see which sessions did what.
+- Cleans up cleanly. A `/cardinal:disconnect` command removes everything the plugin added — nothing else in your Claude Code config is touched.
+
+### Requirements
+
+- Claude Code with plugin support (any recent stable release).
+- Python 3.9+ on your `PATH` (the plugin's helpers run as Python scripts).
+- A Cardinal account on `app.cardinalhq.io`, or a self-hosted Maestro your operator has prepared per the section above.
+
+### 1. Install the plugin
+
+```bash
+claude plugin marketplace add cardinalhq/cardinal-claude-plugin
+claude plugin install cardinal@cardinalhq-claude-plugin
+```
+
+### 2. Connect
+
+From inside Claude Code:
+
+```
+/cardinal:connect
+```
+
+The plugin prints a URL like `https://app.cardinalhq.io/connect?code=ABCD-EFGH`. Open it in your browser, sign in if you aren't already, pick the org you want to connect, and click **Approve**. The plugin notices your approval within a few seconds and finishes the setup.
+
+For self-hosted Maestro, pass your host:
+
+```
+/cardinal:connect --host https://maestro.example.internal
+```
+
+The default host is `https://app.cardinalhq.io` (Cardinal Cloud).
+
+Then **fully quit Claude Code** (`Cmd-Q` on macOS) and start a new session. Claude Code reads its config at startup, so the new Cardinal tools and telemetry settings only show up in a fresh session.
+
+### 3. Verify
+
+From the new session:
+
+```
+/cardinal:status
+```
+
+You'll see the host, your org, both endpoints, when you connected, and whether each side is reachable. The Cardinal tools should also appear under the `cardinal` MCP server in your tool palette.
+
+### Common variants
+
+```
+/cardinal:connect --telemetry-only      # Stream activity to Cardinal, but skip the MCP tools
+/cardinal:connect --rotate              # Mint fresh keys and overwrite an existing connection
+/cardinal:connect --host https://…      # Point at a self-hosted Maestro
+/cardinal:connect --no-tool-details     # Privacy opt-out — see note below
+/cardinal:connect --dry-run             # Walk the consent flow, print what would change, write nothing
+```
+
+### Privacy
+
+By default, the plugin captures bash command lines and file paths in its activity stream so Cardinal can show which repo and service a session was working on. The contents of your prompts and the tool inputs/outputs themselves are never captured. If your org's policy forbids capturing command lines and paths too, pass `--no-tool-details` — Cardinal will still see that a session happened, but won't be able to tell which repo or service it was about.
+
+### Disconnect
+
+```
+/cardinal:disconnect                    # Disconnect everything
+/cardinal:disconnect --keep-telemetry   # Keep streaming activity, but remove the MCP tools
+```
+
+Disconnect revokes the keys with Cardinal and removes everything the plugin added to your Claude Code config. Anything else you've configured (theme, other plugins, your own env vars) is left exactly as it was.
+
+## Codex CLI (manual MCP config)
+
+There's no plugin for Codex CLI yet, so you wire MCP up by hand. Codex keeps its config in `~/.codex/config.toml` and supports streamable-HTTP MCP servers with custom headers via the `env_http_headers` table.
+
+You'll need three values:
+
+```bash
+export CARDINAL_MCP_HOST="https://app.cardinalhq.io"   # or your self-hosted host
+export CARDINAL_MCP_API_KEY="<your-key>"               # MAESTRO_MCP_API_KEY for self-hosted; for Cloud, ask your Cardinal admin
+export CARDINAL_ORG_ID="<your-org-uuid>"               # in Maestro under Org settings → ID
+```
+
+Drop the `CARDINAL_MCP_API_KEY` export in your shell profile so every Codex session sees it. Then append entries to `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.cardinal-lakerunner]
+url = "https://app.cardinalhq.io/api/orgs/<org-uuid>/integrations/lakerunner/mcp"
+env_http_headers = { "X-CardinalHQ-API-Key" = "CARDINAL_MCP_API_KEY" }
+
+[mcp_servers.cardinal-common]
+url = "https://app.cardinalhq.io/api/orgs/<org-uuid>/integrations/common/mcp"
+env_http_headers = { "X-CardinalHQ-API-Key" = "CARDINAL_MCP_API_KEY" }
+
+[mcp_servers.cardinal-github]
+url = "https://app.cardinalhq.io/api/orgs/<org-uuid>/integrations/github/mcp"
+env_http_headers = { "X-CardinalHQ-API-Key" = "CARDINAL_MCP_API_KEY" }
+```
+
+`env_http_headers` reads the header value from the named environment variable at request time, so the cleartext key never lands in the TOML file.
+
+Verify with `codex mcp list`. To remove an entry: `codex mcp remove cardinal-lakerunner`.
+
+## Manual MCP configuration without the plugin
+
+Use this path only if the plugin isn't available to you — for example, in a locked-down Claude Code install or when you need to script the registration. Most users should use the plugin above; it does this for you and keeps the configuration in sync as integrations change.
+
+### How requests reach the gateway
+
+External MCP clients make HTTPS calls to Maestro at:
+
+```
+https://<your-maestro-host>/api/orgs/<orgId>/integrations/<driver>/mcp
+```
+
+Maestro authenticates the call and forwards it to its in-pod MCP gateway. Any Maestro replica can serve any request — no sticky sessions, no special Ingress rules.
+
+The endpoint path has three placeholders:
+
+- `<orgId>` is the UUID of the org whose integrations you want to talk to. Find it in Maestro under **Org settings → ID**, or use the discovery endpoint below.
+- `<driver>` is one of `lakerunner`, `common`, `github`, `jira`, `slack`, `servicenow`, `kube`, etc. The discovery endpoint enumerates what's active for an org.
+- The host is whatever Maestro listens on — `app.cardinalhq.io` for Cardinal Cloud, or whatever Ingress hostname your operator chose for the self-hosted install.
+
+### Authentication
+
+External callers send `X-CardinalHQ-API-Key: <your-key>` on every request. Maestro validates it against the `MAESTRO_MCP_API_KEY` env var on the Maestro container; a match grants a service-account context with cross-org access. The header is also accepted as `?apiKey=…` in the query string for clients that can't set headers (though we strongly recommend the header form — query-string secrets leak into request logs).
+
+Treat the key like an admin token: it gates every integration on every org in your installation. Rotate by re-issuing the secret value and doing `kubectl -n maestro rollout restart deploy/<release>-maestro`.
+
+### Discovery
+
+Before configuring drivers, list the integrations active for your org:
 
 ```bash
 export CARDINAL_MCP_HOST="https://app.cardinalhq.io"
-export CARDINAL_MCP_API_KEY="<from-your-admin>"
+export CARDINAL_MCP_API_KEY="<your-key>"
 export CARDINAL_ORG_ID="<your-org-uuid>"
 
-curl "$CARDINAL_MCP_HOST/api/health"
 curl -H "X-CardinalHQ-API-Key: $CARDINAL_MCP_API_KEY" \
   "$CARDINAL_MCP_HOST/api/orgs/$CARDINAL_ORG_ID/integrations" | jq '.integrations[].type'
 ```
 
-Everything below works identically whether `CARDINAL_MCP_HOST` is `https://app.cardinalhq.io` or your in-VPC hostname.
+### Register per-driver MCPs in Claude Code
 
-## Configure Claude Code
-
-[Claude Code](https://docs.claude.com/en/docs/claude-code/overview) accepts streamable-HTTP MCP servers via `claude mcp add`. Register each integration you want to expose:
+[Claude Code](https://docs.claude.com/en/docs/claude-code/overview) accepts streamable-HTTP MCP servers via `claude mcp add`. Register each driver you want exposed:
 
 ```bash
 # Logs / metrics / traces via Lakerunner
@@ -154,41 +244,13 @@ claude mcp add --transport http --scope user cardinal-github \
 
 `--scope user` puts the registration in `~/.claude.json` (available across all your projects). Drop the flag to scope it to the current project instead.
 
-Verify with `claude mcp list` — each server should show `✓ Connected`. Tools from each driver are then available in your Claude Code session under the configured names. **You may need to restart Claude Code** for newly-registered MCPs to surface in an active session.
+Verify with `claude mcp list` — each server should show `✓ Connected`. **You may need to restart Claude Code** for newly-registered MCPs to surface in an active session.
 
 To remove a registration: `claude mcp remove cardinal-lakerunner`.
 
-## Configure Codex CLI
+If you switch to the plugin later, `/cardinal:connect` automatically removes these `cardinal-*` entries from `~/.claude.json` (a backup is written alongside) so they don't collide with the plugin's `cardinal` server.
 
-[OpenAI Codex CLI](https://github.com/openai/codex) keeps its config in `~/.codex/config.toml`. It supports streamable-HTTP MCP servers with custom headers via the `env_http_headers` table.
-
-Export the key once (drop it in your shell profile so every Codex session sees it):
-
-```bash
-export CARDINAL_MCP_API_KEY="<your-key>"
-```
-
-Then append entries to `~/.codex/config.toml`:
-
-```toml
-[mcp_servers.cardinal-lakerunner]
-url = "https://app.cardinalhq.io/api/orgs/<org-uuid>/integrations/lakerunner/mcp"
-env_http_headers = { "X-CardinalHQ-API-Key" = "CARDINAL_MCP_API_KEY" }
-
-[mcp_servers.cardinal-common]
-url = "https://app.cardinalhq.io/api/orgs/<org-uuid>/integrations/common/mcp"
-env_http_headers = { "X-CardinalHQ-API-Key" = "CARDINAL_MCP_API_KEY" }
-
-[mcp_servers.cardinal-github]
-url = "https://app.cardinalhq.io/api/orgs/<org-uuid>/integrations/github/mcp"
-env_http_headers = { "X-CardinalHQ-API-Key" = "CARDINAL_MCP_API_KEY" }
-```
-
-`env_http_headers` reads the header value from the named environment variable at request time, so the cleartext key never lands in the TOML file.
-
-Verify with `codex mcp list`. To remove an entry: `codex mcp remove cardinal-lakerunner`.
-
-## Picking which drivers to wire up
+### Picking which drivers to expose
 
 Discovery returns every active integration on the org. Most teams expose a small set:
 
@@ -206,8 +268,10 @@ Discovery returns every active integration on the org. Most teams expose a small
 
 ## Troubleshooting
 
-- **`Unauthorized: missing API key`** — header name is case-insensitive but the spelling matters: `X-CardinalHQ-API-Key`. Confirm independently with `curl "$CARDINAL_MCP_HOST/api/health"` (no auth) returns 200 — if that fails, the endpoint isn't reachable, not an auth problem.
-- **`Forbidden` or empty discovery** — your `<orgId>` is wrong or the API key is for a different installation. Hit `/api/orgs/<orgId>/integrations` directly with `curl` and inspect the body.
+- **`/cardinal:connect` says "already connected"** — you have an existing connection. Re-run with `--rotate` to issue fresh keys and replace it. The previous keys are valid for a short overlap so an active session keeps working.
+- **`/cardinal:status` shows everything connected but the `cardinal` tools don't appear** — Claude Code only reads its config when it starts. Fully quit (`Cmd-Q` on macOS) and open a new session.
+- **`Unauthorized: missing API key`** (manual path) — header name is case-insensitive but the spelling matters: `X-CardinalHQ-API-Key`. Confirm independently with `curl "$CARDINAL_MCP_HOST/api/health"` (no auth) returns 200 — if that fails, the endpoint isn't reachable, not an auth problem.
+- **`Forbidden` or empty discovery** (manual path) — your `<orgId>` is wrong or the API key is for a different installation. Hit `/api/orgs/<orgId>/integrations` directly with `curl` and inspect the body.
 - **`Failed to connect` in `claude mcp list`** — usually local DNS staleness right after a fresh hostname comes up. On macOS: `sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder`. Confirm independently with `curl` first. Restarting Claude Code also clears its in-process MCP connection state.
 - **`kube` tools return "missing cluster credentials"** — the `kube` driver expects `X-Kube-Cluster` headers that the Maestro UI proxy populates on browser-driven calls. Driving it from Claude/Codex without that header will only work for cluster-list operations; for full Kubernetes access against a specific cluster you'd need to set `X-Kube-Cluster: <slug>` yourself.
 - **Tool calls succeed but return empty results** — check that the underlying integration is enabled and `active` in Maestro (Org settings → Integrations).
