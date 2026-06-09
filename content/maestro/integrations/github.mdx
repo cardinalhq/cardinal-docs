@@ -2,7 +2,7 @@ import SupportCallout from '../../../components/SupportCallout';
 
 # GitHub
 
-Connect Cardinal to GitHub so the AI agent can search code, browse repositories, and query issues and pull requests.
+Connect Cardinal to GitHub so the AI agent can search code, browse repositories, query issues and pull requests, track deployments, and — with your approval — open issues and pull requests.
 
 ## Overview
 
@@ -12,6 +12,11 @@ With the GitHub integration, the AI agent can:
 - **Browse repositories** — view files, directory structure, and README content
 - **Query issues and pull requests** — find open bugs, review PR status, and track project progress
 - **Analyze deployments** — understand what was recently shipped
+- **Open issues and PRs, and comment** — write actions are always gated behind human approval
+
+Cardinal authenticates to GitHub as a **GitHub App** — a bot identity using short-lived, auto-rotated installation tokens scoped per repository. Access isn't tied to any one person's account, so it survives employee turnover, and Maestro is the sole holder of the app's private key (the MCP gateway only ever receives a freshly minted token).
+
+> **Using Cardinal SaaS (`app.cardinalhq.io`)?** There's nothing to register. In **Settings → Integrations → GitHub**, click **Connect GitHub App**, approve the installation on GitHub, and choose your repositories. The rest of this page covers **self-hosted** Maestro, where you register your own GitHub App once.
 
 ## Capabilities
 
@@ -19,67 +24,97 @@ With the GitHub integration, the AI agent can:
 | ---------- | ------- |
 | Agent | Always |
 
-## Configuration
+## Self-hosted setup
 
-The GitHub integration uses a multi-step setup wizard. After entering your token, Cardinal connects to GitHub to let you select your organization and repositories.
+Self-hosted Maestro uses its **own** GitHub App. The hosted Cardinal app's redirect and webhook callbacks point at `app.cardinalhq.io`, so they would never reach your Maestro — you register an app whose callbacks point at your own Maestro URL instead. This is also the only option for **GitHub Enterprise Server (GHES)**: a github.com app cannot be installed on a GHES org.
 
-### Credentials
+You do this **once per deployment**. Afterward, org owners connect the integration from the UI with no further GitHub admin work.
 
-| Field | Required | Description |
-| ----- | -------- | ----------- |
-| **Personal Access Token** | Yes | A fine-grained or classic PAT with repo and org read access (format: `ghp_...`) |
+### Prerequisites
 
-### Settings
+- Maestro reachable at a stable HTTPS URL set as [`MAESTRO_BASE_URL`](../install/environment) — this is the base of the GitHub callbacks.
+- The installing admin's **browser** can reach that URL (the setup step is a browser redirect; Maestro does **not** need to be internet-facing).
+- For GHES, the host's API URL (`https://<ghe-host>/api/v3`) must be listed in `MAESTRO_GITHUB_ALLOWED_API_BASE_URLS`.
+- `LICENSE_SIGNING_KEYS_PATH` configured (already required for Maestro) — the app private key is envelope-encrypted at rest with these keys.
 
-| Field | Required | Description |
-| ----- | -------- | ----------- |
-| **API Base URL** | No | Leave empty for github.com. Set to your GitHub Enterprise Server API URL (e.g., `https://github.yourcompany.com/api/v3`) |
-| **Organization** | Yes | Selected during setup — the GitHub organization to connect |
-| **Default Repositories** | No | Selected during setup — repositories the agent searches by default |
+### 1. Register the GitHub App
 
-### Optional Metadata
+On github.com go to **Settings → Developer settings → GitHub Apps → New GitHub App** (register it under your org to own it there). On GHES, the equivalent path lives under your enterprise/org settings.
 
-| Field | Description |
-| ----- | ----------- |
-| **Name** | Display name for this integration (auto-generated as "GitHub - your-org") |
-| **Description** | Human-readable description of what this integration is for |
-| **Planner Hint** | Guidance for the AI on when to use this integration (e.g., "Use for searching code, reading files, managing PRs and issues") |
+**Identity**
 
-## Prerequisites
+| Field | Value |
+| ----- | ----- |
+| **GitHub App name** | e.g. `Cardinal (Acme)` — must be unique on the GitHub host |
+| **Homepage URL** | Your Maestro URL, e.g. `https://maestro.acme.internal` |
 
-- A GitHub account with access to the target organization
-- A Personal Access Token with appropriate scopes
+**Setup URL** — where GitHub returns the admin's browser after install:
 
-### Creating a Personal Access Token
+```
+https://<your-maestro-base-url>/api/github-app/setup
+```
 
-1. Go to [github.com/settings/tokens](https://github.com/settings/tokens)
-2. Click **Generate new token** > **Fine-grained token** (recommended) or **Classic token**
-3. For fine-grained tokens, select your organization under **Resource owner** and grant:
-   - **Repository access**: All repositories (or select specific ones)
-   - **Permissions**: Contents (read), Issues (read), Pull requests (read), Metadata (read)
-4. For classic tokens, select these scopes:
-   - `repo` — full access to repositories
-   - `read:org` — read organization membership
-5. Click **Generate token** and copy it
+- Check **Redirect on update**.
+- Leave **Request user authorization (OAuth) during installation** **OFF**. Maestro uses bot identity only — there is no OAuth client secret.
 
-## Setup
+**Webhook** — optional. Leave **Active** unchecked. Maestro finalizes installs and detects uninstalls by **lazy reconcile** on next use, so a webhook isn't required and is awkward for an internal-only Maestro (it would need GitHub's servers to reach you inbound). Skip it unless you have a specific reason.
 
-1. Navigate to **Settings > Integrations** and click **Add Integration**
-2. Select **GitHub**
-3. Enter your **Personal Access Token**
-4. Optionally enter an **API Base URL** for GitHub Enterprise Server
-5. Click **Connect to GitHub** — Cardinal will fetch your organizations
-6. Select your **Organization**
-7. Select the **Default Repositories** the agent should search (optional but recommended)
-8. Fill in **Name**, **Description**, and **Planner Hint** as needed
-9. Click **Create**
+**Repository permissions** — grant exactly these (Read-only except where noted):
 
-## What This Enables
+| Permission | Access | Used for |
+| ---------- | ------ | -------- |
+| **Metadata** | Read | Mandatory; repository enumeration |
+| **Contents** | Read | Browse files, read releases |
+| **Pull requests** | Read & write | List/read PRs and changed files; open PRs (write actions are human-approved) |
+| **Issues** | Read & write | List/create/update issues, comment on issues and PRs (human-approved) |
+| **Deployments** | Read | Deployment timeline in the outcomes dashboard |
+| **Commit statuses** | Read | CI status signal during investigations |
+
+> Comments on pull requests go through the Issues permission (GitHub models PR comments as issue comments), so no separate "PR comment" permission exists.
+
+**Subscribe to events:** none required. (If you later enable webhooks, subscribe to `installation` and `installation_repositories`.)
+
+**Where can this app be installed:** **Only on this account** is fine for a single-org install. Choose **Any account** only if you intend to install it across multiple orgs.
+
+**Create the app**, then on its settings page:
+
+1. Note the **App ID**.
+2. Note the **app slug** (the name in the app's URL, e.g. `cardinal-acme`).
+3. Under **Private keys**, click **Generate a private key** and download the `.pem`. Store it securely — it is shown only once.
+
+### 2. Install the app on your GitHub org
+
+On the app's settings page, click **Install App** and install it into your organization, choosing **All repositories** or a specific selection. This creates the *installation* Maestro acts through.
+
+### 3. Connect it in Maestro
+
+1. Sign in to Maestro as an **org owner** and go to **Settings → Integrations**.
+2. Add a **GitHub** integration and enter:
+   - **App ID** (from step 1)
+   - **App slug**
+   - **Private key** — paste the full contents of the `.pem`, including the `-----BEGIN...` / `-----END...` lines. It is write-only: sealed on save and never shown again.
+   - **API Base URL** — leave empty for github.com; for GHES set `https://<ghe-host>/api/v3`.
+3. Start the connect flow. Maestro redirects you to GitHub; approve the installation. GitHub returns your browser to the setup URL, and Maestro **verifies the installation directly with GitHub** (it never trusts the redirect's `installation_id`) before finalizing.
+4. Select the **Default Repositories** the agent should search (optional but recommended), and fill in **Name**, **Description**, and **Planner Hint** as needed.
+
+Once finalized, org owners can manage repositories from the UI without touching GitHub admin again.
+
+## What this enables
 
 Once configured, you can ask the AI agent questions like:
+
 - "Find where the rate limiter is implemented"
 - "Show me open PRs for the payments service"
 - "What issues were closed this sprint?"
 - "What changed in the last deployment?"
+
+## Troubleshooting
+
+| Symptom | Likely cause |
+| ------- | ------------ |
+| Browser lands on a Maestro error after approving on GitHub | The app's Setup URL doesn't exactly match `https://<MAESTRO_BASE_URL>/api/github-app/setup`, or `MAESTRO_BASE_URL` is misconfigured |
+| Save fails with an encryption error | `LICENSE_SIGNING_KEYS_PATH` not configured — the private key cannot be sealed |
+| GHES base URL rejected | The host isn't listed in `MAESTRO_GITHUB_ALLOWED_API_BASE_URLS` |
+| Repositories don't appear in the picker after connecting | The installation grants no repos, or finalization hasn't reconciled yet — reopen the integration to trigger a lazy reconcile |
 
 <SupportCallout />
