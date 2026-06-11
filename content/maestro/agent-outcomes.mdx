@@ -22,18 +22,22 @@ Two badges flag sessions worth a second look:
 - **`bloated`** — the session carried unusually heavy context per turn (cache-read tokens per tool call well above the fleet median). The tooltip shows the estimated dollars spent re-reading context above the baseline, and the fix: `/clear` between sub-tasks, or split the work into focused sessions.
 - **`⚠ drift`** — the session got expensive across unrelated bodies of work; a split would have been cheaper.
 
-## Comparing sessions and initiatives
+## Comparing sessions and engineers
 
-Anywhere you see a **⇄** button you can compare two entities side by side: on session rows, inside a session's case file (including one-click comparison against sibling sessions on the same branch), and on initiative rows. Click ⇄ once to arm the comparison, then pick the second entity; the result is a full-screen diff with a shareable URL.
+Anywhere you see a **⇄** button you can compare two entities side by side: on session rows, inside a session's case file (including one-click comparison against sibling sessions on the same branch), on the per-user cards (owners only), and on an initiative's contributor rows (which opens the engineer diff pre-scoped to that initiative). Click ⇄ once to arm the comparison, then pick the second entity; the result is a full-screen diff with a shareable URL.
 
 The diff is built from computed facts, not generated prose:
 
 - a **verdict line** ("B cost 4.3× A — most of the gap is context carried above the baseline"),
-- **decision triggers** — deterministic rules that fire only when a threshold is crossed, each showing the exact numbers it fired on and ending in an action (set a spend limit, `/clear` between themes, review a thrashing initiative before its next session),
+- **decision triggers** — deterministic rules that fire only when a threshold is crossed, each showing the exact numbers it fired on and ending in an action (set a spend limit, `/clear` between themes, write down an effort-tier policy),
 - an aligned **A | B | Δ ledger**, token-composition bars, and **theme lanes** showing where each session's dollars went (from stored session summaries),
-- for initiatives: **convergence lanes** (per-session cost bars up to the first merge) and a **"where the money went"** table of spend by theme across both initiatives.
+- an optional **narrative** section — an LLM translation of the numbers above it. It can only restate and corroborate: every sentence cites the facts or stored summaries it draws on, and uncited sentences are discarded server-side. When the stored work summaries weaken a fired trigger, the trigger card is visually demoted (never hidden).
 
-When the two sides aren't honestly comparable — different models, effort tiers, or a 10×+ scope difference — the diff says so in a banner rather than letting the totals mislead.
+The **engineer diff** compares working styles, not workloads: median session cost, median context per turn, bloated-session rate with recoverable dollars, xhigh-effort spend share, and lost spend. A scope selector narrows both sides to a shared initiative or repo so totals become comparable too. Style rules only fire at **n ≥ 10 sessions per side** — below that the diff says which rules were suppressed instead of staying silent — and a **work-mix overlap** score flags when the two engineers simply do different kinds of work.
+
+When the two sides aren't honestly comparable — different models, effort tiers, a 10×+ scope difference, or low work-mix overlap — the diff says so in a banner rather than letting the totals mislead.
+
+There is deliberately no initiative-vs-initiative diff: two initiatives are single tasks with no shared denominator, so every delta just restates "the work was different." Initiative-level health renders directly on the initiative's case file instead — a **Spend health** section (thrashing, overhead spend, lost spend triggers, and the $ split by outcome state) and a **"where the money went"** table of spend by theme.
 
 ## Spend limits
 
