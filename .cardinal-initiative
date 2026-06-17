@@ -1,0 +1,5 @@
+{
+  "name": "dependency-security-maintenance",
+  "description": "Keep the docs site's dependency tree free of known vulnerabilities by resolving Dependabot advisories, typically via pnpm overrides and lockfile bumps.",
+  "type": "infra"
+}
