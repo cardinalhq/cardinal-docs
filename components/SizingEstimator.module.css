@@ -476,3 +476,69 @@
 :global(.dark) .emptyState {
   color: #777;
 }
+
+/* Cost section */
+.costControls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.toggleGroup {
+  display: inline-flex;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+:global(.dark) .toggleGroup {
+  border-color: #444;
+}
+
+.toggleBtn {
+  padding: 0.4rem 0.9rem;
+  border: none;
+  background: white;
+  color: #333;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+:global(.dark) .toggleBtn {
+  background: #1a1a1a;
+  color: #e5e5e5;
+}
+
+.toggleBtnActive {
+  background: #2196F3;
+  color: white;
+}
+
+:global(.dark) .toggleBtnActive {
+  background: #2196F3;
+  color: white;
+}
+
+.costBig {
+  text-align: center;
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: #2196F3;
+}
+
+.costUnit {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #888;
+}
+
+.costNote {
+  text-align: center;
+  font-size: 0.85rem;
+  color: #888;
+  margin-top: 0.25rem;
+}

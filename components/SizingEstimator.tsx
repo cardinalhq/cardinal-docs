@@ -6,10 +6,15 @@ import {
   type TimeUnit,
   type SizingInput,
   TIME_UNIT_LABELS,
+  SPOT_DISCOUNT,
   calculateSizing,
+  monthlyOnDemandCost,
+  monthlySpotCostRange,
   formatMemoryGi,
   formatCpu,
 } from '../lib/sizingCalculations';
+
+const usd = (n: number) => `$${Math.round(n).toLocaleString()}`;
 
 const CATEGORY_COLORS: Record<string, string> = {
   core: '#607D8B',
@@ -141,7 +146,8 @@ export default function SizingEstimator() {
   const [logsPerUnit, setLogsPerUnit] = useState<string>('');
   const [metricsPerUnit, setMetricsPerUnit] = useState<string>('');
   const [tracesPerUnit, setTracesPerUnit] = useState<string>('');
-  const [queryWorkers, setQueryWorkers] = useState<number>(2);
+  const [queryWorkers, setQueryWorkers] = useState<number>(4);
+  const [spot, setSpot] = useState<boolean>(true);
 
   const parseNum = (v: string) => {
     const n = parseFloat(v);
@@ -316,6 +322,40 @@ export default function SizingEstimator() {
         </div>
       </section>
 
+      {/* Estimated Cost */}
+      <section className={styles.section}>
+        <h3 className={styles.sectionTitle}>Estimated Monthly Cost</h3>
+
+        <div className={styles.costControls}>
+          <div className={styles.toggleGroup}>
+            <button
+              className={`${styles.toggleBtn} ${!spot ? styles.toggleBtnActive : ''}`}
+              onClick={() => setSpot(false)}
+            >
+              On-Demand
+            </button>
+            <button
+              className={`${styles.toggleBtn} ${spot ? styles.toggleBtnActive : ''}`}
+              onClick={() => setSpot(true)}
+            >
+              Spot
+            </button>
+          </div>
+        </div>
+
+        <div className={styles.costBig}>
+          {spot
+            ? `${usd(monthlySpotCostRange(result.grandTotalCpu).low)}–${usd(monthlySpotCostRange(result.grandTotalCpu).high)}`
+            : usd(monthlyOnDemandCost(result.grandTotalCpu))}
+          <span className={styles.costUnit}> /mo</span>
+        </div>
+        <p className={styles.costNote}>
+          Approximate compute for {formatCpu(result.grandTotalCpu)} vCPU on Graviton (ARM) instances with
+          local NVMe (c6gd-class), {spot ? `Spot (~${SPOT_DISCOUNT.min * 100}–${SPOT_DISCOUNT.max * 100}% off on-demand)` : 'On-Demand'} pricing, 730 hrs/mo
+          (us-east / us-west). Excludes storage, data transfer, and node overhead. Spot prices fluctuate.
+        </p>
+      </section>
+
       {/* Recommendations */}
       <section className={styles.section}>
         <h3 className={styles.sectionTitle}>Recommendations</h3>
@@ -329,19 +369,11 @@ export default function SizingEstimator() {
             </p>
           </div>
           <div className={styles.recCard}>
-            <h4>Cluster Auto-Scaling</h4>
-            <p>
-              We strongly recommend enabling <strong>Kubernetes cluster auto-scaling</strong> to automatically
-              add and remove nodes as workload pods scale up and down. This ensures you only pay for
-              the compute capacity you actually need.
-            </p>
-          </div>
-          <div className={styles.recCard}>
             <h4>Spot / Preemptible Instances</h4>
             <p>
               Lakerunner workloads are well-suited for <strong>Spot Instances</strong> (AWS) or <strong>Preemptible VMs</strong> (GCP).
               These can reduce compute costs by 60-90%. All Lakerunner components are designed to handle
-              interruptions gracefully through work queue-based processing.
+              interruptions gracefully.
             </p>
           </div>
         </div>
