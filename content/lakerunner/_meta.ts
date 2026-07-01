@@ -8,7 +8,6 @@ export default {
   sizing: 'Sizing Estimator',
   architecture: 'Architecture',
   cli: 'CLI Reference',
-  'claude-skill': 'Claude Code Skill',
   'query-language': 'Query Language',
   'loki-comparison': 'Lakerunner vs. Loki',
 }
