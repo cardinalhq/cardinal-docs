@@ -16,7 +16,9 @@ Grab the Lakerunner CLI from the [latest release](https://github.com/cardinalhq/
 | **Linux (arm64)** | `lakerunner-cli_Linux_arm64.tar.gz` |
 | **Windows (x86_64)** | `lakerunner-cli_Windows_x86_64.zip` |
 
-Unpack the archive, then move the `lakerunner-cli` binary to a location on your `PATH`:
+Unpack the archive, then move the `lakerunner-cli` binary to a location on your `PATH`.
+
+**macOS / Linux:**
 
 ```bash copy
 tar -xzf lakerunner-cli_Darwin_arm64.tar.gz
@@ -24,15 +26,40 @@ sudo mv lakerunner-cli /usr/local/bin/
 lakerunner-cli --help
 ```
 
+**Windows (PowerShell):**
+
+```powershell copy
+Expand-Archive .\lakerunner-cli_Windows_x86_64.zip -DestinationPath .
+# Move the binary somewhere on your PATH (create the folder if needed).
+Move-Item .\lakerunner-cli.exe "$env:USERPROFILE\bin\lakerunner-cli.exe"
+lakerunner-cli --help
+```
+
+Add `%USERPROFILE%\bin` to your PATH via **System Properties → Environment Variables** (or `setx PATH "$env:PATH;$env:USERPROFILE\bin"` in a new shell) if it isn't already.
+
 ## Configuration
 
 ### Environment Variables
 
-Set the following environment variables to connect the CLI to your Lakerunner instance:
+Set the following environment variables to connect the CLI to your Lakerunner instance.
+
+**macOS / Linux:**
 
 ```bash copy
 export LAKERUNNER_QUERY_URL=<your-lakerunner-query-url>
 export LAKERUNNER_API_KEY=<your-api-key>
+```
+
+**Windows (PowerShell):**
+
+```powershell copy
+# For the current session:
+$env:LAKERUNNER_QUERY_URL = "<your-lakerunner-query-url>"
+$env:LAKERUNNER_API_KEY   = "<your-api-key>"
+
+# To persist across sessions (takes effect in new shells):
+setx LAKERUNNER_QUERY_URL "<your-lakerunner-query-url>"
+setx LAKERUNNER_API_KEY   "<your-api-key>"
 ```
 
 | Variable | Description | Required |
@@ -280,7 +307,7 @@ lakerunner-cli aliases list
 
 1. **Download** the CLI from the [releases page](https://github.com/cardinalhq/lakerunner-cli/releases).
 
-2. **Configure** your environment:
+2. **Configure** your environment (see [Configuration](#environment-variables) for Windows PowerShell equivalents):
 
 ```bash copy
 export LAKERUNNER_QUERY_URL=<your-lakerunner-query-url>
