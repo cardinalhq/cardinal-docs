@@ -6,16 +6,23 @@ The Lakerunner CLI is an intuitive command-line tool to query your S3 logs. It p
 
 ## Installation
 
-Download the Lakerunner CLI binary from the [latest release](https://github.com/cardinalhq/lakerunner-cli/releases). Under **Assets**, choose the appropriate file for your platform:
+Grab the Lakerunner CLI from the [latest release](https://github.com/cardinalhq/lakerunner-cli/releases). Under **Assets**, choose the appropriate file for your platform:
 
 | Platform | Asset |
 |----------|-------|
 | **macOS (Apple Silicon)** | `lakerunner-cli_Darwin_arm64.tar.gz` |
 | **macOS (Intel)** | `lakerunner-cli_Darwin_x86_64.tar.gz` |
 | **Linux (x86_64)** | `lakerunner-cli_Linux_x86_64.tar.gz` |
+| **Linux (arm64)** | `lakerunner-cli_Linux_arm64.tar.gz` |
 | **Windows (x86_64)** | `lakerunner-cli_Windows_x86_64.zip` |
 
-Unpack the archive, then move the binary to a location on your `PATH`.
+Unpack the archive, then move the `lakerunner-cli` binary to a location on your `PATH`:
+
+```bash copy
+tar -xzf lakerunner-cli_Darwin_arm64.tar.gz
+sudo mv lakerunner-cli /usr/local/bin/
+lakerunner-cli --help
+```
 
 ## Configuration
 
@@ -44,16 +51,15 @@ The CLI supports an optional config file at `~/.lakerunner/config.yaml` for defi
 presets:
   prod-errors:
     - "environment:prod"
-    - "log_level:ERROR"
+    - "level:ERROR"
   staging-all:
     - "environment:staging"
 
 aliases:
-  i: resource_installation
-  svc: resource_service_name
-  env: environment
-  pod: resource_k8s_pod_name
-  ns: resource_k8s_namespace_name
+  i: environment
+  svc: service
+  pod: k8s_pod_name
+  ns: k8s_namespace_name
 ```
 
 **Presets** are named sets of filters you can apply with `-p`. **Aliases** map short names to full attribute names — single-character aliases become short flags (e.g., `-i`), multi-character aliases become long flags (e.g., `--svc`).
@@ -114,12 +120,15 @@ The CLI supports flexible time expressions:
 
 Use `--columns` to customize output. Built-in column shortcuts:
 
-| Shortcut | Full Name |
-|----------|-----------|
-| `ts` | `timestamp` |
-| `svc` | `service` |
+| Shortcut | Description |
+|----------|-------------|
+| `timestamp` / `ts` | Log timestamp (nanosecond precision when available) |
+| `level` | Log level (color-coded in text output) |
+| `service` / `svc` | Service name |
+| `pod` | Kubernetes pod name |
+| `message` | Log message body |
 
-Any log attribute can also be used as a column name.
+Any log attribute (e.g., `trace_id`, `k8s_namespace_name`, `container_image_tag`) can also be used as a column name. Dotted names like `resource.k8s.cluster.name` are normalized to underscores automatically.
 
 #### Examples
 
@@ -180,7 +189,7 @@ lakerunner-cli logs get -a "api-server,auth-service"
 
 ```bash copy
 # Raw LogQL query (see Query Language docs for syntax)
-lakerunner-cli logs get --query '{resource_service_name="my-service"} |= "error"'
+lakerunner-cli logs get --query '{service="my-service"} |= "error"'
 ```
 
 ```bash copy
@@ -237,13 +246,13 @@ Same as `logs get-attr`.
 
 ```bash copy
 # See all service names
-lakerunner-cli logs get-values resource_service_name
+lakerunner-cli logs get-values service
 
 # See all environments
 lakerunner-cli logs get-values environment
 
 # See log levels in production
-lakerunner-cli logs get-values log_level -f "environment:prod"
+lakerunner-cli logs get-values level -f "environment:prod"
 ```
 
 ---
