@@ -70,9 +70,8 @@ These flags are available on all commands:
 
 | Flag | Short | Description |
 |------|-------|-------------|
-| `--verbose` | `-v` | Enable verbose output |
-| `--quiet` | `-q` | Suppress informational output |
-| `--no-color` | | Disable colored output |
+| `--quiet` | `-q` | Suppress the "Querying logs…" banner and progress indicator |
+| `--no-color` | | Disable colored output (auto-disabled on Windows and non-TTY stdout) |
 | `--endpoint` | | API endpoint URL (overrides `LAKERUNNER_QUERY_URL`) |
 | `--api-key` | | API key (overrides `LAKERUNNER_API_KEY`) |
 
@@ -201,7 +200,7 @@ lakerunner-cli logs get -i prod --svc my-service
 
 ### `logs get-attr`
 
-Discover available log attributes (tag names) for a given time range. Useful for understanding what fields are available to filter on.
+Discover available log attributes (tag names) for a given time range. Useful for understanding what fields are available to filter on. Without any filters, this runs a fast metadata-only lookup. When any filter flag is provided, the CLI builds a LogQL selector and scopes the returned tag list to attributes present on rows that match — so you only see the attributes actually attached to *your* logs of interest.
 
 ```bash copy
 lakerunner-cli logs get-attr
@@ -213,7 +212,7 @@ lakerunner-cli logs get-attr
 |------|-------|-------------|
 | `--start` | `-s` | Start time |
 | `--end` | `-e` | End time |
-| `--app` | `-a` | Filter by application/service name |
+| `--app` | `-a` | Filter by application/service name (comma-separated for multiple) |
 | `--level` | `-l` | Filter by log level |
 | `--filter` | `-f` | Filter as `key:value` (repeatable) |
 | `--preset` | `-p` | Use a named filter preset |
@@ -224,8 +223,8 @@ lakerunner-cli logs get-attr
 # List all available attributes
 lakerunner-cli logs get-attr
 
-# List attributes for ERROR logs only
-lakerunner-cli logs get-attr --level ERROR
+# List attributes present on ERROR logs from a specific service
+lakerunner-cli logs get-attr --level ERROR --app my-service
 ```
 
 ---
