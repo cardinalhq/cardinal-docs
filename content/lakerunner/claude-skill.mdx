@@ -1,0 +1,67 @@
+import SupportCallout from '../../components/SupportCallout';
+
+# Claude Code Skill
+
+The Lakerunner CLI ships with a [Claude Code](https://docs.claude.com/en/docs/claude-code/overview) skill that lets Claude query your logs directly. Once installed, Claude will know when to invoke the CLI, which flags to reach for, and how to shape output for the task at hand.
+
+## Prerequisites
+
+- [Claude Code](https://docs.claude.com/en/docs/claude-code/overview) installed and working (`~/.claude` exists).
+- `lakerunner-cli` [installed](/lakerunner/cli#installation) and on your `PATH`.
+- `LAKERUNNER_QUERY_URL` and `LAKERUNNER_API_KEY` set in your environment.
+
+## Install
+
+Run the install script — it drops the skill into `~/.claude/skills/lakerunner-cli/`:
+
+```bash copy
+curl -fsSL https://raw.githubusercontent.com/cardinalhq/lakerunner-cli/main/scripts/install-claude-skill.sh | bash
+```
+
+From a checkout of [`lakerunner-cli`](https://github.com/cardinalhq/lakerunner-cli), you can also run:
+
+```bash copy
+make install-skill
+```
+
+Both paths do the same thing: create `~/.claude/skills/lakerunner-cli/SKILL.md`. To install into a non-default location, set `CLAUDE_SKILLS_DIR` before running the script.
+
+## Use
+
+In Claude Code, type `/lakerunner-cli` to explicitly load the skill, or just ask Claude a log question — the skill's description tells Claude when to reach for it automatically. Examples of prompts the skill handles well:
+
+- "Any ERROR logs in the last hour?"
+- "Show me the top failing services this morning."
+- "What attributes are available on logs from `cartservice`?"
+- "Export yesterday's `auth-service` logs to CSV."
+
+Under the hood, Claude will invoke commands like:
+
+```bash
+lakerunner-cli --quiet logs get -l ERROR -s e-1h -o json --limit 200
+lakerunner-cli --quiet logs get-attr -s e-24h
+lakerunner-cli --quiet logs get-values service
+```
+
+See the [CLI Reference](/lakerunner/cli) for the full command surface.
+
+## What the skill tells Claude
+
+The skill instructs Claude to:
+
+- Confirm the binary and credentials before running anything.
+- Default to `--quiet --output json` when it needs to parse results.
+- Use `logs get-attr` and `logs get-values` to discover fields before crafting complex filters.
+- Avoid unbounded exports (raising `--limit` above ~10k or pulling multi-day ranges) without asking.
+- Redact obvious secrets from any log content it pastes back into chat.
+- Never fabricate log lines — if a query returns nothing, say so.
+
+The skill source lives in the [`lakerunner-cli` repo](https://github.com/cardinalhq/lakerunner-cli/blob/main/.claude/skills/lakerunner-cli/SKILL.md).
+
+## Uninstall
+
+```bash copy
+rm -rf ~/.claude/skills/lakerunner-cli
+```
+
+<SupportCallout />
