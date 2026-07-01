@@ -6,8 +6,6 @@ The Lakerunner CLI is an intuitive command-line tool to query your S3 logs. It p
 
 ## Installation
 
-### Download a release binary
-
 Grab the Lakerunner CLI from the [latest release](https://github.com/cardinalhq/lakerunner-cli/releases). Under **Assets**, choose the appropriate file for your platform:
 
 | Platform | Asset |
@@ -24,16 +22,6 @@ Unpack the archive, then move the `lakerunner-cli` binary to a location on your 
 tar -xzf lakerunner-cli_Darwin_arm64.tar.gz
 sudo mv lakerunner-cli /usr/local/bin/
 lakerunner-cli --help
-```
-
-### Build from source
-
-If you have Go 1.24+ installed you can build the CLI locally:
-
-```bash copy
-git clone https://github.com/cardinalhq/lakerunner-cli.git
-cd lakerunner-cli
-make local        # produces ./bin/lakerunner-cli
 ```
 
 ## Configuration
