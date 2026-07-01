@@ -6,11 +6,13 @@ The Lakerunner CLI ships with a [Claude Code](https://docs.claude.com/en/docs/cl
 
 ## Prerequisites
 
-- [Claude Code](https://docs.claude.com/en/docs/claude-code/overview) installed and working (`~/.claude` exists).
+- [Claude Code](https://docs.claude.com/en/docs/claude-code/overview) installed and working. Claude Code stores its config under `~/.claude` on macOS/Linux and `%USERPROFILE%\.claude` on Windows.
 - `lakerunner-cli` [installed](/lakerunner/cli#installation) and on your `PATH`.
-- Your Lakerunner deployment's query URL and an API key on hand — the installer will prompt for both. Ask whoever runs your Lakerunner deployment if you don't know them.
+- Your Lakerunner deployment's query URL and an API key on hand — the installer will prompt for both on macOS/Linux (on Windows you'll set them yourself). Ask whoever runs your Lakerunner deployment if you don't know them.
 
 ## Install
+
+### macOS / Linux
 
 Run the install script — it drops the skill into `~/.claude/skills/lakerunner-cli/` and prompts for credentials:
 
@@ -27,6 +29,26 @@ make install-skill
 ```
 
 Both paths do the same thing: create `~/.claude/skills/lakerunner-cli/SKILL.md` and run the credential prompt. To install into a non-default location, set `CLAUDE_SKILLS_DIR` before running the script. In non-interactive contexts (e.g. piped installs without a TTY) the prompt is skipped and you'll be reminded to set the env vars yourself.
+
+### Windows
+
+The installer is a bash script, so on Windows you have two options.
+
+**Option A — WSL or Git Bash.** Run the install one-liner from a WSL/Git Bash shell exactly as shown for macOS/Linux above. The credentials will be persisted into that shell's profile; use the CLI from the same shell going forward.
+
+**Option B — Native PowerShell (manual install).** Fetch the skill file and set the environment variables yourself:
+
+```powershell copy
+$dest = "$env:USERPROFILE\.claude\skills\lakerunner-cli"
+New-Item -ItemType Directory -Force -Path $dest | Out-Null
+Invoke-WebRequest `
+  -Uri "https://raw.githubusercontent.com/cardinalhq/lakerunner-cli/main/.claude/skills/lakerunner-cli/SKILL.md" `
+  -OutFile "$dest\SKILL.md"
+
+# Persist credentials for future shells (takes effect in new shells):
+setx LAKERUNNER_QUERY_URL "<your-lakerunner-query-url>"
+setx LAKERUNNER_API_KEY   "<your-api-key>"
+```
 
 ## Use
 
@@ -62,8 +84,16 @@ The skill source lives in the [`lakerunner-cli` repo](https://github.com/cardina
 
 ## Uninstall
 
+**macOS / Linux:**
+
 ```bash copy
 rm -rf ~/.claude/skills/lakerunner-cli
+```
+
+**Windows (PowerShell):**
+
+```powershell copy
+Remove-Item -Recurse -Force "$env:USERPROFILE\.claude\skills\lakerunner-cli"
 ```
 
 <SupportCallout />
