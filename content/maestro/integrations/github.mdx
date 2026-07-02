@@ -84,7 +84,7 @@ https://<your-maestro-base-url>/api/github-app/setup
 
 ### 2. Install the app on your GitHub org
 
-On the app's settings page, click **Install App** and install it into your organization, choosing **All repositories** or a specific selection. This creates the *installation* Maestro acts through.
+On the app's settings page, click **Install App** and install it into your organization — or into a **personal user account**, both are supported — choosing **All repositories** or a specific selection. This creates the *installation* Maestro acts through.
 
 ### 3. Connect it in Maestro
 
@@ -94,7 +94,7 @@ On the app's settings page, click **Install App** and install it into your organ
    - **App slug**
    - **Private key** — paste the full contents of the `.pem`, including the `-----BEGIN...` / `-----END...` lines. It is write-only: sealed on save and never shown again.
    - **API Base URL** — leave empty for github.com; for GHES set `https://<ghe-host>/api/v3`.
-3. Start the connect flow. Maestro redirects you to GitHub; approve the installation. GitHub returns your browser to the setup URL, and Maestro **verifies the installation directly with GitHub** (it never trusts the redirect's `installation_id`) before finalizing.
+3. Start the connect flow. Maestro redirects you to GitHub; pick the **organization or personal account** to install into and approve the installation. GitHub returns your browser to the setup URL, and Maestro **verifies the installation directly with GitHub** (it never trusts the redirect's `installation_id`) before finalizing.
 4. Select the **Default Repositories** the agent should search (optional but recommended), and fill in **Name**, **Description**, and **Planner Hint** as needed.
 
 Once finalized, org owners can manage repositories from the UI without touching GitHub admin again.
@@ -116,5 +116,6 @@ Once configured, you can ask the AI agent questions like:
 | Save fails with an encryption error | `LICENSE_SIGNING_KEYS_PATH` not configured — the private key cannot be sealed |
 | GHES base URL rejected | The host isn't listed in `MAESTRO_GITHUB_ALLOWED_API_BASE_URLS` |
 | Repositories don't appear in the picker after connecting | The installation grants no repos, or finalization hasn't reconciled yet — reopen the integration to trigger a lazy reconcile |
+| Integration stays **pending** after approving on GitHub | A member-initiated org install is waiting for a GitHub org owner's approval, or (on Maestro versions before personal-account support) the app was installed into a personal user account — upgrade Maestro or reinstall into an organization |
 
 <SupportCallout />
