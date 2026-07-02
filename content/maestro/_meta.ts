@@ -6,5 +6,6 @@ export default {
   install: 'Installation',
   integrations: 'Integrations',
   'mcp-clients': 'Connect AI Clients',
+  updates: 'Software Updates',
   'agent-outcomes': 'Agent Outcomes',
 }
