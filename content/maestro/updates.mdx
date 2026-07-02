@@ -1,0 +1,55 @@
+# Software updates
+
+Cardinal-managed sites run a coordinated bundle of components — the Perch
+operator, Lakerunner, and Maestro — published together as a numbered
+**release set**. Your site's version *is* the set it runs: every combination
+Cardinal publishes has been tested together, so components never drift onto
+untested mixes.
+
+The **Settings → Version Control** page shows where your site stands and lets
+org owners control how upgrades happen.
+
+## The site version card
+
+At the top of the page, the site version card shows one of:
+
+- **Up to date** — the site runs the newest release set available to your org.
+- **Update available** — a newer set is published. Owners see an
+  **Upgrade to Set N** button.
+- **Locked** — the org is frozen on its current set (see below).
+- **Mixed versions** — the site's components don't match any published set
+  (typical for sites installed before release sets existed; one upgrade
+  converges them).
+- **Not reported yet** — the site hasn't phoned home a version report.
+
+Below the card, the components table lists each component's deployed version
+against the newest available, along with registry/mirror status and the
+update history.
+
+## Upgrade modes
+
+Org owners choose one of three modes:
+
+- **Manual** (default) — nothing changes without a click. When a new set is
+  available, you'll see it here (and in Slack/email if update notifications
+  are enabled); **Upgrade now** applies it.
+- **Auto-upgrade** — the site moves to each newly published set automatically,
+  shortly after its next check-in.
+- **Locked** — the site is frozen on its current set. No automatic or offered
+  upgrades until you unlock.
+
+Two safety gates apply to every upgrade, however it's triggered:
+
+- **Health** — a site whose deployments are degraded or down is not upgraded
+  automatically (don't roll a broken site). Contact support if you need an
+  upgrade pushed to an unhealthy site — the fix is sometimes the upgrade
+  itself.
+- **Registry** — if your org pulls images from a private registry, upgrades
+  wait until the target versions are mirrored there, so a rollout can never
+  fail on a missing image.
+
+## Notifications
+
+Update notifications (new set available, pending mirror) are configured on the
+same page — pick a notification group and the events you care about. Each
+notification includes the customer-facing changelog for the release.
