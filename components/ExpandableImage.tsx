@@ -1,3 +1,5 @@
+'use client';
+
 import { useState } from 'react';
 
 function ExpandableImage({url,alt,imgStyle}:{url:string, alt:string, imgStyle?: React.CSSProperties }) {

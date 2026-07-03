@@ -1,95 +1,171 @@
-import LakerunnerHelmValuesWizard from '../../components/LakerunnerHelmValuesWizard';
+import ExpandableImage from '../../components/ExpandableImage';
 import SupportCallout from '../../components/SupportCallout';
 
-# Lakerunner Installation Guide
+# Install Lakerunner
 
-Use the interactive wizard below to generate a configuration for your Lakerunner deployment. Select your installation type and fill in the required details to generate a `values.yaml` file.
+The fastest way to run Lakerunner is to let Cardinal install and manage it for you. From
+[app.cardinalhq.io](https://app.cardinalhq.io) you register your Kubernetes cluster as a **site**, and
+Cardinal's **Perch operator** deploys **Lakerunner and the Cardinal UI together as a single unit** — then keeps
+them upgraded, healthy, and reporting status back to Cardinal.
 
-## Installation Wizard
+> **Cardinal UI** is the on-prem build of Cardinal's Maestro console. When the operator installs your site it
+> brings up both Lakerunner (the observability data lake) and the Cardinal UI (the console you query it from),
+> version-matched and wired together.
 
-<LakerunnerHelmValuesWizard />
+<div style={{ padding: '1rem 1.25rem', border: '1px solid var(--nextra-border, #333)', borderRadius: 8, margin: '1.5rem 0' }}>
 
-For the complete list of configuration options, see the full [values.yaml reference on GitHub](https://github.com/cardinalhq/charts/blob/main/lakerunner/values.yaml).
+**We recommend the operator for every install.** One Helm command registers the cluster, then everything is
+driven from the Cardinal UI: install, automatic upgrades, version pinning, health monitoring, and one-click
+removal — for both POC and production.
 
-## Post-Installation
+A **POC via the Helm chart is also supported** if you'd rather run it yourself, but you own upgrades and
+monitoring. See **[Manual install](/lakerunner/manual-install)**.
 
-### Verify the Installation
+For advanced production topologies (external S3 + Postgres at scale, air-gapped clusters, custom HA), start
+with the operator and **[contact sales](mailto:sales@cardinalhq.io)** — we'll help you size and harden the
+deployment.
 
-After installation, verify all pods are running:
+</div>
 
-```bash copy
-kubectl get pods -n lakerunner -l app.kubernetes.io/name=lakerunner
+## Before you start
+
+You'll need:
+
+- A **Kubernetes cluster** (1.28+) and `kubectl` / `helm` configured against it.
+- **Cluster-admin** authority on that cluster — the operator installs cluster-scoped RBAC.
+- A **default StorageClass** — Lakerunner keeps its telemetry on PersistentVolumes provisioned from it. If no
+  StorageClass is marked default, the install can't bind storage.
+- **Outbound HTTPS** from the cluster to Cardinal. No inbound ports are opened.
+- A free Cardinal account at [app.cardinalhq.io](https://app.cardinalhq.io). Creating your first site starts a
+  **60-day trial automatically — no credit card required**.
+
+## Operator-managed install
+
+### 1. Create a site
+
+In the Cardinal UI, go to **Organization → Sites** and click **Create site**. Your first site is eligible for a
+free trial that starts as soon as you create it, so you can install Lakerunner right away.
+
+<ExpandableImage url="/lakerunner/install/01-sites-free-trial.png" alt="Sites page showing free-trial eligibility and Create site" imgStyle={{ maxWidth: '100%', borderRadius: 6 }} />
+
+Choose **Operator-managed** — Cardinal's Perch operator deploys and manages Lakerunner for you. (Self-managed
+is the token-only path for teams who want to run the chart themselves; that's the [manual
+install](/lakerunner/manual-install).)
+
+<ExpandableImage url="/lakerunner/install/02-deploy-method.png" alt="Choosing Operator-managed vs Self-managed" imgStyle={{ maxWidth: '100%', borderRadius: 6 }} />
+
+Give the site a name (for example, the cluster it lives on), then review exactly what the operator needs inside
+your cluster before anything is installed:
+
+<ExpandableImage url="/lakerunner/install/03-review-permissions.png" alt="Review permissions the agent needs in your cluster" imgStyle={{ maxWidth: '100%', borderRadius: 6 }} />
+
+| Access | Why |
+|---|---|
+| **Cluster-admin RBAC** | Cluster-scoped read so the agent can discover your workloads and report status. |
+| **Namespace creation** | The Helm chart creates a dedicated namespace (default `perch-system`). |
+| **Network egress** | Outbound HTTPS to Cardinal only — no inbound ports are opened. |
+| **Secret access** | The install key is stored as a Kubernetes Secret in the operator's namespace. |
+| **A default StorageClass** | Telemetry is stored on PersistentVolumes from your default StorageClass. |
+| **Public image pulls** | Nodes pull container images from `public.ecr.aws`. |
+
+### 2. Install the Perch operator
+
+Cardinal generates a one-line `helm install` for your site. Run it against the target cluster:
+
+<ExpandableImage url="/lakerunner/install/04-install-perch.png" alt="Connect your cluster — the generated helm install command for Perch" imgStyle={{ maxWidth: '100%', borderRadius: 6 }} />
+
+```bash
+helm install perch oci://public.ecr.aws/cardinalhq.io/perch \
+  --namespace perch-system --create-namespace \
+  --set site.id=<your-site-id> \
+  --set site.apiKey=<your-site-api-key>
 ```
 
-### Access Grafana
+> **Security note:** the `--set site.apiKey=…` form embeds the site key on the command line, so it lands in your
+> shell history and is readable via `helm get values`. For a stricter install, pre-create the Secret yourself
+> and install without the inline key — the chart detects an existing `perch-site-apikey` Secret and skips
+> rendering its own:
+>
+> ```bash
+> kubectl create namespace perch-system
+> kubectl -n perch-system create secret generic perch-site-apikey \
+>   --from-literal=psk=<your-site-api-key>
+> helm install perch oci://public.ecr.aws/cardinalhq.io/perch \
+>   --namespace perch-system \
+>   --set site.id=<your-site-id>
+> ```
 
-Configure an Ingress or use port-forwarding to access Grafana:
+The Cardinal UI waits for the operator to check in and advances on its own once it connects.
 
-```bash copy
-kubectl port-forward -n lakerunner svc/grafana 3000:3000
+<ExpandableImage url="/lakerunner/install/05-perch-connected.png" alt="Perch is connected" imgStyle={{ maxWidth: '100%', borderRadius: 6 }} />
+
+### 3. Choose a profile
+
+Now tell the operator how to run Lakerunner on this site.
+
+<ExpandableImage url="/lakerunner/install/06-choose-profile.png" alt="Choose a profile — POC or Production" imgStyle={{ maxWidth: '100%', borderRadius: 6 }} />
+
+| Profile | What it provisions | Use it for |
+|---|---|---|
+| **POC** | Cluster-managed Postgres + RustFS, on PersistentVolumes | Fast to bring up. Lower durability — data lives on cluster-local PVCs and is lost if the cluster is destroyed. |
+| **Production** | External S3 + Postgres you provide | Durable storage that outlives the cluster. You supply connection details and credentials. |
+
+Pick your **trial license** (the site created on a trial has one slot available), then confirm storage sizes.
+POC mode surfaces a durability warning so nobody ships cluster-local PVCs to production by accident:
+
+<ExpandableImage url="/lakerunner/install/08-poc-infrastructure.png" alt="POC infrastructure — storage sizes with a durability warning" imgStyle={{ maxWidth: '100%', borderRadius: 6 }} />
+
+### 4. Review and deploy
+
+Nothing changes in your cluster until you confirm. The review step spells out exactly what the operator will
+create — Deployments, StatefulSets, Services, PersistentVolumeClaims, and Secrets — all scoped to this site's
+`lakerunner` namespace.
+
+<ExpandableImage url="/lakerunner/install/09-review-deploy.png" alt="Review & deploy" imgStyle={{ maxWidth: '100%', borderRadius: 6 }} />
+
+Click **Confirm & deploy** and watch it come up: preparing → provisioning the database → installing Lakerunner →
+starting the Cardinal UI → ready.
+
+<ExpandableImage url="/lakerunner/install/10-installing.png" alt="Installation progress" imgStyle={{ maxWidth: '100%', borderRadius: 6 }} />
+
+When it's done, the site shows Lakerunner, the Cardinal UI, and the Perch operator as healthy components — each
+with its version and an **At latest** indicator so you know when an upgrade is available.
+
+<ExpandableImage url="/lakerunner/install/11-deployed-ready.png" alt="Deployed and ready — Lakerunner, Cardinal UI, and Perch healthy" imgStyle={{ maxWidth: '100%', borderRadius: 6 }} />
+
+### 5. Sign in to the Cardinal UI
+
+Expand **Show sign-in details** on the Cardinal UI component for a port-forward command, the local URL, and
+your generated sign-in credentials:
+
+<ExpandableImage url="/lakerunner/install/12-sign-in-details.png" alt="Cardinal UI sign-in details" imgStyle={{ maxWidth: '100%', borderRadius: 6 }} />
+
+```bash
+kubectl -n lakerunner port-forward svc/lr-<id>-maestro 4200:4200
 ```
 
-## Deploying on OpenShift
+Then open [http://localhost:4200](http://localhost:4200) and sign in with the email and password shown. From
+here you're querying your own cluster's logs, metrics, and traces through the on-prem Cardinal UI. Expose it
+behind an Ingress when you're ready to share it with your team.
 
-The chart renders cleanly under the `restricted-v2` SCC with two adjustments. Add the following to the `values.yaml` produced by the wizard above:
+## Why the operator?
 
-### 1. Let the SCC assign UIDs
+Running Lakerunner through the operator means you don't babysit the deployment:
 
-OpenShift's `restricted-v2` SCC rejects pods whose `runAsUser`/`runAsGroup`/`fsGroup` fall outside the namespace's assigned UID range — it wants to inject them from the range itself. Null the fields so the chart emits only `runAsNonRoot: true`:
+- **Automatic upgrades** — Lakerunner, the Cardinal UI, and the operator are version-matched and upgraded
+  together. Pin a version or let Cardinal keep you current.
+- **Monitoring** — every component reports health and version back to Cardinal; the site page shows what's
+  running, what's healthy, and what's out of date.
+- **Single-unit lifecycle** — one install brings up the whole stack; one action removes it cleanly.
+- **No inbound access** — the operator only makes outbound HTTPS calls, so there's nothing to expose.
 
-```yaml copy
-global:
-  podSecurityContext:
-    runAsNonRoot: true
-    runAsUser: null
-    runAsGroup: null
-    fsGroup: null
-grafana:
-  podSecurityContext:
-    runAsNonRoot: true
-    runAsUser: null
-    runAsGroup: null
-    fsGroup: null
-```
+## Trial and beyond
 
-The SCC fills in `runAsUser`, `runAsGroup`, and `fsGroup`. All other hardening from `global.containerSecurityContext` (no-privilege-escalation, drop `ALL`, `RuntimeDefault` seccomp, read-only rootfs) stays in effect.
+The trial runs **60 days with one Lakerunner deployment and all features unlocked, no credit card**. To add
+deployments, extend the trial, or move to a production license, **[contact sales](mailto:sales@cardinalhq.io)**.
 
-### 2. Grafana needs an SCC that permits UID 472
-
-The upstream `grafana/grafana` image expects UID 472 to own `/var/lib/grafana`. Because that UID almost never falls inside a namespace's `restricted-v2` range, Grafana needs either a custom SCC or an OpenShift-compatible image. The simplest path is:
-
-```sh copy
-oc adm policy add-scc-to-user nonroot-v2 -z <release>-lakerunner -n <namespace>
-```
-
-…and then keep Grafana's defaults (UID 472). If you prefer to avoid the SCC grant, swap `grafana.image.repository` for an image that supports random UIDs.
-
-### 3. Perch needs elevated RBAC
-
-The Perch component ships with a `ClusterRole` that includes `patch` on `apps/deployments` cluster-wide — this is its legitimate function (cross-namespace deployment management), but it counts as a privileged grant. On clusters with strict RBAC review you may need admin approval or an `oc adm policy add-role-to-user edit` against the chart's ServiceAccount.
-
-### 4. Ingress / Routes
-
-The chart uses standard `networking.k8s.io/v1` `Ingress` resources. They work with the OpenShift HAProxy router out of the box; no nginx-specific annotations are emitted.
-
-## Upgrading
-
-To upgrade an existing installation:
-
-```bash copy
-helm upgrade lakerunner oci://public.ecr.aws/cardinalhq.io/lakerunner \
-  --values values.yaml \
-  --namespace lakerunner
-```
-
-## Uninstalling
-
-To remove Lakerunner:
-
-```bash copy
-helm uninstall lakerunner --namespace lakerunner
-```
-
-**Note:** This does not delete your data in the cloud storage bucket.
+Prefer to run the chart yourself? A **POC via the Helm chart is supported** — see
+**[Manual install](/lakerunner/manual-install)**. For everything else, including production, we recommend the
+operator.
 
 <SupportCallout />
