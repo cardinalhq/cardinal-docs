@@ -1,7 +1,8 @@
 export default {
   index: 'Overview',
-  quickstart: 'Quick Start',
-  install: 'Installation Guide',
+  install: 'Install Lakerunner',
+  'manual-install': 'Manual Install (Helm)',
+  quickstart: { display: 'hidden' },
   collectors: 'OpenTelemetry Collectors',
   instrumentation: 'App Instrumentation',
   'otel-demo': 'OTel Demo Application',

@@ -27,16 +27,23 @@ For more detail, see the dedicated [Ingestion](/lakerunner/architecture/ingestio
 
 ## Deployment Options
 
-Lakerunner supports two deployment modes:
+We recommend running Lakerunner **operator-managed for every install**: from
+[app.cardinalhq.io](https://app.cardinalhq.io) you register your cluster as a site, and Cardinal's Perch
+operator installs Lakerunner and the Cardinal UI together and keeps them upgraded and monitored. A POC via the
+Helm chart is also supported if you'd rather run it yourself.
 
-| Mode | Use Case | Infrastructure |
-|------|----------|----------------|
-| **Kubernetes POC** | Proof of concept with real cloud resources | Any Kubernetes cluster |
-| **Production** | Full HA deployment | Production Kubernetes with autoscaling |
+| Path | Use Case | You manage |
+|------|----------|------------|
+| **Operator-managed** (recommended) | Every install — POC and production | Nothing — Cardinal handles install, upgrades, and monitoring |
+| **Manual Helm** | POC only | Install, upgrades, and monitoring yourself |
+
+Either path offers a **POC** profile (cluster-local Postgres + storage, fast but lower durability) and a
+**Production** profile (external S3 + Postgres that outlives the cluster).
 
 ## Getting Started
 
-Ready to deploy? Head to the [Installation Guide](/lakerunner/install) to get started with our interactive setup wizard.
+Ready to deploy? Head to **[Install Lakerunner](/lakerunner/install)** to let the operator set it up, or use the
+**[Manual install](/lakerunner/manual-install)** if you'd rather run the chart yourself.
 
 ### Prerequisites
 
@@ -44,9 +51,9 @@ Before installing Lakerunner, ensure you have:
 
 1. [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl) - Kubernetes CLI
 2. [Helm](https://helm.sh/docs/intro/install/) 3.14+ - Package manager for Kubernetes
-3. Kubernetes cluster 1.28+ (local or cloud)
+3. Kubernetes cluster 1.28+ (local or cloud) with a default StorageClass
 
-For **POC and Production** deployments, you'll also need:
+For **Production** deployments, you'll also need:
 - S3-compatible object storage with notification capability (S3, GCS, or Azure Blob)
 - PostgreSQL 16+ database
 

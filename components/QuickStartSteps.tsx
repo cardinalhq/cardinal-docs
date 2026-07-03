@@ -107,8 +107,8 @@ export default function QuickStartSteps() {
         <Step title="Install using Helm">
           <p>
             Use the{' '}
-            <a href="/lakerunner/install" target="_blank" rel="noopener noreferrer">
-              Installation Wizard
+            <a href="/lakerunner/manual-install#configuration-wizard" target="_blank" rel="noopener noreferrer">
+              configuration wizard
             </a>{' '}
             to generate a <code>values.yaml</code> tailored to your environment, then install:
           </p>
@@ -165,7 +165,7 @@ export default function QuickStartSteps() {
           {
             icon: '🚀',
             title: 'Production deployment',
-            description: 'Generate a production values.yaml with S3 and PostgreSQL',
+            description: 'Let the operator install and manage Lakerunner for you',
             href: '/lakerunner/install',
           },
           {
