@@ -20,6 +20,8 @@ Skip this section if you're on Cardinal Cloud — your endpoint is `https://app.
 
 For self-hosted Maestro you provision one shared API key that gates the MCP endpoint. The plugins sign in through your browser like the rest of Maestro, but the manual setups below use this shared key directly.
 
+If your engineers will also use the [Agent Outcomes dashboard](/maestro/agent-outcomes), additionally set `MAESTRO_INGEST_ENDPOINT` on the Maestro deployment to your Lakerunner intake URL — the plugins' connect flow reads the telemetry destination from Maestro's bundle, so this is what routes agent-session telemetry to **your** Lakerunner rather than omitting it. See [Environment variables](/maestro/install/environment).
+
 ### 1. Provision the API key
 
 Generate a strong random key (≥32 bytes of entropy) and store it under whatever secret-management scheme your cluster uses (Sealed Secrets, External Secrets Operator, plain `kubectl create secret`, etc.). Keep a copy in your team password manager — you cannot read it back out of Kubernetes after creation.
