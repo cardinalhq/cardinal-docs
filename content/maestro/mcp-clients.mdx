@@ -5,7 +5,7 @@ import SupportCallout from '../../components/SupportCallout';
 Cardinal exposes every connected integration (Lakerunner, GitHub, Jira, Kubernetes, Slack, ServiceNow, …) as Model Context Protocol tools through Maestro's built-in MCP gateway. This page covers wiring two clients up to your Maestro instance:
 
 - **Claude Code**, via the official [`cardinal-claude-plugin`](https://github.com/cardinalhq/cardinal-claude-plugin). One command installs the plugin, one more authorizes it in your browser, and your Claude Code session sees every Cardinal tool your org has configured.
-- **OpenAI Codex CLI**, by editing `~/.codex/config.toml` directly — there's no plugin for Codex yet.
+- **OpenAI Codex CLI**, via the official [`cardinal-codex-plugin`](https://github.com/cardinalhq/cardinal-codex-plugin) (see [Install: Codex CLI plugin](/maestro/agent-outcomes/install-codex-plugin)) — or by editing `~/.codex/config.toml` directly if the plugin isn't an option.
 
 Both clients work the same way against either deployment:
 
@@ -18,7 +18,7 @@ Both clients work the same way against either deployment:
 
 Skip this section if you're on Cardinal Cloud — your endpoint is `https://app.cardinalhq.io` and there's nothing to install on your side.
 
-For self-hosted Maestro you provision one shared API key that gates the MCP endpoint. The plugin signs in through your browser like the rest of Maestro, but Codex CLI and the manual setup below use this shared key directly.
+For self-hosted Maestro you provision one shared API key that gates the MCP endpoint. The plugins sign in through your browser like the rest of Maestro, but the manual setups below use this shared key directly.
 
 ### 1. Provision the API key
 
@@ -152,7 +152,9 @@ Disconnect revokes the keys with Cardinal and removes everything the plugin adde
 
 ## Codex CLI (manual MCP config)
 
-There's no plugin for Codex CLI yet, so you wire MCP up by hand. Codex keeps its config in `~/.codex/config.toml` and supports streamable-HTTP MCP servers with custom headers via the `env_http_headers` table.
+Most users should install the [`cardinal-codex-plugin`](/maestro/agent-outcomes/install-codex-plugin) instead — it configures MCP for you, keeps it in sync, and adds session telemetry for the Agent Outcomes dashboard. Use this manual path only when the plugin isn't an option.
+
+Codex keeps its config in `~/.codex/config.toml` and supports streamable-HTTP MCP servers with custom headers via the `env_http_headers` table.
 
 You'll need three values:
 

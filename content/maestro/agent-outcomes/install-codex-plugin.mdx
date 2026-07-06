@@ -1,0 +1,87 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# Install the Codex CLI plugin
+
+The [`cardinal-codex-plugin`](https://github.com/cardinalhq/cardinal-codex-plugin) puts your OpenAI Codex CLI sessions on the [Agent Outcomes dashboard](/maestro/agent-outcomes), with the same one-consent setup as the Claude Code plugin:
+
+- **Telemetry** — your Codex sessions stream to Cardinal, attributed to engineer, branch, PR, and initiative, with per-turn token usage and a computed dollar cost per session.
+- **MCP tools** — a managed `cardinal` MCP server entry in your Codex config, exposing whichever tools your org has integrations for. Pass `--telemetry-only` to skip this side.
+
+Like the Claude Code plugin, it also delivers **session context and spend limits**: sessions in a git repo receive the initiative branch-naming convention at start, and org [spend-limit policies](/maestro/agent-outcomes#spend-limits) are enforced in-session — quiet context at *notify*, a visible message at *warn*, a stopped turn at *block*.
+
+<SupportCallout />
+
+## Requirements
+
+- A recent Codex CLI release (with MCP server and hooks support).
+- Python 3.11+ on your `PATH`.
+- A Cardinal account on `app.cardinalhq.io`, or a self-hosted Maestro your operator has prepared (see [Connect AI clients](/maestro/mcp-clients)).
+
+## 1. Install
+
+```bash
+codex plugin marketplace add cardinalhq/cardinal-codex-plugin
+codex plugin add cardinal-codex-plugin@cardinalhq-codex-plugin
+```
+
+## 2. Connect
+
+Ask Codex:
+
+```text
+Use cardinal-connect
+```
+
+The connect skill prints a URL like `https://app.cardinalhq.io/connect?code=ABCD-EFGH`. Open it in your browser, sign in if you aren't already, pick the org to connect, and click **Approve**. The plugin picks up your consent within a few seconds and writes:
+
+| File | What gets written |
+| --- | --- |
+| `~/.codex/config.toml` | A managed `[mcp_servers.cardinal]` entry. |
+| `~/.codex/hooks.json` | Managed Cardinal telemetry hook entries. |
+| `~/.codex/cardinal.json` | Non-secret connection state for status/disconnect. |
+| `~/.codex/cardinal-secrets.json` | Your minted keys, written mode `0600`. |
+
+For self-hosted Maestro, run the script directly with your host:
+
+```bash
+python3 scripts/cardinal-connect --host https://maestro.example.internal
+```
+
+Then **restart Codex** so it reloads the MCP and hook configuration, and trust the Cardinal hooks if Codex prompts you to.
+
+## 3. Verify
+
+Ask Codex:
+
+```text
+Use cardinal-status
+```
+
+You'll see the connected org, both endpoints, key prefixes, and a reachability probe against each side. Run a session in any git repo and it appears on the Outcomes dashboard within a few minutes.
+
+## Variants
+
+```bash
+python3 scripts/cardinal-connect --telemetry-only   # Outcomes dashboard only; skip the MCP tools
+python3 scripts/cardinal-connect --rotate           # Mint fresh keys, overwrite an existing connection
+python3 scripts/cardinal-connect --host https://…   # Point at a self-hosted Maestro
+python3 scripts/cardinal-connect --dry-run          # Walk the consent flow, write nothing
+```
+
+Upgrading from a version before 0.4.0? Re-run `cardinal-connect --rotate` once so the newer hooks are registered.
+
+## Getting attributed correctly
+
+Sessions are attributed to an **initiative** by branch name: `<type>/<kebab-name>`, where the type prefix is one of `feat`, `fix`, `refactor`, `infra`, `chore`, `research`, or `spike` (for example `fix/login-crash` → initiative *login-crash*, type *bugfix*). Sessions on `main`/`master`/`develop`/`trunk` are treated as research/scoping work. The plugin surfaces this convention to Codex at session start, so branches it cuts for you classify cleanly.
+
+## Privacy
+
+The plugin captures tool names, command lines, and file paths so Cardinal can tell which repo and service a session worked on, plus token counts and rate-limit standing for cost reporting. The contents of your prompts are never captured.
+
+## Disconnect
+
+```text
+Use cardinal-disconnect
+```
+
+This revokes your keys with Cardinal and removes the managed MCP entry, hooks, and local state. Everything else in your Codex config is left as it was.
