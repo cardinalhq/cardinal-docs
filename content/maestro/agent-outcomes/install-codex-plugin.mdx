@@ -47,6 +47,8 @@ For self-hosted Maestro, run the script directly with your host:
 python3 scripts/cardinal-connect --host https://maestro.example.internal
 ```
 
+With `--host` set, nothing touches Cardinal Cloud: your Maestro runs the consent flow, mints the keys, and hands the plugin **your** endpoints — MCP on your Maestro, telemetry to your Lakerunner intake. The telemetry side requires your operator to have set `MAESTRO_INGEST_ENDPOINT` on the Maestro deployment (see [Environment variables](/maestro/install/environment)); without it the connect bundle omits telemetry and sessions never reach the dashboard.
+
 Then **restart Codex** so it reloads the MCP and hook configuration, and trust the Cardinal hooks if Codex prompts you to.
 
 ## 3. Verify

@@ -27,6 +27,7 @@ Usually set automatically by the chart — see the [Helm chart reference](/maest
 | Variable | Required | Default | Notes |
 | -------- | -------- | ------- | ----- |
 | `MAESTRO_BASE_URL` | Yes in prod | — | Full URL the browser hits (e.g. `https://maestro.example.com`). Must match your OIDC redirect URI |
+| `MAESTRO_INGEST_ENDPOINT` | For Agent Outcomes | — | Absolute OTLP/HTTP endpoint of **your** Lakerunner intake (e.g. `https://intake.example.internal`). Returned in the `cardinal-connect` bundle so the Claude Code / Codex plugins send session telemetry to your Lakerunner instead of Cardinal Cloud. When unset, connect bundles omit the telemetry side entirely and the [Agent Outcomes dashboard](/maestro/agent-outcomes) stays empty |
 | `PORT` | — | `4200` | HTTP listen port |
 | `SPA_ROOT` | — | `/app/ui` | Path to the UI static bundle inside the image |
 
