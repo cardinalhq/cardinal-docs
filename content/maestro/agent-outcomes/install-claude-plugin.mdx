@@ -1,0 +1,80 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# Install the Claude Code plugin
+
+The [`cardinal-claude-plugin`](https://github.com/cardinalhq/cardinal-claude-plugin) is what puts your Claude Code sessions on the [Agent Outcomes dashboard](/maestro/agent-outcomes). One browser-approved consent wires up both halves:
+
+- **Telemetry** — your sessions stream to Cardinal, attributed to engineer, branch, PR, and initiative, with per-turn token and tool usage for the dashboard's cost and anti-pattern analysis.
+- **MCP tools** — a single `cardinal` MCP server appears in Claude Code, exposing whichever tools your org has integrations for (Lakerunner, GitHub, Jira, …). Pass `--telemetry-only` if you want the dashboard side without the tools.
+
+The plugin also delivers **session context and spend limits**: every session in a git repo receives the initiative branch-naming convention at start, and any [spend-limit policies](/maestro/agent-outcomes#spend-limits) your org has set are enforced in-session — quiet context at *notify*, a visible message at *warn*, a stopped turn at *block*.
+
+<SupportCallout />
+
+## Requirements
+
+- Claude Code with plugin support (any recent stable release).
+- Python 3.9+ on your `PATH` (the plugin's helpers run as Python scripts).
+- A Cardinal account on `app.cardinalhq.io`, or a self-hosted Maestro your operator has prepared (see [Connect AI clients](/maestro/mcp-clients)).
+
+## 1. Install
+
+```bash
+claude plugin marketplace add cardinalhq/cardinal-claude-plugin
+claude plugin install cardinal@cardinalhq-claude-plugin
+```
+
+## 2. Connect
+
+From inside Claude Code:
+
+```
+/cardinal:connect
+```
+
+The plugin prints a URL like `https://app.cardinalhq.io/connect?code=ABCD-EFGH`. Open it in your browser, sign in if you aren't already, pick the org to connect, and click **Approve**. The plugin picks up your consent within a few seconds and writes the config.
+
+For self-hosted Maestro, pass your host:
+
+```
+/cardinal:connect --host https://maestro.example.internal
+```
+
+Then **fully quit Claude Code** (`Cmd-Q` on macOS) and start a new session — the telemetry and MCP settings are read at process start.
+
+## 3. Verify
+
+From the new session:
+
+```
+/cardinal:status
+```
+
+You'll see the host, your org, both endpoints, key prefixes, and a reachability probe against each side. Run a session in any git repo and it appears on the Outcomes dashboard within a few minutes.
+
+## Variants
+
+```
+/cardinal:connect --telemetry-only      # Outcomes dashboard only; skip the MCP tools
+/cardinal:connect --rotate              # Mint fresh keys, overwrite an existing connection
+/cardinal:connect --host https://…      # Point at a self-hosted Maestro
+/cardinal:connect --no-tool-details     # Privacy opt-out — see below
+/cardinal:connect --dry-run             # Walk the consent flow, write nothing
+```
+
+## Getting attributed correctly
+
+Sessions are attributed to an **initiative** by branch name: `<type>/<kebab-name>`, where the type prefix is one of `feat`, `fix`, `refactor`, `infra`, `chore`, `research`, or `spike` (for example `feat/outcomes-observability` → initiative *outcomes-observability*, type *feature*). Sessions on `main`/`master`/`develop`/`trunk` are treated as research/scoping work. The plugin reminds Claude of this convention at the start of every session, so branches it cuts for you classify cleanly.
+
+## Privacy
+
+By default the plugin captures bash command lines and file paths so Cardinal can tell which repo and service a session worked on. The contents of your prompts and tool inputs/outputs are never captured. If your org's policy forbids command lines and paths too, connect with `--no-tool-details` — sessions still appear, but as `repo=unknown`.
+
+## Disconnect
+
+```
+/cardinal:disconnect                    # Remove everything the plugin added
+/cardinal:disconnect --keep-telemetry   # Keep the dashboard side, remove the MCP tools
+```
+
+Disconnect revokes the keys with Cardinal and removes only the plugin-owned settings; everything else in your Claude Code config is left as it was.
