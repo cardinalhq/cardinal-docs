@@ -19,7 +19,7 @@ Both containers come from the same image — `public.ecr.aws/cardinalhq.io/maest
 
 - A Kubernetes cluster (1.27+)
 - `helm` 3.13+
-- A PostgreSQL database reachable from the cluster (RDS, CloudSQL, or in-cluster is fine)
+- A PostgreSQL database reachable from the cluster (RDS, CloudSQL, or in-cluster is fine), with the `vector`, `pgcrypto`, and `citext` extensions installed (see [Database extensions](#database-extensions) below)
 - An OIDC provider (Keycloak, Okta, Auth0, Google Workspace, etc.) — required for login
 - An LLM backend — one of:
   - AWS Bedrock (via IRSA — recommended on EKS)
@@ -27,6 +27,20 @@ Both containers come from the same image — `public.ecr.aws/cardinalhq.io/maest
   - Anthropic API
   - An OpenAI-compatible endpoint
 - A hostname and TLS cert for the ingress (Maestro expects to be reached at a single public URL)
+
+## Database extensions
+
+Maestro requires three PostgreSQL extensions: **`vector`** (pgvector), **`pgcrypto`**, and **`citext`**. They are **not** created by the schema migrations — the migration role on managed Postgres often lacks `CREATE EXTENSION` — so you must provision them out-of-band before first start. Maestro checks for them at startup and refuses to boot with an actionable error if any is missing.
+
+Install them once, as a superuser, against the maestro database:
+
+```sql
+CREATE EXTENSION IF NOT EXISTS vector;
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS citext;
+```
+
+On managed Postgres, `vector` (pgvector) must be available in the server's extension allow-list first — enable it via your provider (e.g. RDS `rds.allowed_extensions` / parameter group, CloudSQL flags). If you run Postgres via CloudNativePG, declare all three under the Database resource's `extensions:` list instead.
 
 ## Chart location
 
