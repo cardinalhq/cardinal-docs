@@ -1,0 +1,94 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# Install the Cursor plugin
+
+The [`cardinal-cursor-plugin`](https://github.com/cardinalhq/cardinal-cursor-plugin) puts your Cursor sessions on the [Agent Outcomes dashboard](/maestro/agent-outcomes), matching the Claude Code and Codex CLI plugins:
+
+- **Telemetry** — your Cursor sessions stream to Cardinal, attributed to engineer, branch, PR, and initiative, with per-tool activity and subagent lifecycle events.
+- **MCP tools** — a managed `cardinal` MCP server entry in `~/.cursor/mcp.json`, exposing whichever tools your org has integrations for. Pass `--telemetry-only` to skip this side.
+
+Sessions in a git repo receive the initiative branch-naming convention at start, and org [spend-limit policies](/maestro/agent-outcomes#spend-limits) are enforced in-session — quiet context at *notify*, a visible block at *block*. Cursor's `beforeSubmitPrompt` hook has no allow-with-message channel, so *warn* falls back to notify (agent-only) by default; set `CARDINAL_CURSOR_STRICT_WARN=1` in your environment to escalate warn to a hard block instead.
+
+<SupportCallout />
+
+## Requirements
+
+- Cursor with hooks (v1) support.
+- Python 3.11+ on your `PATH`.
+- A Cardinal account on `app.cardinalhq.io`, or a self-hosted Maestro your operator has prepared (see [Connect AI clients](/maestro/mcp-clients)).
+
+## 1. Install
+
+Cursor doesn't have a plugin marketplace, so the install is a `git clone` + run:
+
+```bash
+git clone https://github.com/cardinalhq/cardinal-cursor-plugin.git ~/workspace/cardinal-cursor-plugin
+```
+
+## 2. Connect
+
+```bash
+python3 ~/workspace/cardinal-cursor-plugin/plugins/cardinal-cursor-plugin/scripts/cardinal-connect
+```
+
+The connect script prints a URL like `https://app.cardinalhq.io/connect?code=ABCD-EFGH`. Open it in your browser, sign in if you aren't already, pick the org to connect, and click **Approve**. The plugin picks up your consent within a few seconds and writes:
+
+| File | What gets written |
+| --- | --- |
+| `~/.cursor/mcp.json` | A managed `mcpServers.cardinal` entry (tagged `cardinalManaged: true`). |
+| `~/.cursor/hooks.json` | Managed Cardinal hook entries for `sessionStart`, `beforeSubmitPrompt`, `postToolUse`, `preCompact`, `stop`, and `subagentStop`. |
+| `~/.cursor/cardinal.json` | Non-secret connection state for status/disconnect. |
+| `~/.cursor/cardinal-secrets.json` | Your minted keys, written mode `0600`. |
+
+For self-hosted Maestro, add `--host`:
+
+```bash
+python3 scripts/cardinal-connect --host https://maestro.example.internal
+```
+
+Then **restart Cursor** so it reloads the MCP and hook configuration.
+
+## 3. Verify
+
+```bash
+python3 scripts/cardinal-status
+```
+
+You'll see the connected org, both endpoints, key prefixes, and a reachability probe against each side. Run a session in any git repo and it appears on the Outcomes dashboard within a few minutes.
+
+## Cloud agents
+
+Cursor cloud agents do **not** load `~/.cursor/hooks.json` or `~/.cursor/mcp.json` — cloud VMs have no access to your home directory. To send Cardinal telemetry from cloud-agent runs, install the plugin at the project level from inside your repo:
+
+```bash
+cd path/to/your/repo
+python3 /path/to/plugins/cardinal-cursor-plugin/scripts/cardinal-connect --project
+```
+
+This additionally writes `.cursor/mcp.json` and `.cursor/hooks.json` at the repo root. Commit both files so cloud agents pick them up. Note that Cursor cloud agents don't run `sessionStart`, `beforeSubmitPrompt`, or `stop` (per [Cursor's hooks docs](https://cursor.com/docs/hooks)), so the initiative-convention prompt and the spend gate don't run there. Tool-level telemetry (`postToolUse`, `subagentStop`, `preCompact`) does.
+
+## Variants
+
+```bash
+python3 scripts/cardinal-connect --telemetry-only   # Outcomes dashboard only; skip the MCP tools
+python3 scripts/cardinal-connect --rotate           # Mint fresh keys, overwrite an existing connection
+python3 scripts/cardinal-connect --project          # Also install at .cursor/ for cloud-agent coverage
+python3 scripts/cardinal-connect --host https://…   # Point at a self-hosted Maestro
+python3 scripts/cardinal-connect --dry-run          # Walk the consent flow, write nothing
+```
+
+## Getting attributed correctly
+
+Sessions are attributed to an **initiative** by branch name: `<type>/<kebab-name>`, where the type prefix is one of `feat`, `fix`, `refactor`, `infra`, `chore`, `research`, or `spike` (for example `fix/login-crash` → initiative *login-crash*, type *bugfix*). Sessions on `main`/`master`/`develop`/`trunk` are treated as research/scoping work. The plugin surfaces this convention to Cursor at session start, so branches it cuts for you classify cleanly.
+
+## Privacy
+
+The plugin captures tool names, command lines, and file paths so Cardinal can tell which repo and service a session worked on. The contents of your prompts are never captured. Per-model-call token counts are not currently emitted from Cursor sessions (Cursor's transcript format for that data is undocumented; see the [parity spec](https://github.com/cardinalhq/cardinal-cursor-plugin/blob/main/docs/specs/cursor-parity.md) for the open spike).
+
+## Disconnect
+
+```bash
+python3 scripts/cardinal-disconnect
+```
+
+This revokes your keys with Cardinal and removes the managed MCP entry, hooks, and local state at both `~/.cursor/` and (if you used `--project`) the repo root. Everything else in your Cursor config is left as it was.
