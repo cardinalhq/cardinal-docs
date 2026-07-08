@@ -31,10 +31,19 @@ deployment.
 
 You'll need:
 
-- A **Kubernetes cluster** (1.28+) and `kubectl` / `helm` configured against it.
+- A **Kubernetes cluster** (1.33+) and `kubectl` / `helm` configured against it.
 - **Cluster-admin** authority on that cluster — the operator installs cluster-scoped RBAC.
 - A **default StorageClass** — Lakerunner keeps its telemetry on PersistentVolumes provisioned from it. If no
-  StorageClass is marked default, the install can't bind storage.
+  StorageClass is marked default, the install can't bind storage and PersistentVolumeClaims hang **Pending**
+  with no error surfaced.
+
+  > **EKS:** a fresh cluster needs the **EBS CSI driver addon** installed (e.g.
+  > `eksctl create cluster … --addons aws-ebs-csi-driver` with OIDC), and the `gp2` StorageClass it ships is
+  > **not marked default**. Check with `kubectl get storageclass` — if nothing shows `(default)`, run:
+  >
+  > ```bash
+  > kubectl annotate storageclass gp2 storageclass.kubernetes.io/is-default-class=true
+  > ```
 - **Outbound HTTPS** from the cluster to Cardinal. No inbound ports are opened.
 - A free Cardinal account at [app.cardinalhq.io](https://app.cardinalhq.io). Creating your first site starts a
   **60-day trial automatically — no credit card required**.
@@ -74,12 +83,24 @@ Cardinal generates a one-line `helm install` for your site. Run it against the t
 
 <ExpandableImage url="/lakerunner/install/04-install-perch.png" alt="Connect your cluster — the generated helm install command for Perch" imgStyle={{ maxWidth: '100%', borderRadius: 6 }} />
 
+> **Check your kubecontext first.** The command installs into whatever cluster `kubectl config current-context`
+> points at. If you work with multiple clusters, confirm the context — or pin it explicitly with
+> `--kube-context <name>` — before running the install.
+
 ```bash
 helm install perch oci://public.ecr.aws/cardinalhq.io/perch \
   --namespace perch-system --create-namespace \
   --set site.id=<your-site-id> \
   --set site.apiKey=<your-site-api-key>
 ```
+
+> **Seeing `403 … authorization token has expired` from `public.ecr.aws`?** Your machine has a stale cached
+> ECR token from an earlier authenticated pull. The registry allows anonymous pulls — clear the stale login and
+> retry:
+>
+> ```bash
+> helm registry logout public.ecr.aws
+> ```
 
 > **Security note:** the `--set site.apiKey=…` form embeds the site key on the command line, so it lands in your
 > shell history and is readable via `helm get values`. For a stricter install, pre-create the Secret yourself
@@ -143,6 +164,10 @@ your generated sign-in credentials:
 ```bash
 kubectl -n lakerunner port-forward svc/lr-<id>-maestro 4200:4200
 ```
+
+> Copy the command **exactly as shown in the UI** — the `lr-<id>-` prefix is per-component, and the namespace
+> contains several services with *different* ids (Lakerunner, the collector, the Cardinal UI). If you've lost
+> the page, find the right one with `kubectl -n lakerunner get svc | grep maestro`.
 
 Then open [http://localhost:4200](http://localhost:4200) and sign in with the email and password shown. From
 here you're querying your own cluster's logs, metrics, and traces through the on-prem Cardinal UI. Expose it
