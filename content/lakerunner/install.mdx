@@ -156,8 +156,8 @@ with its version and an **At latest** indicator so you know when an upgrade is a
 
 ### 5. Sign in to the Cardinal UI
 
-Expand **Show sign-in details** on the Cardinal UI component for a port-forward command, the local URL, and
-your generated sign-in credentials:
+Expand **Show sign-in details** on the Cardinal UI component for a port-forward command, the local URL, your
+sign-in email, and the command that reads your password:
 
 <ExpandableImage url="/lakerunner/install/12-sign-in-details.png" alt="Cardinal UI sign-in details" imgStyle={{ maxWidth: '100%', borderRadius: 6 }} />
 
@@ -169,7 +169,14 @@ kubectl -n lakerunner port-forward svc/lr-<id>-maestro 4200:4200
 > contains several services with *different* ids (Lakerunner, the collector, the Cardinal UI). If you've lost
 > the page, find the right one with `kubectl -n lakerunner get svc | grep maestro`.
 
-Then open [http://localhost:4200](http://localhost:4200) and sign in with the email and password shown. From
+Your owner password is generated inside your own cluster during install — Cardinal never sees it, and it is
+never sent over the network. Read it straight from the Secret:
+
+```bash
+kubectl -n lakerunner get secret maestro-owner-password -o jsonpath='{.data.password}' | base64 -d
+```
+
+Then open [http://localhost:4200](http://localhost:4200) and sign in with that email and password. From
 here you're querying your own cluster's logs, metrics, and traces through the on-prem Cardinal UI. Expose it
 behind an Ingress when you're ready to share it with your team.
 
