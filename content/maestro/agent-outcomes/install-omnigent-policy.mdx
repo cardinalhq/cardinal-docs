@@ -21,7 +21,7 @@ The policy has to load inside **the same Python interpreter that runs your omnig
 
 <div className="my-4 rounded border border-yellow-400/50 bg-yellow-50 p-3 text-sm dark:border-yellow-500/40 dark:bg-yellow-900/20">
 
-**Homebrew / macOS system Python users:** a bare `pip install cardinal-omnigent-policy` will fail with `error: externally-managed-environment` (PEP 668) — Homebrew's Python refuses system-wide installs. You need either `pipx inject` (below, if omnigent is pipx-installed) or a virtualenv. Never use `--break-system-packages`.
+**Homebrew / macOS system Python users:** a bare `pip install cardinal-omnigent-policy` will fail with `error: externally-managed-environment` (PEP 668) — Homebrew's Python refuses system-wide installs. Use `pipx inject` or `uv tool install --with` (below, if omnigent is pipx- or uv-tool-installed), or a virtualenv. Never use `--break-system-packages`.
 
 </div>
 
@@ -34,6 +34,18 @@ pipx inject omnigent cardinal-omnigent-policy --include-apps
 
 `--include-apps` puts the `cardinal-omnigent-connect` CLI on your `PATH`. If you already injected an older version, add `--force`.
 
+**uv-tool-installed omnigent:**
+
+```bash
+uv tool install omnigent --python 3.12 \
+  --with cardinal-omnigent-policy \
+  --with-executables-from cardinal-omnigent-policy
+```
+
+`--with` is uv's equivalent of `pipx inject` — it adds the policy (and `cardinal-agent-core`) into omnigent's own tool environment. `--with-executables-from` is the equivalent of pipx's `--include-apps`; without it, `cardinal-omnigent-connect` is installed but not exposed on your `PATH`.
+
+**Pin the interpreter.** Pass `--python` matching the version omnigent's tool environment already uses. Re-running `uv tool install omnigent` **without** `--python` makes uv rebuild the environment on its *default* interpreter (it prints `Ignoring existing environment … the requested Python interpreter does not match`) — silently bumping the Python version underneath your server. Check the current version with `uv tool list --show-version-specifiers` or by inspecting `~/.local/share/uv/tools/omnigent/bin/python`.
+
 **Virtualenv-installed omnigent:**
 
 ```bash
@@ -43,13 +55,17 @@ pip install cardinal-omnigent-policy
 
 **Container image:** add `cardinal-omnigent-policy` to the image's Python dependencies and rebuild.
 
-Sanity check the injection landed inside omnigent's venv (not a separate one — `pipx install cardinal-omnigent-policy` is **wrong**; it isolates the policy from omnigent):
+Sanity check the injection landed inside omnigent's venv (not a separate one — `pipx install cardinal-omnigent-policy` and `uv tool install cardinal-omnigent-policy` are both **wrong**; they isolate the policy from omnigent):
 
 ```bash
+# pipx
 ~/.local/pipx/venvs/omnigent/bin/python -c "import cardinal_omnigent, cardinal_core; print(cardinal_omnigent.__file__)"
+
+# uv tool
+~/.local/share/uv/tools/omnigent/bin/python -c "import cardinal_omnigent, cardinal_core; print(cardinal_omnigent.__file__)"
 ```
 
-The printed path should be under `~/.local/pipx/venvs/omnigent/lib/...`.
+The printed path should be under omnigent's own environment (`~/.local/pipx/venvs/omnigent/lib/...` or `~/.local/share/uv/tools/omnigent/lib/...`).
 
 ## 2. Connect
 
