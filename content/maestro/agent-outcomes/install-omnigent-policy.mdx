@@ -67,11 +67,22 @@ Sanity check the injection landed inside omnigent's venv (not a separate one —
 
 The printed path should be under omnigent's own environment (`~/.local/pipx/venvs/omnigent/lib/...` or `~/.local/share/uv/tools/omnigent/lib/...`).
 
+Then confirm the `cardinal-omnigent-connect` CLI itself landed on your `PATH` — this is what `--include-apps` (pipx) / `--with-executables-from` (uv) provides, and it's separate from the import check above:
+
+```bash
+command -v cardinal-omnigent-connect        # should print a path
+uv tool list                                # (uv) lists omnigent + its injected executables
+```
+
+If the import works but `command -v` finds nothing, you installed the policy correctly but skipped the executable flag — re-run the inject/install with `--include-apps` (pipx) or `--with-executables-from cardinal-omnigent-policy` (uv). (Note: the distribution is named `cardinal-omnigent-policy` but imports as `cardinal_omnigent`, and its `cardinal-agent-core` dependency imports as `cardinal_core` — the names above are correct.)
+
 ## 2. Connect
 
 ```bash
 cardinal-omnigent-connect --config ~/.omnigent/config.yaml
 ```
+
+`~/.omnigent/config.yaml` is omnigent's **default server config** — the file `omnigent server` reads on start and `omnigent config` edits. If your server runs with a custom `-c/--config` path, point `--config` at that file instead: connect merges its managed block into whichever config your server actually loads, so it must be the same one.
 
 The command prints a URL like `https://app.cardinalhq.io/connect?code=ABCD-EFGH`. Open it in your browser, sign in, pick the org, and click **Approve**. Once approved, connect mints an ingest credential, writes the state directory, and merges a `cardinalManaged`-tagged block into your server config.
 
