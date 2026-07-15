@@ -1,0 +1,106 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# Install the omnigent policy
+
+The [`cardinal-omnigent-policy`](https://github.com/cardinalhq/cardinal-agent-plugins/tree/main/adapters/omnigent) package is what puts sessions run through the [omnigent](https://github.com/omnigent-ai/omnigent) meta-harness on the [Agent Outcomes dashboard](/maestro/agent-outcomes). Unlike the CLI plugins, this one is a pip package that loads inside the omnigent **server** process as a policy module — the same server that runs your Claude, Codex, Cursor, Hermes, Pi, OpenCode, or custom-YAML agents.
+
+- **Telemetry** — every conversation the omnigent server handles streams per-turn token and tool usage to Cardinal, attributed to engineer, repo, branch, and initiative for the dashboard's cost and anti-pattern analysis.
+- **Enforced spend limits** — omnigent runs the policy at the `request` phase, which is `FAIL_CLOSED` — any [spend-limit policy](/maestro/agent-outcomes#spend-limits) your org has set is enforced in-flight (a **block** verdict stops the request). Plus an optional omnigent-native per-session hard cap (`session_cost_limit_usd`).
+
+<SupportCallout />
+
+## Requirements
+
+- omnigent installed (any recent alpha; the adapter is drift-tested against a pinned upstream commit — see the [adapter README](https://github.com/cardinalhq/cardinal-agent-plugins/tree/main/adapters/omnigent#tests)).
+- Python **3.12+** (omnigent's requirement — the policy inherits it).
+- A Cardinal account on `app.cardinalhq.io`, or a self-hosted Maestro your operator has prepared (see [Connect AI clients](/maestro/mcp-clients)).
+
+## 1. Install
+
+The policy has to load inside **the same Python interpreter that runs your omnigent server** — so where you install it depends on how omnigent itself is installed. `cardinal-agent-core` is pulled in as a dependency.
+
+<div className="my-4 rounded border border-yellow-400/50 bg-yellow-50 p-3 text-sm dark:border-yellow-500/40 dark:bg-yellow-900/20">
+
+**Homebrew / macOS system Python users:** a bare `pip install cardinal-omnigent-policy` will fail with `error: externally-managed-environment` (PEP 668) — Homebrew's Python refuses system-wide installs. You need either `pipx inject` (below, if omnigent is pipx-installed) or a virtualenv. Never use `--break-system-packages`.
+
+</div>
+
+**Recommended — pipx-installed omnigent:**
+
+```bash
+pipx install omnigent                     # if you don't have it yet
+pipx inject omnigent cardinal-omnigent-policy --include-apps
+```
+
+`--include-apps` puts the `cardinal-omnigent-connect` CLI on your `PATH`. If you already injected an older version, add `--force`.
+
+**Virtualenv-installed omnigent:**
+
+```bash
+source /path/to/omnigent-venv/bin/activate
+pip install cardinal-omnigent-policy
+```
+
+**Container image:** add `cardinal-omnigent-policy` to the image's Python dependencies and rebuild.
+
+Sanity check the injection landed inside omnigent's venv (not a separate one — `pipx install cardinal-omnigent-policy` is **wrong**; it isolates the policy from omnigent):
+
+```bash
+~/.local/pipx/venvs/omnigent/bin/python -c "import cardinal_omnigent, cardinal_core; print(cardinal_omnigent.__file__)"
+```
+
+The printed path should be under `~/.local/pipx/venvs/omnigent/lib/...`.
+
+## 2. Connect
+
+```bash
+cardinal-omnigent-connect --config ~/.omnigent/config.yaml
+```
+
+The command prints a URL like `https://app.cardinalhq.io/connect?code=ABCD-EFGH`. Open it in your browser, sign in, pick the org, and click **Approve**. Once approved, connect mints an ingest credential, writes the state directory, and merges a `cardinalManaged`-tagged block into your server config.
+
+For self-hosted Maestro, pass your host:
+
+```bash
+cardinal-omnigent-connect --host https://maestro.example.internal --config ~/.omnigent/config.yaml
+```
+
+Then **restart the omnigent server** so `policy_modules:` reloads and the policies pick up the new config.
+
+## 3. Verify
+
+Confirm the block was merged in:
+
+```bash
+grep -A 10 "cardinal:" ~/.omnigent/config.yaml
+```
+
+You should see `ingest_endpoint`, `ingest_api_key`, `org`, and `state_dir` under a `cardinalManaged`-tagged block, and `cardinal_omnigent` in `policy_modules:`.
+
+Run one session through your omnigent server; it should appear on the Outcomes dashboard (sliced by `harness=omnigent`) within a few minutes.
+
+## Getting attributed correctly
+
+Omnigent's policy contract carries **no workspace, repo, or branch** — the server doesn't see a filesystem the way the CLI plugins do. Initiative attribution therefore rides **session labels**. Stamp them in your agent specs or operator config:
+
+```yaml
+labels:
+  cardinal.repo: "your-org/your-repo"
+  cardinal.branch: "feat/outcomes-observability"
+```
+
+`cardinal.branch` runs through the same `<type-prefix>/<kebab-name>` convention (`feat`, `fix`, `refactor`, `infra`, `chore`, `research`, `spike`) as the CLI plugins. Sessions without labels attribute to type *research* with no named initiative — same as protected-branch sessions on the CLI adapters.
+
+Mid-session `git checkout -b` commands from shell tools are sniffed as an enrichment fallback (the adapter watches for `checkout -b/-B` and `switch`/`switch -c`), so a branch cut inside a session still attributes correctly even if labels weren't stamped.
+
+## Subagent attribution
+
+`cardinal.subagent_usage` fires on the `response` phase of conversations whose labels mark them as sub-agent children. omnigent stamps `omnigent.wrapper` and id labels for its native Claude / Codex UI children automatically. For native workflow or custom-YAML sub-agents, stamp `cardinal.subagent: <name>` in the sub-agent spec's `guardrails.labels` and it will show up as a distinct child under the parent session.
+
+## Manual config
+
+`cardinal-omnigent-connect` is the easy path, but you can wire it by hand — see [Registering with an omnigent server](https://github.com/cardinalhq/cardinal-agent-plugins/tree/main/adapters/omnigent#registering-with-an-omnigent-server) in the adapter README for the full `cardinal:` config surface (including the optional `session_cost_limit_usd` hard cap and the factory-registration form).
+
+## Privacy
+
+The policies never see prompt contents or tool inputs/outputs. What they do capture: model, per-turn token counts and derived cost, tool names and their bash classifications (for shell tools), and session/subagent identity for attribution. Repo and branch come from the labels you stamp (or from shell branch sniffing) — nothing else on your filesystem is visible to the policies.
