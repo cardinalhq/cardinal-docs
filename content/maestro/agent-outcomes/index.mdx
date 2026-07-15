@@ -2,13 +2,14 @@ import SupportCallout from '../../../components/SupportCallout';
 
 # Agent Outcomes dashboard
 
-The Agent Outcomes dashboard answers two questions about your org's coding-agent spend: **what did it cost, and did the work ship?** Every Claude Code session run with the [`cardinal-claude-plugin`](https://github.com/cardinalhq/cardinal-claude-plugin), every Codex CLI session run with the [`cardinal-codex-plugin`](https://github.com/cardinalhq/cardinal-codex-plugin), and every Cursor session run with the [`cardinal-cursor-plugin`](https://github.com/cardinalhq/cardinal-cursor-plugin) is attributed to an engineer, a git branch, a pull request, and an **initiative** (one branch = one initiative), then classified by outcome: **merged**, **in flight**, **lost** (closed or gone stale without merging), or **ad hoc** (research and diagnostic work that was never headed to a PR).
+The Agent Outcomes dashboard answers two questions about your org's coding-agent spend: **what did it cost, and did the work ship?** Every Claude Code session run with the [`cardinal-claude-plugin`](https://github.com/cardinalhq/cardinal-claude-plugin), every Codex CLI session run with the [`cardinal-codex-plugin`](https://github.com/cardinalhq/cardinal-codex-plugin), every Cursor session run with the [`cardinal-cursor-plugin`](https://github.com/cardinalhq/cardinal-cursor-plugin), and every session an [omnigent](https://github.com/omnigent-ai/omnigent) server handles with the [`cardinal-omnigent-policy`](https://github.com/cardinalhq/cardinal-agent-plugins/tree/main/adapters/omnigent) loaded is attributed to an engineer, a git branch, a pull request, and an **initiative** (one branch = one initiative), then classified by outcome: **merged**, **in flight**, **lost** (closed or gone stale without merging), or **ad hoc** (research and diagnostic work that was never headed to a PR).
 
 To get your sessions onto the dashboard, install the plugin for your agent:
 
 - [Install: Claude Code plugin](/maestro/agent-outcomes/install-claude-plugin)
 - [Install: Codex CLI plugin](/maestro/agent-outcomes/install-codex-plugin)
 - [Install: Cursor plugin](/maestro/agent-outcomes/install-cursor-plugin)
+- [Install: omnigent policy](/maestro/agent-outcomes/install-omnigent-policy)
 
 It works the same on both deployments:
 
@@ -51,6 +52,6 @@ Every panel has a gear (⚙) for spend-limit policies at four scopes: **session*
 
 ## Requirements
 
-- The Cardinal plugin installed in engineers' agent environments — [`cardinal-claude-plugin`](/maestro/agent-outcomes/install-claude-plugin) for Claude Code, [`cardinal-codex-plugin`](/maestro/agent-outcomes/install-codex-plugin) for Codex CLI, or [`cardinal-cursor-plugin`](/maestro/agent-outcomes/install-cursor-plugin) for Cursor. The plugin attributes sessions to branches and initiatives; branch names following `<type>/<kebab-name>` (`feat/`, `fix/`, `refactor/`, `infra/`, `research/`) classify the initiative type.
+- The Cardinal plugin installed in engineers' agent environments — [`cardinal-claude-plugin`](/maestro/agent-outcomes/install-claude-plugin) for Claude Code, [`cardinal-codex-plugin`](/maestro/agent-outcomes/install-codex-plugin) for Codex CLI, [`cardinal-cursor-plugin`](/maestro/agent-outcomes/install-cursor-plugin) for Cursor, or [`cardinal-omnigent-policy`](/maestro/agent-outcomes/install-omnigent-policy) loaded into an omnigent server. The plugin attributes sessions to branches and initiatives; branch names following `<type>/<kebab-name>` (`feat/`, `fix/`, `refactor/`, `infra/`, `research/`) classify the initiative type.
 - A connected **GitHub** integration, for PR outcome classification (merged / open / closed).
 - **Lakerunner**, which stores the session telemetry the dashboard reads.
