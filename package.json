@@ -29,7 +29,7 @@
     "@types/react": "19.2.14",
     "jest": "^30.4.2",
     "jest-environment-jsdom": "^30.4.1",
-    "js-yaml": "^4.2.0",
+    "js-yaml": "^4.3.0",
     "pagefind": "^1.5.2",
     "playwright": "^1.61.0",
     "ts-node": "^10.9.2",
