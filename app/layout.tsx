@@ -1,10 +1,23 @@
 import { Footer, Layout, Navbar } from 'nextra-theme-docs'
 import { Head } from 'nextra/components'
 import { getPageMap } from 'nextra/page-map'
+import { Figtree, JetBrains_Mono } from 'next/font/google'
 import 'nextra-theme-docs/style.css'
 import '../styles/globals.css'
 import type { ReactNode } from 'react'
 import type { Metadata } from 'next'
+
+const figtree = Figtree({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-sans',
+})
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-mono',
+})
 
 export const metadata: Metadata = {
   title: {
@@ -16,7 +29,12 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" dir="ltr" suppressHydrationWarning>
+    <html
+      lang="en"
+      dir="ltr"
+      suppressHydrationWarning
+      className={`${figtree.variable} ${jetbrainsMono.variable}`}
+    >
       <Head />
       <body>
         <Layout
