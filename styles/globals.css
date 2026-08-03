@@ -1,15 +1,33 @@
+/*
+ * Cardinal accent tokens — aligned with cardinalhq.io (`~/workspace/website`).
+ * The website is dark-first and uses OKLCH; docs runs Nextra light+dark, so we
+ * pin the accent to the site's `--accent` (orange) and lift it in dark mode
+ * for legibility on Nextra's dark canvas.
+ */
 :root {
-  --cardinal-orange: #ff5722;
-  --cardinal-red: #e74c3c;
-  --cardinal-amber: #ff9800;
-  --cardinal-gold: #ffc107;
-  --cardinal-accent: #ff5722;
-  --cardinal-accent-soft: rgba(255, 87, 34, 0.18);
+  --cardinal-orange: oklch(0.62 0.19 36);
+  --cardinal-red: oklch(0.58 0.22 27);
+  --cardinal-amber: oklch(0.72 0.17 65);
+  --cardinal-gold: oklch(0.79 0.155 72);
+  --cardinal-accent: oklch(0.62 0.19 36);
+  --cardinal-accent-soft: color-mix(in oklab, oklch(0.62 0.19 36) 18%, transparent);
 }
 
 .dark {
-  --cardinal-accent: #ff8a5c;
-  --cardinal-accent-soft: rgba(255, 138, 92, 0.2);
+  --cardinal-orange: oklch(0.72 0.16 40);
+  --cardinal-red: oklch(0.68 0.19 27);
+  --cardinal-amber: oklch(0.79 0.155 72);
+  --cardinal-gold: oklch(0.84 0.14 78);
+  --cardinal-accent: oklch(0.72 0.16 40);
+  --cardinal-accent-soft: color-mix(in oklab, oklch(0.72 0.16 40) 22%, transparent);
+}
+
+html {
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+code, pre, kbd, samp {
+  font-family: var(--font-mono), ui-monospace, monospace;
 }
 
 article a {
@@ -19,24 +37,6 @@ article a {
 
 article a:hover {
   color: var(--cardinal-red);
-}
-
-article h1 {
-  position: relative;
-  display: inline-block;
-  padding-bottom: 8px;
-}
-
-article h1::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  bottom: 0;
-  height: 4px;
-  width: 46%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--cardinal-orange), var(--cardinal-gold));
-  opacity: 0.9;
 }
 
 article h2 {
