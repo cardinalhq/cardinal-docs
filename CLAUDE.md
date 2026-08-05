@@ -41,7 +41,7 @@ pnpm build
 - Each directory can have a `_meta.ts` to define navigation order and titles
 - Pages are written in MDX (Markdown with JSX support)
 - React components from `components/` can be imported directly in MDX files
-- Images go in `public/` and are referenced with absolute paths (e.g., `/cardinal.png`)
+- Images go in `public/` and are referenced with absolute paths (e.g., `/chip.png`)
 
 ### Key Components
 - `SupportCallout.tsx` - Standard support/contact callout used across pages
