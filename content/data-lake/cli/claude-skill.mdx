@@ -14,7 +14,7 @@ The Cardinal Data Lake CLI ships with a [Claude Code](https://docs.claude.com/en
 
 ### macOS / Linux
 
-Run the install script — it drops the skill into `~/.claude/skills/data-lake-cli/` and prompts for credentials:
+Run the install script — it drops the skill into `~/.claude/skills/lakerunner-cli/` and prompts for credentials:
 
 ```bash copy
 curl -fsSL https://raw.githubusercontent.com/cardinalhq/lakerunner-cli/main/scripts/install-claude-skill.sh | bash
@@ -28,7 +28,7 @@ From a checkout of [`lakerunner-cli`](https://github.com/cardinalhq/lakerunner-c
 make install-skill
 ```
 
-Both paths do the same thing: create `~/.claude/skills/data-lake-cli/SKILL.md` and run the credential prompt. To install into a non-default location, set `CLAUDE_SKILLS_DIR` before running the script. In non-interactive contexts (e.g. piped installs without a TTY) the prompt is skipped and you'll be reminded to set the env vars yourself.
+Both paths do the same thing: create `~/.claude/skills/lakerunner-cli/SKILL.md` and run the credential prompt. To install into a non-default location, set `CLAUDE_SKILLS_DIR` before running the script. In non-interactive contexts (e.g. piped installs without a TTY) the prompt is skipped and you'll be reminded to set the env vars yourself.
 
 ### Windows
 
@@ -50,7 +50,7 @@ Works in both PowerShell 7+ (`pwsh`) and Windows PowerShell 5.1 (`powershell.exe
 
 ## Use
 
-In Claude Code, type `/data-lake-cli` to explicitly load the skill, or just ask Claude a log question — the skill's description tells Claude when to reach for it automatically. Examples of prompts the skill handles well:
+In Claude Code, type `/lakerunner-cli` to explicitly load the skill, or just ask Claude a log question — the skill's description tells Claude when to reach for it automatically. Examples of prompts the skill handles well:
 
 - "Any ERROR logs in the last hour?"
 - "Show me the top failing services this morning."
@@ -78,14 +78,14 @@ The skill instructs Claude to:
 - Redact obvious secrets from any log content it pastes back into chat.
 - Never fabricate log lines — if a query returns nothing, say so.
 
-The skill source lives in the [`lakerunner-cli` repo](https://github.com/cardinalhq/lakerunner-cli/blob/main/.claude/skills/data-lake-cli/SKILL.md).
+The skill source lives in the [`lakerunner-cli` repo](https://github.com/cardinalhq/lakerunner-cli/blob/main/.claude/skills/lakerunner-cli/SKILL.md).
 
 ## Uninstall
 
 **macOS / Linux:**
 
 ```bash copy
-rm -rf ~/.claude/skills/data-lake-cli
+rm -rf ~/.claude/skills/lakerunner-cli
 ```
 
 **Windows (PowerShell):**

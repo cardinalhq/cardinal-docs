@@ -35,7 +35,7 @@ function CodeBlock({ lang, code }: { lang: string; code: string }) {
   );
 }
 
-const HELM_INSTALL = `helm install lakerunner oci://public.ecr.aws/cardinalhq.io/data-lake \\
+const HELM_INSTALL = `helm install lakerunner oci://public.ecr.aws/cardinalhq.io/lakerunner \\
   --values values.yaml \\
   --namespace lakerunner`;
 
