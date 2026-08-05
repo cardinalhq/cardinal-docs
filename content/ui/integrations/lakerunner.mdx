@@ -1,0 +1,140 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# Cardinal Data Lake
+
+Connect Cardinal to [Cardinal Data Lake](/data-lake) for querying logs, metrics, and configuring alerts.
+
+## Overview
+
+Cardinal Data Lake is Cardinal's observability data platform. With this integration, the AI agent can:
+
+- **Query logs and metrics** using natural language
+- **Explore** available data sources, fields, and time ranges
+- **Receive alerts** from Cardinal Data Lake via webhook and respond to incidents automatically
+
+Cardinal UI auto-provisions the alert webhook target on Cardinal Data Lake whenever
+alerting is enabled on the deployment, the admin API URL is set, and the
+admin API key is valid. There is no manual three-step setup anymore.
+
+## Capabilities
+
+| Capability | Enabled |
+| ---------- | ------- |
+| Explore | Always |
+| Agent | Always |
+| Alerting | Admin-only stored capability. For Cardinal-managed Data Lake instances, the superadmin enables it on the deployment row. For BYO (org-private) instances, the org owner sets the per-integration **Alerting available on this deployment** toggle and provides admin URL + key |
+
+## Two deployment models
+
+### Cardinal-managed (SaaS)
+
+The Cardinal SaaS operator pre-configures the Cardinal Data Lake deployment in
+the superadmin **Managed Cardinal Data Lake Instances** page. URLs and admin
+credentials live on the deployment row. Once **Alerting available on
+this deployment** is checked there, every linked org integration auto-
+provisions on its next save (or immediately, for new links).
+
+Org owners do not see (and cannot set) the admin URL or key for managed
+Data Lake instances.
+
+### Org-private (BYO)
+
+The org owner connects their own Cardinal Data Lake instance.
+
+| Field | Required | Description |
+| ----- | -------- | ----------- |
+| **Query API Key** | Yes | API key the agent uses to query logs/metrics (format: `lr_...`) |
+| **Admin API URL** | When alerting | Base URL of the Cardinal Data Lake admin API. Used only by Cardinal UI to upsert the alert webhook target |
+| **Admin API Key** | When alerting | Bearer token for the admin API |
+| **Alerting available on this deployment** | When alerting | Turn on once Cardinal Data Lake's `alerteval` and `webhooksend` workers are running. Off by default |
+
+By default the admin API URL must be HTTPS. For self-hosted deployments
+that genuinely need HTTP, the superadmin can set the per-integration
+setting `lakerunner-allow-insecure-admin-api` to `true` via the admin
+API. Cardinal-fleet-operated deployments never set this override.
+
+#### Perch operator key (BYO Cardinal Data Lake only)
+
+If your Cardinal Data Lake deployment also runs the Perch operator and you've
+pointed `perch.maestro.url` at this Cardinal UI, you must hand Perch an
+ingest API key that this Cardinal UI recognises — Perch sends collector
+inventory to your local Cardinal UI, not to `app.cardinalhq.io`.
+
+1. After provisioning the integration above, copy the active ingest
+   API key from **Settings → Integrations → Cardinal Data Lake**.
+2. Create a Secret in the namespace where Cardinal Data Lake runs:
+
+   ```sh copy
+   kubectl create secret generic perch-local-maestro-key \
+     --from-literal=api-key='<paste plaintext key>'
+   ```
+
+3. Reference it from the Cardinal Data Lake Helm values:
+
+   ```yaml
+   perch:
+     maestro:
+       url: "http://ui.<your-maestro-ns>.svc.cluster.local:4200"
+       apiKey:
+         existingSecret: "perch-local-maestro-key"
+   ```
+
+SaaS deployments (`perch.maestro.url` left at `https://app.cardinalhq.io`)
+do not need this — the license-derived key is already valid there.
+
+## Auto-provisioning behavior
+
+When the gate above passes, maestro:
+
+1. Probes Cardinal Data Lake with `GET /api/v1/alert/webhook-targets` to confirm
+   the admin URL is reachable, the key is valid, and the alerting
+   workers are wired (4xx classifies the integration as
+   `invalid_admin_credentials` or `not_supported`; transient errors
+   classify as `provisioning_error` and retry on the next reconcile
+   tick).
+2. Upserts a webhook target on Cardinal Data Lake via `PUT /api/v1/alert/webhook-target`
+   keyed on `notifier_id = integration.id` (the Cardinal integration's
+   UUID — stable, idempotent under retries).
+3. Stores the most recent callback URL on the integration row so a
+   subsequent change to `MAESTRO_BASE_URL` is detected and re-provisioned
+   by the reconcile cron (default cadence: 1 hour).
+
+The status badge on the integration shows one of:
+
+| Status | Meaning |
+| ------ | ------- |
+| **Disabled** | The deployment opt-in flag is off |
+| **Missing admin credentials** | Admin API URL or key is empty |
+| **Invalid admin credentials** | Cardinal Data Lake returned 401/403 on probe |
+| **Not supported** | The deployment doesn't have the alerting workers running |
+| **Provisioning error** | Transient error; auto-retries on the reconcile cron |
+| **Connected** | Webhook target is in place; alerts will flow |
+
+If the integration sits in any non-`connected`, non-`disabled` state for
+more than one reconcile tick, an org owner can click **Reconnect alerting**
+in the integration page to enqueue an immediate retry (rate-limited to
+1/minute per integration).
+
+## On delete
+
+Deleting a Cardinal Data Lake integration (org owner DELETE, superadmin DELETE,
+managed-instance unlink, or org delete) runs the same pre-hook in every
+case:
+
+1. Sync-delete every alert rule the integration owns on Cardinal Data Lake. If
+   any deletion fails the request returns `502` and the local state is
+   not destroyed — fix the upstream issue and retry.
+2. Hard-delete local rules.
+3. Deprovision the webhook target on Cardinal Data Lake.
+
+## Migration from manual setup
+
+If you previously wired the webhook by hand (paste shared secret in
+Cardinal, create webhook target on Cardinal Data Lake, copy Notifier ID back),
+the migration leaves your `settings.notifierId` in place and your
+integration in `alerting_status='connected'` so existing rules continue
+to flow through the legacy notifier id. New rules created after the
+migration use `integration.id` as the notifier id once the next provision
+runs (e.g. on a deployment URL/key change or on reconnect).
+
+<SupportCallout />

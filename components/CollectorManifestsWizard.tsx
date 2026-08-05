@@ -79,7 +79,7 @@ export default function CollectorManifestsWizard() {
       <section className={styles.section}>
         <h3 className={styles.sectionTitle}>Identity</h3>
         <p className={styles.hint}>
-          The organization ID must match the UUID you set when installing Lakerunner (the{' '}
+          The organization ID must match the UUID you set when installing Cardinal Data Lake (the{' '}
           <strong>Organization ID</strong> field in the installation wizard). The gateway writes telemetry to{' '}
           <code>otel-raw/&#123;organizationId&#125;/&#123;clusterName&#125;/</code>.
         </p>
@@ -102,7 +102,7 @@ export default function CollectorManifestsWizard() {
             </div>
             {orgIdInvalid && <span className={styles.errorText}>Must be a valid UUID format</span>}
             <span className={styles.hint}>
-              Use the same UUID as your Lakerunner install, or generate a new one.
+              Use the same UUID as your Cardinal Data Lake install, or generate a new one.
             </span>
           </div>
           <div className={styles.formGroup}>

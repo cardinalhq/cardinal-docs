@@ -39,7 +39,7 @@ export default function CentralGatewayDiagram() {
       <DiagramArrow />
       <DiagramNode
         type="worker"
-        title="Lakerunner"
+        title="Cardinal Data Lake"
         lines={[
           "ingestion / compaction / rollup / query",
           "prefix-level parallelism",

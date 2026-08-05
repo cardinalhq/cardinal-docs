@@ -1,0 +1,8 @@
+# Architecture
+
+Cardinal Data Lake separates ingestion and query into independent, horizontally scalable paths that share only object storage and a lightweight metadata index.
+
+- [**Ingestion Architecture**](/data-lake/architecture/ingestion) — How telemetry flows from object storage notifications through worker stages into optimized Parquet segments.
+- [**Query Architecture**](/data-lake/architecture/query) — How queries are parsed, planned, distributed to workers, and streamed back to clients.
+- [**Materialization Architecture**](/data-lake/architecture/materialization) — How Cardinal Data Lake precomputes selected expressions into metric segments and rewrites eligible queries to those compact paths.
+- [**Deployment Models**](/data-lake/architecture/deployment-models) — Choosing between per-organization and central collector topologies.

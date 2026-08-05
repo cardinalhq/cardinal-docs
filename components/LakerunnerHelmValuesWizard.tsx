@@ -115,7 +115,7 @@ export default function LakerunnerHelmValuesWizard() {
           <section className={styles.section}>
             <h3 className={styles.sectionTitle}>Organization Settings</h3>
             <p className={styles.hint}>
-              Lakerunner is multi-tenant. Each tenant is an organization, and the collector and API key are used by that organization.
+              Cardinal Data Lake is multi-tenant. Each tenant is an organization, and the collector and API key are used by that organization.
             </p>
             <div className={styles.formGridTwoCol}>
               <div className={styles.formGroup}>
@@ -191,7 +191,7 @@ export default function LakerunnerHelmValuesWizard() {
                 />
                 <strong>Grafana</strong>
               </label>
-              <span className={styles.hint}>Pre-configured Grafana with Lakerunner datasources</span>
+              <span className={styles.hint}>Pre-configured Grafana with Cardinal Data Lake datasources</span>
             </div>
 
 
@@ -441,7 +441,7 @@ export default function LakerunnerHelmValuesWizard() {
 
           {/* PostgreSQL Configuration */}
           <section className={styles.section}>
-            <h3 className={styles.sectionTitle}>PostgreSQL - Lakerunner DB</h3>
+            <h3 className={styles.sectionTitle}>PostgreSQL - Cardinal Data Lake DB</h3>
             <div className={styles.formGrid}>
               <div className={`${styles.formGroup} ${styles.fullWidth}`}>
                 <label>Credentials</label>
@@ -644,7 +644,7 @@ export default function LakerunnerHelmValuesWizard() {
           <section className={styles.section}>
             <h3 className={styles.sectionTitle}>License</h3>
             <p className={styles.hint}>
-              A valid license is required for Lakerunner to operate. Contact <a href="mailto:support@cardinalhq.com">support@cardinalhq.com</a> to obtain one.
+              A valid license is required for Cardinal Data Lake to operate. Contact <a href="mailto:support@cardinalhq.com">support@cardinalhq.com</a> to obtain one.
             </p>
             <div className={styles.formGrid}>
               <div className={`${styles.formGroup} ${styles.fullWidth}`}>
@@ -704,7 +704,7 @@ export default function LakerunnerHelmValuesWizard() {
           <section className={styles.section}>
             <h3 className={styles.sectionTitle}>Scaling</h3>
             <p className={styles.hint}>
-              Lakerunner uses internal autoscaling from 1 pod up to the max you set here.
+              Cardinal Data Lake uses internal autoscaling from 1 pod up to the max you set here.
             </p>
             <table className={styles.scalingTable}>
               <thead>
@@ -894,7 +894,7 @@ export default function LakerunnerHelmValuesWizard() {
         {yaml && (
           <div className={styles.installInstructions}>
             <h4>Installation Commands</h4>
-            <h4>Install Lakerunner</h4>
+            <h4>Install Cardinal Data Lake</h4>
             <pre className={styles.codeBlock}>
 {`# Save the above values.yaml, then run:
 helm install lakerunner oci://public.ecr.aws/cardinalhq.io/lakerunner \\

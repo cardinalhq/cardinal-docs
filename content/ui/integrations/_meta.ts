@@ -1,0 +1,17 @@
+export default {
+  index: 'Overview',
+  athena: 'Amazon Athena',
+  clickhouse: 'ClickHouse',
+  confluence: 'Confluence',
+  github: 'GitHub',
+  bigquery: 'Google BigQuery',
+  jira: 'Jira',
+  kubernetes: 'Kubernetes',
+  lakerunner: 'Cardinal Data Lake',
+  teams: 'Microsoft Teams',
+  pagerduty: 'PagerDuty',
+  postgres: 'PostgreSQL',
+  servicenow: 'ServiceNow',
+  slack: 'Slack',
+  snowflake: 'Snowflake',
+}

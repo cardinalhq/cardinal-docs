@@ -3,7 +3,7 @@ import { Prerequisites, Steps, Step, NextSteps } from '../../components/HowTo';
 
 # Collecting Pod Logs from OpenShift with an OTel Collector DaemonSet
 
-This guide deploys an OpenTelemetry Collector as a DaemonSet on OpenShift that tails every pod's container logs from `/var/log/pods` and ships them as OTLP to a destination of your choice (a central gateway, Lakerunner via S3, an OTLP-compatible vendor backend, etc.). Each node runs one collector pod that reads only the logs of pods scheduled to that node.
+This guide deploys an OpenTelemetry Collector as a DaemonSet on OpenShift that tails every pod's container logs from `/var/log/pods` and ships them as OTLP to a destination of your choice (a central gateway, Cardinal Data Lake via S3, an OTLP-compatible vendor backend, etc.). Each node runs one collector pod that reads only the logs of pods scheduled to that node.
 
 The example uses the `filelog` receiver, `file_storage` extension, and `k8sattributes` processor. Replace the example `otlphttp` exporter with whatever destination you ship to.
 
@@ -24,7 +24,7 @@ The example uses the `filelog` receiver, `file_storage` extension, and `k8sattri
     {
       icon: '↔',
       title: 'OTLP destination reachable',
-      alt: <>Network reachability from the OpenShift nodes to your collector gateway / Lakerunner / vendor OTLP endpoint.</>,
+      alt: <>Network reachability from the OpenShift nodes to your collector gateway / Cardinal Data Lake / vendor OTLP endpoint.</>,
     },
   ]}
 />
@@ -261,7 +261,7 @@ Substitute:
 
 | Placeholder | What to put there |
 | ----------- | ----------------- |
-| `<your-ocp-cluster-name>` | A stable identifier for this cluster. It is stamped onto every record as `k8s.cluster.name`, which downstream consumers (Lakerunner, dashboards, alerting) use to partition by source. |
+| `<your-ocp-cluster-name>` | A stable identifier for this cluster. It is stamped onto every record as `k8s.cluster.name`, which downstream consumers (Cardinal Data Lake, dashboards, alerting) use to partition by source. |
 | `<your-otlp-endpoint>` | Hostname or IP:port of your OTLP receiver. Use `https://...:4318` and add a `tls:` block if your destination terminates TLS, or a `headers:` block for bearer / API-key auth. |
 
 Replace `otlphttp` with whatever exporter fits your destination — `awss3` for direct-to-S3, `otlp` for gRPC, vendor-specific exporters as needed.
@@ -424,15 +424,15 @@ Test that SCC on a non-production cluster before rolling it out broadly. Dependi
   items={[
     {
       icon: '📦',
-      title: 'Lakerunner',
-      description: 'Land OTLP logs in S3 and query them with Lakerunner.',
-      href: '/lakerunner',
+      title: 'Cardinal Data Lake',
+      description: 'Land OTLP logs in S3 and query them with Cardinal Data Lake.',
+      href: '/data-lake',
     },
     {
       icon: '📡',
       title: 'OpenTelemetry Collectors',
       description: 'Collector architecture for logs, traces, and metrics.',
-      href: '/lakerunner/collectors',
+      href: '/data-lake/collectors',
     },
     {
       icon: '🛰',

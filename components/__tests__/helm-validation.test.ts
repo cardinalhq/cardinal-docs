@@ -9,7 +9,7 @@ import {
 } from '../../lib/generateValuesYaml';
 
 // These tests validate that the wizard-generated YAML can be successfully
-// templated with the actual Lakerunner helm chart using `helm template`.
+// templated with the actual Cardinal Data Lake helm chart using `helm template`.
 // Uses the local chart at ../charts/lakerunner/ for speed.
 
 const CHART_PATH = path.resolve(__dirname, '../../../charts/lakerunner');

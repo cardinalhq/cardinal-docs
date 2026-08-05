@@ -197,7 +197,7 @@ Replace `debug` with your destination exporter when the scrape is working:
 
 | Exporter | Use when |
 | -------- | -------- |
-| `awss3` | Writing OTLP-proto metrics to S3 for Lakerunner. |
+| `awss3` | Writing OTLP-proto metrics to S3 for Cardinal Data Lake. |
 | `otlphttp` or `otlp` | Sending to a vendor endpoint, central gateway, or another collector. |
 | `prometheusremotewrite` | Forwarding to a Prometheus-compatible backend such as Mimir, Cortex, or VictoriaMetrics. |
 | `debug` | Checking that samples reach the collector. |
@@ -286,21 +286,21 @@ Run one collector replica for this federate scrape job. Multiple replicas pollin
   items={[
     {
       icon: '📦',
-      title: 'Lakerunner',
-      description: 'Land federated metrics in S3 and query them with Lakerunner.',
-      href: '/lakerunner',
+      title: 'Cardinal Data Lake',
+      description: 'Land federated metrics in S3 and query them with Cardinal Data Lake.',
+      href: '/data-lake',
     },
     {
       icon: '📡',
       title: 'OpenTelemetry Collectors',
       description: 'Collector architecture for logs, traces, and metrics.',
-      href: '/lakerunner/collectors',
+      href: '/data-lake/collectors',
     },
     {
       icon: '📐',
       title: 'Sizing Estimator',
       description: 'Plan capacity for the destination side of the pipeline.',
-      href: '/lakerunner/sizing',
+      href: '/data-lake/sizing',
     },
     {
       icon: '🧰',
