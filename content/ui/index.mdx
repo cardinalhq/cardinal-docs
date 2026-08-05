@@ -1,0 +1,21 @@
+# Cardinal UI
+
+Cardinal UI is Cardinal's AI agent for observability. It turns natural-language questions into plans, executes them against your telemetry and operational systems, and answers with real data — not guesses.
+
+## What it does
+
+- **Explore your observability data.** Cardinal UI drives [Cardinal Data Lake](/data-lake) as a first-class data source. Ask about logs, metrics, services, or time ranges in plain English and Cardinal UI figures out which queries to run, runs them, and summarizes the result.
+- **Investigate incidents agentically.** Cardinal UI plans multi-step investigations: pull recent errors, correlate with a deploy, check downstream dependencies, open a ticket. You watch the plan unfold rather than stringing the steps together yourself.
+- **Act on what it finds.** With the right integrations connected, Cardinal UI can open GitHub PRs, file ServiceNow incidents, or notify Slack / Teams / PagerDuty.
+
+## How it works
+
+Cardinal UI is built on Cardinal's Orchestra planning engine. Every request goes through **plan → execute → evaluate**: it picks the right tools, executes them with retries and rate-limit handling, and evaluates the result before responding. Tools come from connected integrations exposed over the Model Context Protocol.
+
+## Installation
+
+Self-hosting Cardinal UI? Start with the [Installation guide](/ui/install) — Helm chart, environment variables, OIDC, AWS Bedrock on EKS, and first-login walkthrough.
+
+## Integrations
+
+Connect Cardinal UI to the systems you already use. See [Integrations](/ui/integrations) for the full list — data sources (Cardinal Data Lake, Postgres, Snowflake, BigQuery, Athena, ClickHouse), service integrations (GitHub, ServiceNow), and notifications (Slack, Teams, PagerDuty).

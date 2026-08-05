@@ -3,7 +3,7 @@ import { Prerequisites, Steps, Step, NextSteps } from '../../components/HowTo';
 
 # Shipping Proxmox & Ceph Telemetry with a Per-Node OTel Collector
 
-This guide installs an OpenTelemetry Collector on every Proxmox VE node, alongside `ceph-exporter`, and ships hostmetrics, Ceph metrics, and Ceph + systemd logs as OTLP to a destination of your choice (a gateway collector, Lakerunner via S3, vendor backend, etc.). Each node runs one collector that scrapes local endpoints on `127.0.0.1`, so one node's telemetry path does not depend on another node.
+This guide installs an OpenTelemetry Collector on every Proxmox VE node, alongside `ceph-exporter`, and ships hostmetrics, Ceph metrics, and Ceph + systemd logs as OTLP to a destination of your choice (a gateway collector, Cardinal Data Lake via S3, vendor backend, etc.). Each node runs one collector that scrapes local endpoints on `127.0.0.1`, so one node's telemetry path does not depend on another node.
 
 The pattern works for any Proxmox cluster running Proxmox-packaged Ceph (Squid / 19.x verified, Reef / 18.x compatible). It uses `host_metrics` instead of a separate `node_exporter`, the modern `ceph-exporter` daemon for per-daemon perf counters, and the mgr `prometheus` module for cluster-wide state.
 
@@ -22,7 +22,7 @@ The pattern works for any Proxmox cluster running Proxmox-packaged Ceph (Squid /
     {
       icon: '↔',
       title: 'OTLP destination reachable',
-      alt: <>Network path from the PVE management network to your collector gateway / Lakerunner / vendor OTLP endpoint, on gRPC <code>:4317</code> (or HTTP <code>:4318</code>).</>,
+      alt: <>Network path from the PVE management network to your collector gateway / Cardinal Data Lake / vendor OTLP endpoint, on gRPC <code>:4317</code> (or HTTP <code>:4318</code>).</>,
     },
   ]}
 />
@@ -164,7 +164,7 @@ Create `/etc/otelcol-contrib/config.yaml` on each host from the role you assigne
 | ----------- | ----------------- |
 | `<your-otlp-endpoint>` | Hostname or IP of your OTLP gRPC destination. The gateway port is `:4317` for gRPC. Keep `tls.insecure: true` for an insecure gateway, or replace it with your TLS settings. |
 | `<your-environment>` | Environment label such as `prod`, `staging`, or `home-lab`. |
-| `<your-cluster-name>` | A stable identifier for this Ceph / Proxmox cluster. Stamped onto every record as `proxmox.cluster.name`; downstream consumers (Lakerunner, dashboards, alerts) use it to partition by source. |
+| `<your-cluster-name>` | A stable identifier for this Ceph / Proxmox cluster. Stamped onto every record as `proxmox.cluster.name`; downstream consumers (Cardinal Data Lake, dashboards, alerts) use it to partition by source. |
 | `<your-ceph-fsid>` | The Ceph FSID from `ceph fsid`. Use it only on Ceph nodes. |
 
 Start every role with the same host metrics receiver:
@@ -489,15 +489,15 @@ If per-bucket attribution becomes important, a workable interim path is a small 
   items={[
     {
       icon: '📦',
-      title: 'Lakerunner',
-      description: 'Land OTLP metrics and logs in S3 and query them with Lakerunner.',
-      href: '/lakerunner',
+      title: 'Cardinal Data Lake',
+      description: 'Land OTLP metrics and logs in S3 and query them with Cardinal Data Lake.',
+      href: '/data-lake',
     },
     {
       icon: '📡',
       title: 'OpenTelemetry Collectors',
       description: 'Collector architecture and topology recommendations.',
-      href: '/lakerunner/collectors',
+      href: '/data-lake/collectors',
     },
     {
       icon: '🧰',

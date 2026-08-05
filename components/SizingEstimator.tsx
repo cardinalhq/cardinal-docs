@@ -371,8 +371,8 @@ export default function SizingEstimator() {
           <div className={styles.recCard}>
             <h4>Spot / Preemptible Instances</h4>
             <p>
-              Lakerunner workloads are well-suited for <strong>Spot Instances</strong> (AWS) or <strong>Preemptible VMs</strong> (GCP).
-              These can reduce compute costs by 60-90%. All Lakerunner components are designed to handle
+              Cardinal Data Lake workloads are well-suited for <strong>Spot Instances</strong> (AWS) or <strong>Preemptible VMs</strong> (GCP).
+              These can reduce compute costs by 60-90%. All Cardinal Data Lake components are designed to handle
               interruptions gracefully.
             </p>
           </div>

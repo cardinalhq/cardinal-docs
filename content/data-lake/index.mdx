@@ -1,0 +1,60 @@
+import Image from 'next/image'
+import SupportCallout from '../../components/SupportCallout';
+import LakerunnerOverviewDiagram from '../../components/diagrams/LakerunnerOverviewDiagram';
+
+# Cardinal Data Lake
+
+<Image src="/lakerunner_left.png" alt="Cardinal Data Lake" width={200} height={200} />
+
+[Cardinal Data Lake](https://github.com/cardinalhq/lakerunner) transforms an S3-compatible bucket into a **production-grade Observability stack** in minutes.
+
+## What is Cardinal Data Lake?
+
+Cardinal Data Lake is an open-source observability data lake that stores logs, metrics, and traces in cloud object storage (S3, GCS, Azure Blob). It provides:
+
+- **Cost-effective storage** - Store petabytes of observability data at object storage prices
+- **Fast queries** - Columnar format with intelligent indexing for sub-second queries
+- **Native Grafana integration** - Query your data lake directly from Grafana
+- **Kubernetes-native** - Deploy with Helm, auto-scales with demand
+
+## Architecture
+
+Cardinal Data Lake separates **ingest** and **query** into independent, horizontally scalable paths that share only object storage and a lightweight metadata index in PostgreSQL.
+
+<LakerunnerOverviewDiagram />
+
+For more detail, see the dedicated [Ingestion](/data-lake/architecture/ingestion) and [Query](/data-lake/architecture/query) architecture pages.
+
+## Deployment Options
+
+We recommend running Cardinal Data Lake **operator-managed for every install**: from
+[app.cardinalhq.io](https://app.cardinalhq.io) you register your cluster as a site, and Cardinal's Perch
+operator installs Cardinal Data Lake and the Cardinal UI together and keeps them upgraded and monitored. A POC via the
+Helm chart is also supported if you'd rather run it yourself.
+
+| Path | Use Case | You manage |
+|------|----------|------------|
+| **Operator-managed** (recommended) | Every install — POC and production | Nothing — Cardinal handles install, upgrades, and monitoring |
+| **Manual Helm** | POC only | Install, upgrades, and monitoring yourself |
+
+Either path offers a **POC** profile (cluster-local Postgres + storage, fast but lower durability) and a
+**Production** profile (external S3 + Postgres that outlives the cluster).
+
+## Getting Started
+
+Ready to deploy? Head to **[Install Cardinal Data Lake](/data-lake/install)** to let the operator set it up, or use the
+**[Manual install](/data-lake/manual-install)** if you'd rather run the chart yourself.
+
+### Prerequisites
+
+Before installing Cardinal Data Lake, ensure you have:
+
+1. [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl) - Kubernetes CLI
+2. [Helm](https://helm.sh/docs/intro/install/) 3.14+ - Package manager for Kubernetes
+3. Kubernetes cluster 1.33+ (local or cloud) with a default StorageClass
+
+For **Production** deployments, you'll also need:
+- S3-compatible object storage with notification capability (S3, GCS, or Azure Blob)
+- PostgreSQL 16+ database
+
+<SupportCallout />

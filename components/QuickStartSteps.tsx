@@ -35,7 +35,7 @@ function CodeBlock({ lang, code }: { lang: string; code: string }) {
   );
 }
 
-const HELM_INSTALL = `helm install lakerunner oci://public.ecr.aws/cardinalhq.io/lakerunner \\
+const HELM_INSTALL = `helm install lakerunner oci://public.ecr.aws/cardinalhq.io/data-lake \\
   --values values.yaml \\
   --namespace lakerunner`;
 
@@ -45,7 +45,7 @@ export default function QuickStartSteps() {
       <HowToHero
         badge="Quick Start"
         title="Up and running in minutes"
-        lede="Get Lakerunner deployed on a local Kubernetes cluster — no cloud account required."
+        lede="Get Cardinal Data Lake deployed on a local Kubernetes cluster — no cloud account required."
       />
 
       <Prerequisites
@@ -98,7 +98,7 @@ export default function QuickStartSteps() {
             .
           </p>
         </Step>
-        <Step title="Download your Lakerunner Trial license">
+        <Step title="Download your Cardinal Data Lake Trial license">
           <p>After signing in, download your trial license from the Cardinal dashboard.</p>
         </Step>
         <Step title="Create the namespace">
@@ -107,7 +107,7 @@ export default function QuickStartSteps() {
         <Step title="Install using Helm">
           <p>
             Use the{' '}
-            <a href="/lakerunner/manual-install#configuration-wizard" target="_blank" rel="noopener noreferrer">
+            <a href="/data-lake/manual-install#configuration-wizard" target="_blank" rel="noopener noreferrer">
               configuration wizard
             </a>{' '}
             to generate a <code>values.yaml</code> tailored to your environment, then install:
@@ -126,21 +126,21 @@ export default function QuickStartSteps() {
             <a href="http://localhost:3000" target="_blank" rel="noopener noreferrer">
               http://localhost:3000
             </a>{' '}
-            in your browser. Lakerunner&apos;s data source is pre-configured, but you won&apos;t see any data
+            in your browser. Cardinal Data Lake&apos;s data source is pre-configured, but you won&apos;t see any data
             yet — that comes in the next step.
           </p>
         </Step>
         <Step title="Send data">
           <p>
             Install{' '}
-            <a href="/lakerunner/collectors" target="_blank" rel="noopener noreferrer">
+            <a href="/data-lake/collectors" target="_blank" rel="noopener noreferrer">
               OpenTelemetry Collectors
             </a>{' '}
             to monitor your cluster and write telemetry to S3.
           </p>
           <p>
             Generate data from your real applications, or use the{' '}
-            <a href="/lakerunner/otel-demo" target="_blank" rel="noopener noreferrer">
+            <a href="/data-lake/otel-demo" target="_blank" rel="noopener noreferrer">
               OTel Demo Application
             </a>{' '}
             to produce realistic logs, metrics, and traces right away.
@@ -154,25 +154,25 @@ export default function QuickStartSteps() {
             icon: '📡',
             title: 'Install OpenTelemetry Collectors',
             description: 'Deploy the agent, poller, and gateway to monitor your cluster and write to S3',
-            href: '/lakerunner/collectors',
+            href: '/data-lake/collectors',
           },
           {
             icon: '🛍️',
             title: 'Install the OTel Demo Application',
             description: 'Deploy a microservices e-commerce app that generates realistic telemetry',
-            href: '/lakerunner/otel-demo',
+            href: '/data-lake/otel-demo',
           },
           {
             icon: '🚀',
             title: 'Production deployment',
-            description: 'Let the operator install and manage Lakerunner for you',
-            href: '/lakerunner/install',
+            description: 'Let the operator install and manage Cardinal Data Lake for you',
+            href: '/data-lake/install',
           },
           {
             icon: '🏗️',
             title: 'Architecture',
             description: 'Learn how ingestion, materialization, and query work',
-            href: '/lakerunner/architecture',
+            href: '/data-lake/architecture',
           },
         ]}
       />

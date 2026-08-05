@@ -1,0 +1,58 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# App Instrumentation
+
+Cardinal Data Lake is OpenTelemetry-native. To send telemetry from your applications, instrument them with the open-source OpenTelemetry SDKs and point them at Cardinal Data Lake's OTLP ingest endpoint.
+
+## Pick your language
+
+- [Node.js](/data-lake/instrumentation/nodejs)
+- [Python](/data-lake/instrumentation/python)
+- [Java](/data-lake/instrumentation/java)
+- [Go](/data-lake/instrumentation/go)
+- [React.js](/data-lake/instrumentation/reactjs)
+
+## Get an API key
+
+All ingest into Cardinal Data Lake is authenticated with an API key sent in the `x-cardinalhq-api-key` header.
+
+1. Sign in to the [Cardinal dashboard](https://app.cardinalhq.io).
+2. Open **Settings → API Keys**.
+3. Click **Create API key**, give it a name, and copy the value. Keys are shown once at creation — copy yours immediately.
+
+API keys are scoped to a Cardinal Data Lake workspace. If your org has multiple managed Cardinal Data Lake integrations, you'll see one panel per workspace and mint a key under the workspace whose ingest endpoint you intend to use.
+
+## Find your ingest endpoint
+
+The ingest endpoint is per-workspace. Find it in the Cardinal dashboard under **Settings → Integrations → Cardinal Data Lake**, or use the regional endpoint pattern provided to you at provisioning:
+
+```
+https://otelhttp.intake.<your-region>.aws.cardinalhq.io
+```
+
+Substitute `<your-region>` with the AWS region where your Cardinal Data Lake workspace runs.
+
+## Already running an OpenTelemetry Collector?
+
+If your applications already export to a local OpenTelemetry Collector, getting onboarded to Cardinal Data Lake is as simple as adding an OTLP exporter that forwards to Cardinal Data Lake.
+
+```yaml copy
+exporters:
+  otlphttp/data-lake:
+    endpoint: https://otelhttp.intake.<your-region>.aws.cardinalhq.io
+    headers:
+      x-cardinalhq-api-key: <your-api-key>
+
+service:
+  pipelines:
+    metrics:
+      exporters: [otlphttp/data-lake]
+    logs:
+      exporters: [otlphttp/data-lake]
+    traces:
+      exporters: [otlphttp/data-lake]
+```
+
+For self-hosted Cardinal Data Lake deployments where collectors write directly to your S3 bucket, see [OpenTelemetry Collectors](/data-lake/collectors) instead.
+
+<SupportCallout />
