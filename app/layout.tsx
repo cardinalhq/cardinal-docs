@@ -25,7 +25,7 @@ export const metadata: Metadata = {
     default: 'Cardinal',
     template: '%s – Cardinal',
   },
-  icons: '/chip.png',
+  icons: '/chip_right.png',
 }
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
@@ -53,7 +53,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             <Navbar
               logo={
                 <>
-                  <img src="/chip.png" width="36" alt="Cardinal" />
+                  <img src="/chip_right.png" width="36" alt="Cardinal" />
                   <h1 className="font-bold text-2xl">Cardinal</h1>
                 </>
               }
