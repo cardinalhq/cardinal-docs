@@ -1,0 +1,75 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# Ruby App Instrumentation
+
+Follow the steps below to auto-instrument your Ruby service. When complete, your service will start emitting logs, metrics, and traces to Cardinal Data Lake.
+
+### Local Testing
+
+1. Get a Cardinal API key.
+
+   Follow the steps in the [Overview](/data-lake/instrumentation#get-an-api-key) to mint an ingest API key.
+
+2. Add the OpenTelemetry gems to your `Gemfile`:
+
+   ```ruby copy
+   gem 'opentelemetry-sdk'
+   gem 'opentelemetry-exporter-otlp'
+   gem 'opentelemetry-instrumentation-all'
+   ```
+
+3. Install the gems:
+
+   ```sh copy
+   bundle install
+   ```
+
+4. Initialize the OpenTelemetry SDK early in your application boot (e.g., `config/initializers/opentelemetry.rb` for Rails, or the top of your entrypoint for plain Ruby):
+
+   ```ruby copy
+   require 'opentelemetry/sdk'
+   require 'opentelemetry/exporter/otlp'
+   require 'opentelemetry/instrumentation/all'
+
+   OpenTelemetry::SDK.configure do |c|
+     c.use_all # auto-instrument every installed library
+   end
+   ```
+
+5. Export the following environment variables:
+
+   ```sh copy
+   export OTEL_SERVICE_NAME="your-service-name" # Set your service name
+   export OTEL_RESOURCE_ATTRIBUTES="deployment.environment.name=local" # local/dev/staging/prod
+   export OTEL_METRICS_EXPORTER="otlp"
+   export OTEL_LOGS_EXPORTER="otlp"
+   export OTEL_TRACES_EXPORTER="otlp"
+   export OTEL_EXPORTER_OTLP_ENDPOINT="https://otelhttp.intake.<your-region>.aws.cardinalhq.io"
+   export OTEL_EXPORTER_OTLP_HEADERS="x-cardinalhq-api-key=<your-api-key>" # Set your API key
+   ```
+
+6. Run your application:
+
+   ```sh copy
+   bundle exec ruby <your-app.rb>
+   ```
+
+7. Validate that Cardinal Data Lake is receiving data.
+
+   Exercise the service by calling some API endpoints or causing some logs and metrics to be emitted. Wait a few minutes, then query for your service in the Cardinal dashboard.
+
+### Docker
+
+Set the environment variables outlined above in your Docker container runtime configuration.
+
+- Update `OTEL_RESOURCE_ATTRIBUTES` to set `deployment.environment.name` for your environment.
+- If you run an OpenTelemetry Collector, set `OTEL_EXPORTER_OTLP_ENDPOINT` to your Collector's OTLP receiver endpoint, and forward to Cardinal Data Lake from the Collector. See [Already running an OpenTelemetry Collector?](/data-lake/instrumentation#already-running-an-opentelemetry-collector).
+
+### Kubernetes
+
+Set the environment variables outlined above in your `Deployment` or `StatefulSet` manifest.
+
+- Update `OTEL_RESOURCE_ATTRIBUTES` to set `deployment.environment.name` for your environment.
+- If you run an OpenTelemetry Collector, set `OTEL_EXPORTER_OTLP_ENDPOINT` to your Collector's OTLP receiver endpoint, and forward to Cardinal Data Lake from the Collector. See [Already running an OpenTelemetry Collector?](/data-lake/instrumentation#already-running-an-opentelemetry-collector).
+
+<SupportCallout />
