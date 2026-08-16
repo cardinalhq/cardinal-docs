@@ -212,7 +212,7 @@ Common failures:
 | `Vertex generateContent failed (404)` | Wrong model ID or the model isn't published in that region |
 | `Vertex auth client returned no access token` | Workload Identity binding is missing or the KSA name doesn't match — check the `iam.gke.io/gcp-service-account` annotation |
 | `serviceAccountJson missing client_email` | The pasted JSON isn't a service-account key (e.g. it's an OAuth client JSON) |
-| `unknown_tool` warnings in logs after a tool call | A tool-call ID round-trip recovery happened; usually benign, but if the same tool keeps showing it, check that the orchestra executor isn't synthesizing its own IDs |
+| `unknown_tool` warnings in logs after a tool call | A tool-call ID round-trip recovery happened; usually benign, but if the same tool keeps showing it, check that the caller isn't synthesizing its own tool-call IDs |
 
 The model catalog **deliberately excludes** Gemini 2.5 Pro and Gemini 3 from the `google-vertex` provider in this release. Hand-editing a catalog row to use one will fail fast at resolve time with `"Vertex model ... requires raw thoughtSignature round-tripping"` — this is intentional, not a bug.
 
