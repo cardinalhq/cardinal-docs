@@ -1,0 +1,124 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# Webhook
+
+Send alert notifications to any HTTP endpoint you control as a JSON POST — no upstream service, OAuth app, or bot token required. Use a webhook destination to fan alerts out to a system Cardinal doesn't have a first-class integration for: an internal on-call tool, a custom Slack/Teams relay, a ticketing system's inbound API, or a data pipeline that ingests incidents as events.
+
+## Overview
+
+Unlike [Slack](/ui/integrations/slack) or [Microsoft Teams](/ui/integrations/teams), a webhook destination is **not** a Settings → Integrations entry. There's no credential to register up front — the destination URL is the entire delivery target, and it's configured directly on the notification group.
+
+## Capabilities
+
+| Capability | Enabled |
+| ---------- | ------- |
+| Notify | Always |
+
+## Setup
+
+1. Navigate to **Alerting → Groups** and click **Add Group** (or open an existing group to edit).
+2. Under **Destinations**, click **Add Destination** and choose **Webhook** as the channel type.
+3. Paste the endpoint URL. It must start with `http://` or `https://` — `https://` is required by default (see [Security](#security) below).
+4. Expand **Sample payload** in the destination row to see the exact JSON body Cardinal will POST, and copy it if you want to stub out your receiver before wiring up the real thing.
+5. Save the group, then use **Send Test** on the destination row to fire a synthetic delivery and confirm your endpoint accepts it.
+
+## HTTP contract
+
+| | |
+| --- | --- |
+| Method | `POST` |
+| Content-Type | `application/json` |
+| User-Agent | `CardinalHQ-Maestro-Webhook/1.0` |
+| Timeout | 10 seconds |
+
+### Request body
+
+Cardinal sends one JSON object per alert event (firing, resolved, or an AI-analysis update). `status`, `rule`, `currentValue`, `firingSince`, and `resolvedAt` are always present; the remaining fields are included only when the incident has them.
+
+```json
+{
+  "status": "firing",
+  "rule": {
+    "name": "High CPU Utilization — payments-api",
+    "signal_type": "metrics",
+    "query": {
+      "expr": "avg(cpu_usage_percent{service=\"payments-api\"}) > 90",
+      "range_seconds": 300
+    },
+    "threshold": 90,
+    "operator": ">",
+    "reducer": "last",
+    "labels": {
+      "severity": "critical",
+      "team": "payments"
+    },
+    "annotations": {
+      "description": "CPU usage on payments-api has exceeded 90% for 5 minutes.",
+      "runbook_url": "https://runbooks.cardinalhq.io/payments-api/high-cpu"
+    }
+  },
+  "currentValue": 96.4,
+  "firingSince": "2026-08-17T14:32:05.000Z",
+  "resolvedAt": null,
+  "severity": "critical",
+  "description": "CPU usage on payments-api has exceeded 90% for 5 minutes.",
+  "runbookUrl": "https://runbooks.cardinalhq.io/payments-api/high-cpu",
+  "firingDuration": "12m",
+  "incidentUrl": "https://app.cardinalhq.io/alerting/incidents/2f1e9c3a-6b7d-4a8e-9f1c-3d4e5f6a7b8c",
+  "infraIssues": [
+    {
+      "label": "Pod payments/payments-api-7d9f8c6b5-x2k9p",
+      "cluster": "prod-us-east-2",
+      "verdict": "unhealthy",
+      "explanation": "Pod has restarted 4 times in the last 10 minutes (CrashLoopBackOff).",
+      "ruleMatched": "pod_crashloop",
+      "relatedVia": "cpu_usage_percent{pod=\"payments-api-7d9f8c6b5-x2k9p\"} → Pod payments/payments-api-7d9f8c6b5-x2k9p"
+    }
+  ]
+}
+```
+
+| Field | Present | Description |
+| ----- | ------- | ----------- |
+| `status` | Always | `firing`, `resolved`, or `analysis_complete` |
+| `rule` | Always | The alert rule's stored snapshot at fire time (name, query, labels, annotations, etc.) |
+| `currentValue` | Always | The metric/log value that triggered evaluation |
+| `firingSince` | Always | ISO timestamp the incident started firing |
+| `resolvedAt` | Always (nullable) | ISO timestamp the incident resolved, or `null` while still firing |
+| `severity` | When the rule has a `severity` label | `critical`, `warning`, or `info` |
+| `description` | When the rule has a description or `annotations.description`/`summary` | Human-readable summary |
+| `runbookUrl` | When the rule's annotations include a runbook link | |
+| `firingDuration` | Once the incident has been firing long enough to report one | Human-readable, e.g. `"12m"` |
+| `incidentUrl` | When Cardinal can link back to the incident in the UI | |
+| `infraIssues` | Only when infra-graph correlation found unhealthy/degraded Kubernetes entities related to the firing series | Array of `{ label, cluster, verdict, explanation, ruleMatched, relatedVia? }` |
+| `aiResult` | Only on `analysis_complete` deliveries | AI-generated incident analysis text |
+
+### Response expectations
+
+- **2xx** — treated as a successful delivery.
+- **3xx** — treated as a **failure**. Cardinal never follows redirects (an attacker-controlled endpoint could otherwise pass validation and then 302 to an internal address at send time).
+- **Any other non-2xx status, a timeout, or a network error** — treated as a failure and logged against the delivery. At most 2KB of the response body is captured for the error message.
+
+## Retry behavior
+
+Webhook deliveries are currently **single-attempt**: if the POST fails (non-2xx, timeout, DNS failure, connection refused, etc.), Cardinal marks that delivery `failed` and does not retry it. The next alert event (e.g. the next evaluation tick, or the eventual `resolved` transition) generates a fresh delivery attempt. Make sure your endpoint is reliably reachable, or add your own retry/queue logic on the receiving side if you need stronger delivery guarantees.
+
+## Security
+
+- **HTTPS required by default.** Webhook URLs must use `https://`. Self-hosted deployments that need to reach an internal `http://`-only receiver can opt in with:
+
+  ```
+  MAESTRO_ALLOW_INSECURE_WEBHOOKS=true
+  ```
+
+  This only relaxes the protocol check — the private/link-local/metadata address block below still applies regardless of this flag.
+
+- **SSRF protection.** Cardinal blocks webhook URLs that resolve to a private, loopback, link-local, or cloud-metadata address (RFC1918 ranges, `127.0.0.0/8`, `169.254.0.0/16` including the `169.254.169.254` metadata endpoint, and related bogon ranges), as well as `localhost` and hostnames ending in `.local`/`.internal`/`.invalid` or with no dot at all. This is enforced twice:
+  - **Write time**, when you save the destination.
+  - **Send time**, by re-resolving the hostname via DNS immediately before every delivery. This closes the DNS-rebinding gap where a hostname could pass validation once and later be pointed at an internal address.
+
+## Future work
+
+Cardinal does not currently sign outbound webhook requests (no HMAC signature header). If you need to verify a request genuinely came from Cardinal, treat the URL itself as the shared secret for now — signing support is planned but not yet implemented.
+
+<SupportCallout />
