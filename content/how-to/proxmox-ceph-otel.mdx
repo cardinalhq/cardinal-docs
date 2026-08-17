@@ -7,6 +7,8 @@ This guide installs an OpenTelemetry Collector on every Proxmox VE node, alongsi
 
 The pattern works for any Proxmox cluster running Proxmox-packaged Ceph (Squid / 19.x verified, Reef / 18.x compatible). It uses `host_metrics` instead of a separate `node_exporter`, the modern `ceph-exporter` daemon for per-daemon perf counters, and the mgr `prometheus` module for cluster-wide state.
 
+If you only want Proxmox's own node, guest, and storage stats and are on Proxmox VE 9, there is a far shorter path with nothing to install: [Exporting Proxmox VE built-in metrics over OTLP](/how-to/proxmox-otlp-metric-server). The two guides are complementary — run both if you want PVE's guest-level stats *and* Ceph detail plus logs.
+
 <Prerequisites
   items={[
     {
@@ -487,6 +489,12 @@ If per-bucket attribution becomes important, a workable interim path is a small 
 
 <NextSteps
   items={[
+    {
+      icon: '🖥',
+      title: 'Proxmox built-in metrics',
+      description: "Add PVE's own node, guest, and storage stats with the VE 9 OpenTelemetry metric server.",
+      href: '/how-to/proxmox-otlp-metric-server',
+    },
     {
       icon: '📦',
       title: 'Cardinal Data Lake',
