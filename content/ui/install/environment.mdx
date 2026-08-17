@@ -91,6 +91,12 @@ Used by the Cardinal Data Lake provisioner when auto-configuring a new org's buc
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4318` | HTTP OTLP endpoint |
 | `OTEL_EXPORTER_OTLP_HEADERS` | — | `Key=value,Key2=value2` |
 
+### Notifications
+
+| Variable | Default | Notes |
+| -------- | ------- | ----- |
+| `MAESTRO_ALLOW_INSECURE_WEBHOOKS` | `false` | Allow `http://` (not just `https://`) for [webhook notification destinations](/ui/integrations/webhook#security). Only relaxes the protocol check — private/link-local/metadata addresses are still blocked regardless |
+
 ### Misc
 
 | Variable | Default | Notes |
