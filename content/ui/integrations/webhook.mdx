@@ -74,7 +74,17 @@ Cardinal sends one JSON object per alert event (firing, resolved, or an AI-analy
       "ruleMatched": "pod_crashloop",
       "relatedVia": "cpu_usage_percent{pod=\"payments-api-7d9f8c6b5-x2k9p\"} → Pod payments/payments-api-7d9f8c6b5-x2k9p"
     }
-  ]
+  ],
+  "sampleLog": {
+    "timestamp": "2026-08-17T14:31:52.318Z",
+    "body": "panic: runtime error: invalid memory address or nil pointer dereference [recovered]",
+    "attributes": {
+      "level": "ERROR",
+      "service": "payments-api",
+      "pod": "payments-api-7d9f8c6b5-x2k9p",
+      "namespace": "payments"
+    }
+  }
 }
 ```
 
@@ -91,6 +101,7 @@ Cardinal sends one JSON object per alert event (firing, resolved, or an AI-analy
 | `firingDuration` | Once the incident has been firing long enough to report one | Human-readable, e.g. `"12m"` |
 | `incidentUrl` | When Cardinal can link back to the incident in the UI | |
 | `infraIssues` | Only when infra-graph correlation found unhealthy/degraded Kubernetes entities related to the firing series | Array of `{ label, cluster, verdict, explanation, ruleMatched, relatedVia? }` |
+| `sampleLog` | Only for exceptions-detection rules (log-based alerts keyed on a fingerprint) where Cardinal found a matching raw log record | `{ timestamp, body, attributes? }` — one actual log line from the exception, so you can see the real error instead of just a count |
 | `aiResult` | Only on `analysis_complete` deliveries | AI-generated incident analysis text |
 
 ### Response expectations
