@@ -83,7 +83,7 @@ Expand **Advanced JSON Configuration** and set the authentication header. For Ca
 
 Other destinations use their own header — e.g. `{"Authorization": "Bearer <token>"}`. A collector that does not authenticate needs no headers at all.
 
-**Resource Attributes (JSON)** is optional but worth filling in: these are stamped onto every exported metric and are how you tell clusters apart downstream.
+**Resource Attributes (JSON)** is optional but worth filling in: these are stamped onto every exported metric and are how you tell clusters apart downstream.  Without these, multiple clusters will look like one in the dashboards and metrics.
 
 ```json copy
 {
