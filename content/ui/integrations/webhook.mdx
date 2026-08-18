@@ -78,7 +78,7 @@ Cardinal sends one JSON object per alert event (firing, resolved, or an AI-analy
       "verdict": "unhealthy",
       "explanation": "Pod has restarted 4 times in the last 10 minutes (CrashLoopBackOff).",
       "ruleMatched": "pod_crashloop",
-      "relatedVia": "cpu_usage_percent{pod=\"payments-api-7d9f8c6b5-x2k9p\"} → Pod payments/payments-api-7d9f8c6b5-x2k9p"
+      "relatedVia": "ebs.csi.aws.com/vol-0abc123 → pv-9f2c → data-payments-api-0 → payments-api-7d9f8c6b5-x2k9p"
     }
   ],
   "sampleLog": {
@@ -107,7 +107,7 @@ Cardinal sends one JSON object per alert event (firing, resolved, or an AI-analy
 | `runbookUrl` | When the rule's annotations include a runbook link | |
 | `firingDuration` | Once the incident has been firing long enough to report one | Human-readable, e.g. `"12m"` |
 | `incidentUrl` | When Cardinal can link back to the incident in the UI | |
-| `infraIssues` | Only when infra-graph correlation found unhealthy/degraded Kubernetes entities related to the firing series | Array of `{ label, cluster, verdict, explanation, ruleMatched, relatedVia? }` |
+| `infraIssues` | Only when infra-graph correlation found unhealthy/degraded Kubernetes entities related to the firing series | Array of `{ label, cluster, verdict, explanation, ruleMatched, relatedVia? }`. `relatedVia` is present only when the entity was reached by walking the infra graph from a firing storage volume — a chain of node display names. Entities named directly by the firing series have no `relatedVia`. |
 | `sampleLog` | Only for exceptions-detection rules (log-based alerts keyed on a fingerprint) where Cardinal found a matching raw log record | `{ timestamp, body, attributes? }` — one actual log line from the exception, so you can see the real error instead of just a count |
 | `aiResult` | Only on `analysis_complete` deliveries | AI-generated incident analysis text |
 
