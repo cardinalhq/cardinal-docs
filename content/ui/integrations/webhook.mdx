@@ -98,7 +98,7 @@ Cardinal sends one JSON object per alert event (firing, resolved, or an AI-analy
 | ----- | ------- | ----------- |
 | `orgId` | Always | The Cardinal organization the incident belongs to. Use it to attribute deliveries when one endpoint receives alerts from more than one org. |
 | `status` | Always | `firing`, `resolved`, or `analysis_complete` |
-| `rule` | Always | The alert rule's snapshot at fire time, passed through verbatim: `name`, `signal_type`, `query`, `detection` (the threshold/anomaly/exceptions config), the eval/for windows, plus any `labels` and `annotations`. Cardinal does not reshape it, so treat the inner fields as advisory rather than a stable contract. |
+| `rule` | Always | The alert rule's snapshot at fire time, passed through verbatim. Guaranteed: `name`, `signal_type`, `query.expr`, and a detection config. Current rules carry `detection` (`{kind, ...}` — `static_threshold`, `anomaly`, or `exceptions`); rules created before that field existed carry the legacy flat form instead (`threshold`, `operator`, `reducer` at the top level), and both are still delivered as-is. Cardinal does not reshape or strip the object, so fields beyond the guaranteed set may appear as Lakerunner adds them. |
 | `currentValue` | Always | The metric/log value that triggered evaluation |
 | `firingSince` | Always | ISO timestamp the incident started firing |
 | `resolvedAt` | Always (nullable) | ISO timestamp the incident resolved, or `null` while still firing |
@@ -110,6 +110,21 @@ Cardinal sends one JSON object per alert event (firing, resolved, or an AI-analy
 | `infraIssues` | Only when infra-graph correlation found unhealthy/degraded Kubernetes entities related to the firing series | Array of `{ label, cluster, verdict, explanation, ruleMatched, relatedVia? }`. `relatedVia` is present only when the entity was reached by walking the infra graph from a firing storage volume — a chain of node display names. Entities named directly by the firing series have no `relatedVia`. |
 | `sampleLog` | Only for exceptions-detection rules (log-based alerts keyed on a fingerprint) where Cardinal found a matching raw log record | `{ timestamp, body, attributes? }` — one actual log line from the exception, so you can see the real error instead of just a count |
 | `aiResult` | Only on `analysis_complete` deliveries | AI-generated incident analysis text |
+
+Older rules — created before `detection` existed — send the legacy flat form instead, which is still fully supported:
+
+```json
+"rule": {
+  "name": "High CPU Utilization — payments-api",
+  "signal_type": "metrics",
+  "query": { "expr": "avg(cpu_usage_percent{service=\"payments-api\"})", "range_seconds": 300 },
+  "threshold": 90,
+  "operator": ">",
+  "reducer": "last"
+}
+```
+
+A receiver that reads threshold config should handle both: prefer `rule.detection` when present, fall back to the flat fields.
 
 ### Response expectations
 
