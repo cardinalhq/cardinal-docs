@@ -1,0 +1,398 @@
+import SupportCallout from '../../components/SupportCallout';
+
+# Query API
+
+Cardinal Data Lake exposes a small, streaming HTTP API for querying logs and metrics programmatically. Queries are written in [LakeQL — the LogQL/PromQL-style query language](/data-lake/query-language). Results are delivered as a **Server-Sent Events (SSE)** stream so clients can start rendering before the query finishes.
+
+This page documents:
+
+- how to authenticate
+- the request body common to logs and metrics
+- the SSE response envelope and every event type it emits
+- the per-endpoint result shape (with worked `curl` examples)
+- error responses
+
+---
+
+## Base URL
+
+The query API is served by the Cardinal Data Lake **query service**. In the default Helm/operator install the service listens on port `8080`; behind Cardinal's UI it is reverse-proxied at the same origin under `/api/v1/…`. Use whichever address is reachable from your client:
+
+```
+http://<query-service-host>:8080
+```
+
+The rest of this page abbreviates that as `$LAKE_URL`.
+
+---
+
+## Authentication
+
+Every request must present an **org-scoped API key**. The server accepts it in any of these places, checked in order:
+
+| Where | Example |
+|-------|---------|
+| `x-cardinalhq-api-key` header (**preferred**) | `x-cardinalhq-api-key: <key>` |
+| `Api-Key` header | `Api-Key: <key>` |
+| `Authorization: ApiKey <base64(id:key)>` (Elasticsearch clients) | `Authorization: ApiKey aWQ6c2VjcmV0` |
+| `Authorization: Basic <base64(user:pass)>` (Elasticsearch clients) | `Authorization: Basic …` |
+| `api_key` cookie | — |
+
+An invalid or missing key returns `401 Unauthorized` with a JSON error body (see [Errors](#errors)).
+
+### Query correlation
+
+Every response carries an `x-cardinalhq-query-id` header. You can also **supply your own** — pass an RFC 4122 UUID in the same request header on the way in and the server will echo it back and use it for downstream correlation. Malformed IDs are silently replaced.
+
+---
+
+## Request body (POST + JSON)
+
+Both `/api/v1/logs/query` and `/api/v1/metrics/query` accept the same JSON body. Only `q` is required; the rest have sensible defaults.
+
+```json
+{
+  "q": "{resource_service_name=\"api-server\"} |= \"error\"",
+  "s": "e-1h",
+  "e": "now",
+  "step": 60,
+  "maxDataPoints": 480,
+  "reverse": false,
+  "limit": 1000,
+  "fields": ["log_level", "trace_id"],
+  "summary": false
+}
+```
+
+| Field | Type | Applies to | Description |
+|-------|------|------------|-------------|
+| `q` | string | logs, metrics | The LakeQL expression. LogQL syntax for logs, PromQL syntax for metrics. |
+| `s` | string | both | Start time. See [Time format](#time-format). Default: `e-1h` (one hour before `e`). |
+| `e` | string | both | End time. Default: `now`. |
+| `step` | int (seconds) | both | Output bucket cadence. `0` = auto-derive from the window and `maxDataPoints`. |
+| `maxDataPoints` | int | both | Largest number of points the caller can render (≈ panel width in pixels). When `step` is unset, the server picks a step that stays within this budget. An explicit `step` overrides it. |
+| `reverse` | bool | logs (raw) | If true, return newest-first. Default: false (oldest-first). |
+| `limit` | int | logs (raw) | Maximum log rows to return. `0` = server default. |
+| `fields` | string[] | logs (raw) | Restrict returned tag keys to this allow-list. |
+| `summary` | bool | metrics | If true, return per-series aggregate statistics instead of time series (see [Metrics summary](#metrics-summary-response)). |
+
+### Time format
+
+`s` and `e` accept:
+
+- **Named references** — `now`, `epoch`, `e` (means "end", only valid in `s` when `e` is absolute).
+- **Relative durations** — `e-1h`, `now-15m`, `now-2d`, `e-3w`. Units: `s`, `m`, `h`, `d`, `w`. `d` = 24h, `w` = 7d.
+- **Unix seconds or milliseconds** — 10-digit → seconds, 13-digit → milliseconds. Auto-detected.
+- **RFC 3339 / ISO 8601** — e.g. `2026-08-18T12:00:00Z`.
+
+Defaults: `s="e-1h"`, `e="now"`. The server rejects a range where `e < s`.
+
+---
+
+## Endpoints
+
+### Logs — `POST /api/v1/logs/query`
+
+Runs a LogQL query. There are two evaluation paths, chosen automatically by the shape of `q`:
+
+- **Raw logs** — a stream selector optionally followed by line filters (e.g. `{svc="api"} |= "error"`). Emits one SSE `result` per matching log row.
+- **Aggregate** — anything that reduces to a series (e.g. `sum(rate({svc="api"} |= "error" [1m])) by (level)`). Emits time-series points in the same shape as `/api/v1/metrics/query`.
+
+### Metrics — `POST /api/v1/metrics/query`
+
+Runs a PromQL query and emits time-series points, or aggregate statistics per series when `summary=true`.
+
+### Related endpoints (label/tag discovery)
+
+Same auth, same JSON envelope, useful for building UIs on top of the API:
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `POST` | `/api/v1/logs/tags` | List log label keys visible over the window. |
+| `POST` | `/api/v1/logs/tagvalues` | List values for a label key. |
+| `POST` | `/api/v1/logs/series` | List concrete series (label-set combinations). |
+| `POST` | `/api/v1/metrics/tags` | List metric label keys. |
+| `POST` | `/api/v1/metrics/tagvalues` | List values for a metric label. |
+| `POST` | `/api/v1/metrics/labelkeys` | List keys carried by a metric. |
+| `POST` | `/api/v1/metrics/metadata` | Metric metadata (unit, type, help). |
+| `POST` | `/api/v1/metrics/discover` | Discover metrics carrying a label. |
+| `POST` | `/api/v1/promql/validate` | Parse-check a PromQL expression. |
+| `POST` | `/api/v1/logql/validate` | Parse-check a LogQL expression. |
+| `GET`  | `/api/v1/services` | List services in the org. |
+| `GET`  | `/api/v1/ping` | Authenticated liveness check. |
+| `GET`  | `/healthz` | Unauthenticated liveness probe. |
+
+An Elasticsearch-compatible surface is also exposed under `/elasticsearch/*` (search, `_msearch`, `_field_caps`, `_terms_enum`, async search) for clients such as Kibana. That surface is not covered here.
+
+---
+
+## Response format (SSE)
+
+Successful responses have:
+
+```
+HTTP/1.1 200 OK
+Content-Type: text/event-stream
+Cache-Control: no-cache
+Connection: keep-alive
+x-cardinalhq-query-id: <uuid>
+```
+
+The body is a stream of SSE events. Every event is a single line:
+
+```
+data: {"type":"<event>","data":<payload>}\n\n
+```
+
+There are exactly four `type` values a client needs to handle:
+
+| `type` | When | Payload |
+|--------|------|---------|
+| `result` | For each matching row (raw logs) or each `(series, timestamp)` point (metrics / log aggregates). | Depends on endpoint — see below. |
+| `heartbeat` | Every 15s of silence while the server is still working. Safe to ignore; use as a keep-alive signal. | `{"status":"waiting"}` |
+| `done` | Terminal. The query finished. | `{"status":"ok"}` or `{"status":"error"}` (some segments failed; partial results were still delivered). |
+| `error` | Terminal. Sent for the metrics summary path only. Otherwise, streaming errors surface via `done` + status `"error"`. | `{"message":"…","code":"…"}` |
+
+The stream ends immediately after a `done` or `error` event. Clients should also treat a TCP close of the response as end-of-stream. If the client disconnects, the server aborts the query.
+
+---
+
+### `result` — metrics (and log aggregates)
+
+Payload shape:
+
+```json
+{
+  "tags":      { "service_name": "api-server", "level": "error" },
+  "value":     42.0,
+  "timestamp": 1729180800000,
+  "label":     "{service_name=\"api-server\", level=\"error\"}"
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `tags` | The label-set that identifies this series. Keys are sorted; integer values are emitted as JSON integers (not floats). |
+| `value` | The scalar value of the point. `NaN` and `±Inf` are dropped by the server, never emitted. |
+| `timestamp` | Point timestamp, **milliseconds since epoch**. |
+| `label` | The series's display label (Prometheus-style rendering of the tag set). Constant for a given series. |
+
+One `result` event is emitted per `(series, timestamp)`. Events for different series arrive interleaved; demultiplex on `tags` (or `label`).
+
+---
+
+### `result` — raw logs
+
+Payload is the log record for one matching row:
+
+```json
+{
+  "timestamp":    1729180800123,
+  "timestamp_ns": 1729180800123456789,
+  "tags": {
+    "message":                "GET /orders 500 timeout after 30s",
+    "resource_service_name":  "api-server",
+    "log_level":              "ERROR",
+    "trace_id":               "4bf92f3577b34da6a3ce929d0e0e4736",
+    "span_id":                "00f067aa0ba902b7"
+  }
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `timestamp` | Log timestamp, **milliseconds since epoch**. |
+| `timestamp_ns` | Log timestamp, **nanoseconds since epoch** (full precision). |
+| `tags` | Indexed columns and OTLP attributes for the log row. `message` is the log line body; resource and scope attributes appear with their conventional names. |
+
+If `fields` was supplied in the request, `tags` is restricted to that allow-list (plus timestamps).
+
+Order is oldest-first by default; pass `"reverse": true` to get newest-first. `limit` caps the total number of `result` events before `done`.
+
+---
+
+### Metrics summary response
+
+When the metrics request sets `"summary": true`, the endpoint returns **one `result` event per series** with aggregate statistics instead of per-point values:
+
+```json
+{
+  "label": "{service_name=\"api\", method=\"GET\"}",
+  "tags":  { "service_name": "api", "method": "GET" },
+  "min":   0.0012,
+  "max":   3.4,
+  "avg":   0.087,
+  "sum":   19412.6,
+  "count": 223012,
+  "p50":   0.070,
+  "p90":   0.180,
+  "p95":   0.240,
+  "p99":   0.550
+}
+```
+
+Percentiles (`p50`, `p90`, `p95`, `p99`) are omitted when the series has no underlying distribution (e.g. plain gauges). The stream ends with `done` on success or `error` on failure.
+
+---
+
+## Errors
+
+Errors that happen **before** the SSE stream begins (auth failure, malformed JSON, invalid query) are returned as a normal HTTP response:
+
+```
+HTTP/1.1 400 Bad Request
+Content-Type: application/json
+
+{
+  "status":  400,
+  "code":    "INVALID_EXPR",
+  "message": "invalid query expression: parse error at position 12"
+}
+```
+
+| HTTP | `code` | Meaning |
+|------|--------|---------|
+| 400 | `BAD_REQUEST` | Malformed request (missing `q`, unsupported content type, etc.). |
+| 400 | `INVALID_JSON` | The JSON body did not parse. |
+| 400 | `INVALID_EXPR` | The query expression did not parse. |
+| 400 | `VALIDATION_FAILED` | Time range / step failed validation. |
+| 401 | `UNAUTHORIZED` | Missing or invalid API key. |
+| 403 | `FORBIDDEN` | Authenticated but not permitted. |
+| 404 | `NOT_FOUND` | Resource does not exist. |
+| 405 | `METHOD_NOT_ALLOWED` | Query endpoints require `POST`. |
+| 406 | `SSE_UNSUPPORTED` | Client does not support server-sent events. |
+| 422 | `COMPILE_ERROR` | The expression parsed but could not be compiled. |
+| 429 | `RATE_LIMITED` | Too many requests. |
+| 499 | `CLIENT_CLOSED` | Client disconnected before the query completed. |
+| 500 | `INTERNAL_ERROR` | Server-side failure. |
+| 501 | `REWRITE_UNSUPPORTED` | LogQL aggregate is not supported in this form. |
+| 503 | `SERVICE_UNAVAILABLE` | Transient backend failure. |
+| 504 | `DEADLINE_EXCEEDED` | Query exceeded the deadline. |
+
+**Errors that happen mid-stream** (after headers have been flushed) cannot use HTTP status codes. Instead:
+
+- The `metrics/query?summary=true` path emits an `error` SSE event with `{"message":"…","code":"…"}` and then closes.
+- All other paths surface partial failures by emitting `done` with `{"status":"error"}`. Results emitted before the failure are still valid — treat `status=error` as "some portion of the query could not be answered, retry or narrow the range". The `x-cardinalhq-query-id` header on the response lets Cardinal support correlate the failure end-to-end.
+
+---
+
+## Worked examples
+
+Each example assumes:
+
+```bash
+export CARDINAL_API_KEY='…'
+export LAKE_URL='http://<query-service-host>:8080'
+```
+
+### Metrics — `curl`
+
+Query the p95 request latency over the last 30 minutes, bucketed every minute:
+
+```bash
+curl -N \
+  -H "x-cardinalhq-api-key: $CARDINAL_API_KEY" \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: text/event-stream' \
+  "$LAKE_URL/api/v1/metrics/query" \
+  --data-raw '{
+    "q":    "histogram_quantile(0.95, sum by (le,service_name) (rate(http_request_duration_seconds_bucket[1m])))",
+    "s":    "e-30m",
+    "e":    "now",
+    "step": 60
+  }'
+```
+
+The `-N` flag disables curl's output buffering so events appear as they arrive. Trimmed output:
+
+```
+data: {"type":"heartbeat","data":{"status":"waiting"}}
+
+data: {"type":"result","data":{"tags":{"service_name":"api"},"value":0.183,"timestamp":1729180800000,"label":"{service_name=\"api\"}"}}
+
+data: {"type":"result","data":{"tags":{"service_name":"api"},"value":0.191,"timestamp":1729180860000,"label":"{service_name=\"api\"}"}}
+
+data: {"type":"result","data":{"tags":{"service_name":"web"},"value":0.042,"timestamp":1729180800000,"label":"{service_name=\"web\"}"}}
+
+data: {"type":"done","data":{"status":"ok"}}
+```
+
+### Logs — raw path
+
+Fetch the last 100 error lines from the `api-server` service:
+
+```bash
+curl -N \
+  -H "x-cardinalhq-api-key: $CARDINAL_API_KEY" \
+  -H 'Content-Type: application/json' \
+  "$LAKE_URL/api/v1/logs/query" \
+  --data-raw '{
+    "q":       "{resource_service_name=\"api-server\"} |= \"error\"",
+    "s":       "e-15m",
+    "e":       "now",
+    "reverse": true,
+    "limit":   100
+  }'
+```
+
+Trimmed output:
+
+```
+data: {"type":"result","data":{"timestamp":1729180801523,"timestamp_ns":1729180801523118000,"tags":{"message":"GET /orders 500 timeout after 30s","resource_service_name":"api-server","log_level":"ERROR","trace_id":"4bf92f3577b34da6a3ce929d0e0e4736"}}}
+
+data: {"type":"result","data":{"timestamp":1729180800912,"timestamp_ns":1729180800912004000,"tags":{"message":"panic: nil pointer dereference","resource_service_name":"api-server","log_level":"ERROR"}}}
+
+data: {"type":"done","data":{"status":"ok"}}
+```
+
+### Logs — aggregate path
+
+Same shape as metrics — one `result` per `(series, timestamp)`:
+
+```bash
+curl -N \
+  -H "x-cardinalhq-api-key: $CARDINAL_API_KEY" \
+  -H 'Content-Type: application/json' \
+  "$LAKE_URL/api/v1/logs/query" \
+  --data-raw '{
+    "q":    "sum by (log_level) (rate({resource_service_name=\"api-server\"}[1m]))",
+    "s":    "e-1h",
+    "e":    "now",
+    "step": 60
+  }'
+```
+
+### Metrics summary
+
+```bash
+curl -N \
+  -H "x-cardinalhq-api-key: $CARDINAL_API_KEY" \
+  -H 'Content-Type: application/json' \
+  "$LAKE_URL/api/v1/metrics/query" \
+  --data-raw '{
+    "q":       "http_request_duration_seconds",
+    "s":       "e-1h",
+    "e":       "now",
+    "summary": true
+  }'
+```
+
+Response body:
+
+```
+data: {"type":"result","data":{"label":"{service_name=\"api\"}","tags":{"service_name":"api"},"min":0.0012,"max":3.4,"avg":0.087,"sum":19412.6,"count":223012,"p50":0.07,"p90":0.18,"p95":0.24,"p99":0.55}}
+
+data: {"type":"done","data":{"status":"ok"}}
+```
+
+---
+
+## Client tips
+
+- **Use an SSE parser, not `readLine`.** A single `result` payload can contain newlines only if a tag value contains one; the event terminator is a blank line (`\n\n`).
+- **Ignore unknown `type` values.** New event types may be added in a backwards-compatible way; clients should treat them as no-ops.
+- **Treat `heartbeat` as liveness.** No `heartbeat` for > 30s and no data means the connection is dead — reconnect.
+- **Cap render work per second.** A busy service can emit thousands of `result` events per second; buffer and batch UI updates.
+- **Send your own `x-cardinalhq-query-id`.** It makes correlating client-side latency with server-side traces trivial when raising a support ticket.
+
+<SupportCallout />

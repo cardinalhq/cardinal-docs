@@ -10,5 +10,6 @@ export default {
   architecture: 'Architecture',
   cli: 'CLI Reference',
   'query-language': 'Query Language',
+  api: 'Query API',
   'loki-comparison': 'vs. Loki',
 }
