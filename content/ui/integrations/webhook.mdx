@@ -33,21 +33,27 @@ Unlike [Slack](/ui/integrations/slack) or [Microsoft Teams](/ui/integrations/tea
 
 ### Request body
 
-Cardinal sends one JSON object per alert event (firing, resolved, or an AI-analysis update). `status`, `rule`, `currentValue`, `firingSince`, and `resolvedAt` are always present; the remaining fields are included only when the incident has them.
+Cardinal sends one JSON object per alert event (firing, resolved, or an AI-analysis update) — one POST per incident state change, not a periodic re-notify. `orgId`, `status`, `rule`, `currentValue`, `firingSince`, and `resolvedAt` are always present; the remaining fields are included only when the incident has them.
 
 ```json
 {
+  "orgId": "8f2b1c04-5d3e-4a71-9c6f-2e8a4b7d1f30",
   "status": "firing",
   "rule": {
     "name": "High CPU Utilization — payments-api",
     "signal_type": "metrics",
     "query": {
-      "expr": "avg(cpu_usage_percent{service=\"payments-api\"}) > 90",
+      "expr": "avg(cpu_usage_percent{service=\"payments-api\"})",
       "range_seconds": 300
     },
-    "threshold": 90,
-    "operator": ">",
-    "reducer": "last",
+    "detection": {
+      "kind": "static_threshold",
+      "reducer": "avg",
+      "operator": ">",
+      "threshold": 90
+    },
+    "eval_interval_seconds": 60,
+    "for_duration_seconds": 300,
     "labels": {
       "severity": "critical",
       "team": "payments"
@@ -90,8 +96,9 @@ Cardinal sends one JSON object per alert event (firing, resolved, or an AI-analy
 
 | Field | Present | Description |
 | ----- | ------- | ----------- |
+| `orgId` | Always | The Cardinal organization the incident belongs to. Use it to attribute deliveries when one endpoint receives alerts from more than one org. |
 | `status` | Always | `firing`, `resolved`, or `analysis_complete` |
-| `rule` | Always | The alert rule's stored snapshot at fire time (name, query, labels, annotations, etc.) |
+| `rule` | Always | The alert rule's snapshot at fire time, passed through verbatim: `name`, `signal_type`, `query`, `detection` (the threshold/anomaly/exceptions config), the eval/for windows, plus any `labels` and `annotations`. Cardinal does not reshape it, so treat the inner fields as advisory rather than a stable contract. |
 | `currentValue` | Always | The metric/log value that triggered evaluation |
 | `firingSince` | Always | ISO timestamp the incident started firing |
 | `resolvedAt` | Always (nullable) | ISO timestamp the incident resolved, or `null` while still firing |
