@@ -33,21 +33,27 @@ Unlike [Slack](/ui/integrations/slack) or [Microsoft Teams](/ui/integrations/tea
 
 ### Request body
 
-Cardinal sends one JSON object per alert event (firing, resolved, or an AI-analysis update). `status`, `rule`, `currentValue`, `firingSince`, and `resolvedAt` are always present; the remaining fields are included only when the incident has them.
+Cardinal sends one JSON object per alert event (firing, resolved, or an AI-analysis update) — one POST per incident state change, not a periodic re-notify. `orgId`, `status`, `rule`, `currentValue`, `firingSince`, and `resolvedAt` are always present; the remaining fields are included only when the incident has them.
 
 ```json
 {
+  "orgId": "8f2b1c04-5d3e-4a71-9c6f-2e8a4b7d1f30",
   "status": "firing",
   "rule": {
     "name": "High CPU Utilization — payments-api",
     "signal_type": "metrics",
     "query": {
-      "expr": "avg(cpu_usage_percent{service=\"payments-api\"}) > 90",
+      "expr": "avg(cpu_usage_percent{service=\"payments-api\"})",
       "range_seconds": 300
     },
-    "threshold": 90,
-    "operator": ">",
-    "reducer": "last",
+    "detection": {
+      "kind": "static_threshold",
+      "reducer": "avg",
+      "operator": ">",
+      "threshold": 90
+    },
+    "eval_interval_seconds": 60,
+    "for_duration_seconds": 300,
     "labels": {
       "severity": "critical",
       "team": "payments"
@@ -72,7 +78,7 @@ Cardinal sends one JSON object per alert event (firing, resolved, or an AI-analy
       "verdict": "unhealthy",
       "explanation": "Pod has restarted 4 times in the last 10 minutes (CrashLoopBackOff).",
       "ruleMatched": "pod_crashloop",
-      "relatedVia": "cpu_usage_percent{pod=\"payments-api-7d9f8c6b5-x2k9p\"} → Pod payments/payments-api-7d9f8c6b5-x2k9p"
+      "relatedVia": "ebs.csi.aws.com/vol-0abc123 → pv-9f2c → data-payments-api-0 → payments-api-7d9f8c6b5-x2k9p"
     }
   ],
   "sampleLog": {
@@ -90,8 +96,9 @@ Cardinal sends one JSON object per alert event (firing, resolved, or an AI-analy
 
 | Field | Present | Description |
 | ----- | ------- | ----------- |
+| `orgId` | Always | The Cardinal organization the incident belongs to. Use it to attribute deliveries when one endpoint receives alerts from more than one org. |
 | `status` | Always | `firing`, `resolved`, or `analysis_complete` |
-| `rule` | Always | The alert rule's stored snapshot at fire time (name, query, labels, annotations, etc.) |
+| `rule` | Always | The alert rule's snapshot at fire time, passed through verbatim. Guaranteed: `name`, `signal_type`, `query.expr`, and a detection config. Current rules carry `detection` (`{kind, ...}` — `static_threshold`, `anomaly`, or `exceptions`); rules created before that field existed carry the legacy flat form instead (`threshold`, `operator`, `reducer` at the top level), and both are still delivered as-is. Cardinal does not reshape or strip the object, so fields beyond the guaranteed set may appear as Lakerunner adds them. |
 | `currentValue` | Always | The metric/log value that triggered evaluation |
 | `firingSince` | Always | ISO timestamp the incident started firing |
 | `resolvedAt` | Always (nullable) | ISO timestamp the incident resolved, or `null` while still firing |
@@ -100,9 +107,24 @@ Cardinal sends one JSON object per alert event (firing, resolved, or an AI-analy
 | `runbookUrl` | When the rule's annotations include a runbook link | |
 | `firingDuration` | Once the incident has been firing long enough to report one | Human-readable, e.g. `"12m"` |
 | `incidentUrl` | When Cardinal can link back to the incident in the UI | |
-| `infraIssues` | Only when infra-graph correlation found unhealthy/degraded Kubernetes entities related to the firing series | Array of `{ label, cluster, verdict, explanation, ruleMatched, relatedVia? }` |
+| `infraIssues` | Only when infra-graph correlation found unhealthy/degraded Kubernetes entities related to the firing series | Array of `{ label, cluster, verdict, explanation, ruleMatched, relatedVia? }`. `relatedVia` is present only when the entity was reached by walking the infra graph from a firing storage volume — a chain of node display names. Entities named directly by the firing series have no `relatedVia`. |
 | `sampleLog` | Only for exceptions-detection rules (log-based alerts keyed on a fingerprint) where Cardinal found a matching raw log record | `{ timestamp, body, attributes? }` — one actual log line from the exception, so you can see the real error instead of just a count |
 | `aiResult` | Only on `analysis_complete` deliveries | AI-generated incident analysis text |
+
+Older rules — created before `detection` existed — send the legacy flat form instead, which is still fully supported:
+
+```json
+"rule": {
+  "name": "High CPU Utilization — payments-api",
+  "signal_type": "metrics",
+  "query": { "expr": "avg(cpu_usage_percent{service=\"payments-api\"})", "range_seconds": 300 },
+  "threshold": 90,
+  "operator": ">",
+  "reducer": "last"
+}
+```
+
+A receiver that reads threshold config should handle both: prefer `rule.detection` when present, fall back to the flat fields.
 
 ### Response expectations
 
