@@ -1,0 +1,52 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# Explore
+
+Explore is the place to query and investigate the logs, metrics, and traces stored in Cardinal Data Lake. Each view is tuned for its signal, but they share the same data source and time controls so you can move between them without rebuilding the investigation from scratch.
+
+Open **Explore** in Cardinal UI, then choose **Logs**, **Metrics**, or **Traces**.
+
+## Choose a data source
+
+The instance selector beside the page title chooses the Cardinal Data Lake deployment to query. If your organization has one available instance, Cardinal selects it automatically. With more than one, check the instance before comparing results across pages.
+
+If no instance is available, connect a [Cardinal Data Lake integration](/ui/integrations/lakerunner) or ask an organization owner to make one available to Explore.
+
+## Time range and refresh
+
+Use the time picker in the upper-right corner to choose a relative range, such as the last hour, or enter an exact start and end time. The arrow controls move the current window backward or forward by one full window, which is useful when comparing a change with the period immediately before it.
+
+**Refresh** runs the current view again. After the first result loads, the refresh menu can also run it on an interval. Automatic refresh pauses while a query is being edited or when the current page has nothing to refresh.
+
+Start with a narrow range when a query covers high-volume data. Widen it once the service, label, or operation you need is isolated.
+
+## Move between signals
+
+Explore carries useful context between signal views:
+
+- A metric series can open related **Logs** using the series labels as filters.
+- A metric series with a service label can open that service in **Traces**.
+- A filtered log view can place matching log events on metric charts.
+- A selected trace opens its related logs in the trace drawer when trace IDs are present on both signals.
+
+These links preserve the active time range. Review the generated filters after moving between views; a label that identifies a metric series may be named differently on log records or spans.
+
+## Sharing a view
+
+Logs and Metrics include a **Share** button. It copies a link containing the current query, filters, time range, and other relevant view state. Large views may use a short saved-view URL instead of putting the full state in the address.
+
+Trace ID searches are reflected in the Traces URL, so those searches can be bookmarked or copied from the browser. The recipient still needs access to the same Cardinal organization and data source.
+
+## When a view has no data
+
+Check these items before changing the query:
+
+1. Confirm the selected Cardinal Data Lake instance.
+2. Widen the time range.
+3. Clear filters one at a time.
+4. Confirm that the service is sending the expected signal. See [App Instrumentation](/data-lake/instrumentation).
+5. For service graphs, confirm that the collector gateway is producing span-derived metrics. See [OpenTelemetry Collectors](/data-lake/collectors#gateway).
+
+Continue with [Logs](/ui/explore/logs), [Metrics](/ui/explore/metrics), or [Traces](/ui/explore/traces).
+
+<SupportCallout />

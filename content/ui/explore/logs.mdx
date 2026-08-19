@@ -1,0 +1,76 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# Explore Logs
+
+Explore Logs combines a log search with a service-level distribution, severity totals, and the matching log lines. Use the Builder for a quick search or switch to Code when you already have a LogQL expression.
+
+## Build a log search
+
+The **Builder** narrows logs with four kinds of input:
+
+- **Service name** selects one or more services.
+- **Level** selects the severity values present in the current result.
+- **Message contains** matches text in the log message.
+- **Field filters** match indexed log attributes. Each row supports equality, inequality, and regular-expression operators where the field allows them.
+
+Available fields and values are scoped by the other filters and the selected time range. If a value you expect is missing, widen the range or remove a neighboring filter before entering it manually.
+
+The page updates as the Builder changes. Click a service or severity in the distribution chart to apply the same filter without returning to the left panel.
+
+## Write LogQL
+
+Switch to **Code** to edit the LogQL expression directly. A raw log selector continues to drive the distribution, KPI, and log-line views. An aggregation expression produces a time-series chart instead.
+
+For example:
+
+```logql
+{resource_service_name="checkout"} |~ "(?i)timeout|exception"
+```
+
+Explore checks the expression while you type. Expressions that cannot be represented by the Builder stay in Code mode. Cardinal Data Lake implements a focused LogQL subset; see [Log Queries](/data-lake/query-language#log-queries-logql-style) and [Supported Subset](/data-lake/query-language#supported-subset) for the available syntax.
+
+## Investigate log volume
+
+The distribution chart groups matching logs by service and severity. Use it to find which service contributes most of the current volume and whether that volume is mostly informational, warnings, or errors.
+
+- Click a **service row** to open its severity history over time.
+- Click a **severity segment** to add that level to the search.
+- Use **All services** to return from a service drill-down.
+- Use the KPI chips to compare total volume and severity counts for the current scope.
+
+When event sources are active, the volume timeline also shows markers for events that occurred in the selected window.
+
+## Error fingerprints
+
+Select the **Errors** or **Warnings** KPI when analysis tools are available to group similar messages into fingerprints. The overview highlights recurring patterns instead of making you inspect each line separately.
+
+Select a fingerprint to chart its frequency over the last 15 days. This is useful for distinguishing a new failure from a noisy, long-running one. The fingerprint is an analysis aid; the original matching log lines remain the source of detail.
+
+## Inspect and export log lines
+
+Expand a log line to see all of its attributes. From an attribute you can:
+
+- add it to the current filter,
+- group matching lines by its values when analysis tools are available, or
+- add the field as a visible table column.
+
+Use **Columns** above the result to keep useful fields visible across the current table. Change the sort control to read newest-first or oldest-first, and continue loading results when the first page does not cover the full range.
+
+**Download CSV** exports the matching rows with the visible fields. A broad time range can produce a large export, so apply the service and field filters you need first.
+
+## Events and correlation
+
+Choose **Events** to add operational events to the timeline. Available sources depend on your organization’s integrations:
+
+- [Kubernetes events](/ui/integrations/kubernetes#using-explore-correlation) show scheduling failures, restarts, health failures, and other cluster changes.
+- A connected [GitHub integration](/ui/integrations/github) can provide deployments, pull requests, and releases.
+
+Use **Correlate to Metrics** after applying log filters to open Metrics with those matching log events as markers. Selecting a marker there opens the nearby log lines, making it easier to compare a spike with the messages emitted at the same time.
+
+## Share and reuse
+
+**Share** copies the current filters, LogQL expression, sort order, and time range into a link. Use **Add to Dashboard** on a distribution, service drill-down, aggregation, or log result to reuse that query in a dashboard panel.
+
+Dashboard panels keep the query rather than a snapshot of the current result. Give the panel a name that describes the service and condition so it remains understandable after the incident ends.
+
+<SupportCallout />
