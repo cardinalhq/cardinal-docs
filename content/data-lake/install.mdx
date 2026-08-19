@@ -180,6 +180,26 @@ Then open [http://localhost:4200](http://localhost:4200) and sign in with that e
 here you're querying your own cluster's logs, metrics, and traces through the on-prem Cardinal UI. Expose it
 behind an Ingress when you're ready to share it with your team.
 
+## Troubleshooting
+
+### `all_slots_used` when adding a Cardinal Data Lake
+
+Each trial license has a fixed number of Cardinal Data Lake slots (one on the free trial). If a prior
+deployment was interrupted mid-teardown, its license claim can survive on the site even after every workload
+is gone — a **leaked claim**. Any subsequent **Add Cardinal Data Lake** attempt on that org then fails with
+`all_slots_used` and you're stuck without any visible Cardinal Data Lake to remove.
+
+Fix it on the site's **Deployments** tab: open the site with the leaked claim, expand the Deployments
+listing, and remove the stranded claim there. The slot frees immediately and the next add succeeds. Deleting
+the site itself won't work — the site delete refuses with `license_claims_exist` while a claim is attached,
+by design, to keep slots from silently orphaning.
+
+### Sign-in details are empty right after **Confirm & deploy**
+
+The port-forward command and password reader on the Cardinal UI card only exist once **maestro** is actually
+running in your cluster. If you clicked into the sign-in panel before the workload finished coming up, you'll
+see placeholders. Wait for every component on the site page to show green, then reopen the panel.
+
 ## Why the operator?
 
 Running Cardinal Data Lake through the operator means you don't babysit the deployment:
