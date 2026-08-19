@@ -1,0 +1,59 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# Explore Traces
+
+Explore Traces shows how requests move between services, which operations are slow or failing, and the spans and logs that make up an individual trace.
+
+## Find traces and spans
+
+Start from the service overview or select a service in the left panel. The span filters narrow the result:
+
+- **Trace ID** finds the services and spans touched by one trace. The active Trace ID is kept in the URL for bookmarking and sharing.
+- **Status** switches between all spans and error spans when the service has recorded failures.
+- **Operation contains** matches part of a span name, such as `GET /checkout`.
+- **Min duration** removes spans faster than the entered duration in milliseconds.
+- **Flow** appears after selecting a connection in the service graph and limits spans to that client/server path.
+
+Span searches use the page time range. If a known Trace ID returns no result, widen the range before assuming that trace retention has expired.
+
+## Service overview
+
+Before a service is selected, the overview summarizes each service with request count, error count, error rate, and average latency. Select a row to open its service graph, operation cards, and recent spans.
+
+A service may appear in the overview even when it has no spans of its own. This happens when another instrumented service records it as a peer. Instrument that service to make its operations and spans available; see [App Instrumentation](/data-lake/instrumentation).
+
+## Service graph
+
+The service graph shows incoming and outgoing relationships for the selected service. Switch among:
+
+- **Requests** for call volume,
+- **Errors** for failed calls, and
+- **Latency** for average request duration.
+
+Select a service node to pivot the page to that service. Select a connection to filter the spans to that flow and open a chart of its request volume, errors, or latency over the current time range.
+
+Service graphs use metrics derived from spans by the collector gateway. A deployment that stores raw spans without generating service-graph metrics can return traces while leaving the graph empty. See the [collector gateway](/data-lake/collectors#gateway) configuration.
+
+## Operations and spans
+
+Operation cards summarize request count, error count, and average latency for each operation in the selected service. Select an operation to filter the span list; select it again or remove the chip to return to all operations.
+
+The span table shows the service, operation, start time, duration, and status. Change the page size when you need a broader sample and use **Load more** to continue backward through the selected range. Filters are applied by the query, so loading more keeps the same service, status, operation, duration, Trace ID, and flow constraints.
+
+Select a span to open its full trace.
+
+## Trace waterfall
+
+The trace drawer arranges spans on a shared timeline. Expand a span to inspect its IDs, parent, duration, status, and attributes. The relative position and width show when the span ran and how much of the total trace time it consumed.
+
+Use **Group by** beside an attribute to summarize that field across related spans. This can quickly reveal which namespace, pod, endpoint, database, or status value contributes most often without closing the trace.
+
+Parent/child timing helps locate where time accumulated, but it does not by itself prove the root cause. Compare a slow span with its attributes, neighboring spans, and correlated logs.
+
+## Correlated logs
+
+Open the **Logs** tab in the trace drawer to load log records carrying the selected Trace ID during the current time range. Expand a line for its attributes, filter on useful values, or group matching lines by a field when analysis tools are available.
+
+An empty Logs tab usually means the application is not adding trace context to its log records, the logs are outside the selected range, or the logs and traces were sent to different Cardinal Data Lake instances. Configure your logging instrumentation to include `trace_id` and `span_id` alongside each record.
+
+<SupportCallout />

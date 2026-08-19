@@ -1,0 +1,78 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# Explore Metrics
+
+Explore Metrics builds and compares PromQL time series. A view can contain several queries and formulas, which makes it useful for checking related signals or calculating ratios without first creating a dashboard.
+
+## Build a metric query
+
+In **Builder** mode, choose a metric and then refine it with:
+
+- **Labels** to filter the series. Equality, inequality, and regular-expression operators are available.
+- **Aggregation** to combine matching series with functions such as sum, average, minimum, maximum, count, or percentile.
+- **Value As** to use raw values, rates, or changes where the metric type supports them.
+- **Group By** to keep separate lines for selected labels.
+
+The builder identifies common counter and gauge types and chooses a useful starting calculation. Review that calculation before using the result for an alert or SLO.
+
+Switch to **Code** to enter PromQL directly. Code-mode queries run when you select **Run Query**, which lets you finish editing a larger expression before sending it. See [Metric Queries](/data-lake/query-language#metric-queries-promql-style) and [Supported Subset](/data-lake/query-language#supported-subset) for supported syntax.
+
+## Discover metrics by tag
+
+Choose **Discover metrics by tag** when you know the workload label but not the metric names. Build a scope such as `service_name = checkout`, select the metrics you want, and paint them into the page as query panels.
+
+The scope bar stays above the generated panels:
+
+- Editing a scope filter updates every linked panel.
+- **Group by** applies labels shared by all linked metrics.
+- A panel detaches when its query is edited independently.
+- **Detach all** keeps the current filters on each panel and stops later scope changes from updating them.
+
+This workflow is especially useful for comparing several runtime or infrastructure metrics for the same service, namespace, pod, or cluster.
+
+## Queries and formulas
+
+Use **Add Query** to place another metric beside the current one. Queries are assigned letters in page order. Collapse the query list when you want more room for charts, or clear all query panels while keeping any formulas you still need.
+
+Use **Add Formula** to calculate from those query letters. For example:
+
+```text
+(A / B) * 100
+```
+
+Formulas recompute when their source queries update. A formula can reference query panels, but it cannot reference another formula. If a query is removed, update or remove formulas that refer to its letter.
+
+## Analyze chart series
+
+Each query and formula renders as a time-series chart. The legend identifies the labels that distinguish one series from another. Depending on the labels and connected integrations, a legend row can offer these drill actions:
+
+- **Open in Logs** carries the series labels into a filtered Logs view.
+- **Open in Spans** opens the matching service in Traces.
+- **Open Infra Map** opens the related Kubernetes workload and its neighborhood.
+
+An action appears only when the series contains enough information to build the destination. For example, **Open in Spans** needs a service label and **Open Infra Map** needs recognizable Kubernetes labels plus a connected cluster.
+
+## Anomalies and outliers
+
+Use **Detect anomalies** to check the current series for unusually high spikes and low drops. Cardinal evaluates both directions and shows the periods that differ from the expected shape.
+
+Use **Find outliers** when a query returns a cohort of comparable series, such as pods or hosts. It identifies members whose behavior differs from their peers. Outlier detection is available for query panels but not formulas because the cohort labels must be applied back to the original metric query.
+
+These checks are starting points for investigation. Confirm a flagged period against the chart, related logs, deployments, and known traffic changes before treating it as a fault.
+
+## Correlation
+
+Metrics can show two kinds of markers:
+
+- **Log correlation** comes from **Correlate to Metrics** in Explore Logs. Select a marker to inspect the nearby matching log lines.
+- **Events** come from connected sources such as Kubernetes or GitHub. Configure them with the **Events** button and select only the clusters, namespaces, repositories, or event types relevant to the chart.
+
+See [Using Explore correlation](/ui/integrations/kubernetes#using-explore-correlation) for Kubernetes setup. When a series contains Kubernetes resource labels, its legend may also open the Infra Map for a live view of the related workload.
+
+## Share and reuse
+
+**Share** copies all active queries, formulas, scope links, and the time range into a link. **Reset** clears the page and returns it to an empty query.
+
+Use **Add to dashboard** on a query or formula chart to create a reusable panel. Formula panels preserve the formula along with the resolved PromQL, so they can still be edited as formulas in the dashboard.
+
+<SupportCallout />
