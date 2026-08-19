@@ -1,0 +1,137 @@
+import AlertRuleLifecycleDiagram from '../../../components/diagrams/AlertRuleLifecycleDiagram';
+import NotificationGroupRoutingDiagram from '../../../components/diagrams/NotificationGroupRoutingDiagram';
+
+# Create an alert rule
+
+An alert rule connects four decisions:
+
+1. **What to observe** — a metric or log query.
+2. **How to detect a problem** — threshold, anomaly, or exception logic.
+3. **When to open and close a trigger** — the **For** duration and **suppression window**.
+4. **Who should hear about it** — a reusable notification group.
+
+Cardinal evaluates the rule continuously. When the configured condition is sustained, Cardinal opens a trigger, records it in **Alerting → Trigger History**, and sends a firing event to the selected notification group. The trigger stays open until its group has been quiet for the full suppression window.
+
+<AlertRuleLifecycleDiagram />
+
+## Notification groups
+
+A notification group is a named, reusable bundle of destinations. For example, an **On-call platform** group might contain:
+
+- a Slack channel;
+- an email distribution list; and
+- an incident-management webhook.
+
+Attach one group to an alert rule and Cardinal creates an independent delivery for every destination in that group. The same group can be reused by many rules, so changing the group's destinations updates routing without editing each rule.
+
+<NotificationGroupRoutingDiagram />
+
+Selecting **None** does not disable evaluation. Cardinal still evaluates the rule and records trigger history, but it does not send outbound firing or resolved notifications.
+
+Manage groups under **Alerting → Groups**. Email and webhook destinations can be configured directly on a group. Slack, Teams, and Telegram destinations use their corresponding integration credentials.
+
+## Alert types
+
+The **Detection algorithm** controls how query results become a firing condition.
+
+### Threshold
+
+A threshold rule compares a query value with a fixed number using `>`, `<`, `>=`, `<=`, `==`, or `!=`.
+
+Examples:
+
+- error rate is greater than 5%;
+- available replicas are less than 3;
+- queue depth is greater than or equal to 1,000.
+
+Use a threshold when the unhealthy boundary is known. The query can return several series; each series maintains its own firing clock. A series must satisfy the comparison for the full **For** duration before it fires.
+
+### Anomaly
+
+An anomaly rule compares the current distribution with a baseline window. The baseline can be:
+
+- the immediately preceding window of the same length; or
+- the same window one week earlier.
+
+Cardinal compares the current and baseline p50 and p99 values. A **Higher than baseline** rule fires when both ratios exceed their configured thresholds; **Lower than baseline** mirrors that check for drops. Optional sparseness detection can also flag a series that becomes unusually gappy or disappears.
+
+Use an anomaly when a fixed threshold would be too noisy because the normal level changes with traffic, time of day, or seasonality. A new series without baseline history is skipped until there is enough history to compare.
+
+### Exceptions
+
+An exceptions rule is logs-only. You provide a stream selector and optional line filters; Cardinal builds the count query and groups matching records by their error fingerprint.
+
+Each distinct fingerprint is evaluated and deduplicated independently. This matters when one exception pattern is already firing: a different stack trace or error signature can still open its own trigger instead of being folded into the existing one.
+
+Use exceptions to watch for stack traces, panic messages, fatal logs, or recurring error signatures without writing the aggregation yourself.
+
+## For duration and suppression window
+
+These controls sit on opposite sides of the trigger lifecycle.
+
+| Control | Before or after firing? | What it does |
+| --- | --- | --- |
+| **For** | Before | Fire-side debounce. The condition must remain true for this long before the first firing event. `0s` fires on the first qualifying evaluation. |
+| **Suppression window** | After | Recovery-side hysteresis. Continued firing stays silent, and the group must remain quiet for this long before the trigger resolves. |
+
+The suppression window is not a repeating reminder interval. Cardinal does not re-notify every time the window elapses while a problem remains active.
+
+### How suppression works
+
+The clock is tracked per rule and group key:
+
+1. The first sustained firing opens a trigger and sends one firing event.
+2. Every later evaluation that still sees that group firing updates its last-firing time, but sends no new event.
+3. When the group stops firing, the trigger remains open while the quiet-time clock runs.
+4. Any fresh firing during that quiet period resets the clock.
+5. After one uninterrupted suppression window without firing, Cardinal resolves the trigger and sends one resolved event.
+6. A later firing opens a new trigger with a new lifecycle.
+
+For example, with a 5-minute suppression window, a firing observed four minutes into a quiet period resets the timer. The trigger resolves only after the group then stays quiet for five uninterrupted minutes.
+
+The suppression window must be longer than the evaluation interval. Cardinal defaults it to 5 minutes, which is safely above the normal evaluation cadence.
+
+## Resolution
+
+Resolution means Cardinal has observed enough evidence that the firing group recovered. Under the normal automatic path, that evidence is a full suppression window without a firing observation.
+
+A query error or missing data does not prove recovery, so it does not immediately resolve an open trigger. This prevents a telemetry outage from making an active incident look healthy.
+
+When a trigger resolves:
+
+- Trigger History records the resolved time and total duration;
+- Cardinal sends one resolved event to every destination in the rule's notification group; and
+- threading-capable destinations can attach the resolution to the original firing conversation.
+
+## A practical example
+
+Suppose you create **Checkout error rate** with these settings:
+
+| Setting | Value |
+| --- | --- |
+| Signal | Metrics |
+| Alert type | Threshold |
+| Condition | error rate `> 5%` |
+| For | 5 minutes |
+| Suppression window | 10 minutes |
+| Notification group | On-call platform |
+
+The behavior is:
+
+1. A brief 2-minute spike does not fire because it never satisfies the 5-minute **For** duration.
+2. A 6-minute breach opens a trigger and fans one firing notification out to the On-call platform destinations.
+3. Continued high error rate stays in the same trigger and does not page again.
+4. A 4-minute recovery followed by another breach keeps the trigger open and resets the quiet-time clock.
+5. Ten uninterrupted healthy minutes resolve the trigger and send one resolved event.
+6. A later breach that lasts 5 minutes opens a new trigger and notifies again.
+
+## Before you save
+
+- Give the rule a name that identifies both the signal and the affected system.
+- Describe what the alert means and the first response an on-call engineer should take.
+- Confirm the query preview returns the intended series.
+- Prefer a non-zero **For** duration for noisy signals.
+- Set the suppression window long enough to absorb normal evaluation gaps and brief flapping.
+- Select a notification group, or intentionally choose **None** for record-only rules.
+- Add labels such as `severity` and `team` when they help recipients triage the notification.
+- Add annotations such as a runbook URL when there is a known response procedure.
