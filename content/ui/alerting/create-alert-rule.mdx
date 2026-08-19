@@ -12,6 +12,8 @@ An alert rule connects four decisions:
 
 Cardinal evaluates the rule continuously. When the configured condition is sustained, Cardinal opens a trigger, records it in **Alerting → Trigger History**, and sends a firing event to the selected notification group. The trigger stays open until its group has been quiet for the full suppression window.
 
+Trigger History is paginated and shows the notification channels attempted for each trigger, including whether any delivery failed or is waiting to retry. Open a trigger for per-destination attempts and error details.
+
 <AlertRuleLifecycleDiagram />
 
 ## Notification groups
@@ -29,6 +31,8 @@ Attach one group to an alert rule and Cardinal creates an independent delivery f
 Selecting **None** does not disable evaluation. Cardinal still evaluates the rule and records trigger history, but it does not send outbound firing or resolved notifications.
 
 Manage groups under **Alerting → Groups**. Email and webhook destinations can be configured directly on a group. Slack, Teams, and Telegram destinations use their corresponding integration credentials.
+
+After saving a rule with a notification group, use **Test alert** on the Alert Rules page to send a synthetic firing notification based on that rule to every destination in the group. This exercises the real delivery paths without waiting for the query condition to fire.
 
 ## Alert types
 

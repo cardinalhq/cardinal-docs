@@ -19,8 +19,9 @@ Unlike [Slack](/ui/integrations/slack) or [Microsoft Teams](/ui/integrations/tea
 1. Navigate to **Alerting → Groups** and click **Add Group** (or open an existing group to edit).
 2. Under **Destinations**, click **Add Destination** and choose **Webhook** as the channel type.
 3. Paste the endpoint URL. It must start with `http://` or `https://` — `https://` is required by default (see [Security](#security) below).
-4. Expand **Sample payload** in the destination row to see the exact JSON body Cardinal will POST, and copy it if you want to stub out your receiver before wiring up the real thing.
-5. Save the group, then use **Send Test** on the destination row to fire a synthetic delivery and confirm your endpoint accepts it.
+4. Optionally add request headers. Mark credentials such as `Authorization` or `X-API-Key` as **Secret**; Cardinal encrypts those values at rest and does not display them again after saving. Leave a saved secret blank when editing to keep its current value.
+5. Expand **Sample payload** in the destination row to see the exact JSON body Cardinal will POST, and copy it if you want to stub out your receiver before wiring up the real thing.
+6. Save the group, then use **Send Test** on the destination row to fire a synthetic delivery and confirm your endpoint accepts it.
 
 ## HTTP contract
 
@@ -30,6 +31,8 @@ Unlike [Slack](/ui/integrations/slack) or [Microsoft Teams](/ui/integrations/tea
 | Content-Type | `application/json` |
 | User-Agent | `CardinalHQ-Maestro-Webhook/1.0` |
 | Timeout | 10 seconds |
+
+Custom headers are included on every delivery. Cardinal manages `Content-Type`, `User-Agent`, `Host`, `Content-Length`, `Connection`, and `Transfer-Encoding`; those header names cannot be overridden. Header names are case-insensitively unique within one destination.
 
 ### Request body
 
@@ -112,7 +115,7 @@ Cardinal sends one JSON object per alert event (firing, resolved, or an AI-analy
 
 ## Retry behavior
 
-Webhook deliveries are currently **single-attempt**: if the POST fails (non-2xx, timeout, DNS failure, connection refused, etc.), Cardinal marks that delivery `failed` and does not retry it. The next alert event (e.g. the next evaluation tick, or the eventual `resolved` transition) generates a fresh delivery attempt. Make sure your endpoint is reliably reachable, or add your own retry/queue logic on the receiving side if you need stronger delivery guarantees.
+Retryable delivery failures are scheduled with backoff and appear as `retry_pending` in Trigger History until they succeed or exhaust the attempt limit. Configuration failures and other terminal errors are marked `failed` immediately. Your receiver should still be idempotent because a request whose response is lost can be attempted again.
 
 ## Security
 
@@ -123,6 +126,8 @@ Webhook deliveries are currently **single-attempt**: if the POST fails (non-2xx,
   ```
 
   This only relaxes the protocol check — the private/link-local/metadata address block below still applies regardless of this flag.
+
+- **Secret headers are encrypted at rest.** Values marked **Secret** are envelope-encrypted with Maestro's configured signing-key material. The UI and read APIs return only a `hasValue` marker, never the plaintext or ciphertext. If encryption keys are unavailable, saving a new secret header fails instead of storing it in plaintext.
 
 - **SSRF protection.** Cardinal blocks webhook URLs that resolve to a private, loopback, link-local, or cloud-metadata address (RFC1918 ranges, `127.0.0.0/8`, `169.254.0.0/16` including the `169.254.169.254` metadata endpoint, and related bogon ranges), as well as `localhost` and hostnames ending in `.local`/`.internal`/`.invalid` or with no dot at all. This is enforced twice:
   - **Write time**, when you save the destination.
