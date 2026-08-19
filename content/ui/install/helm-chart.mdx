@@ -47,7 +47,7 @@ maestro:
 | `maestro.env` | `[]` | **This is where you put OIDC, LLM, and `MAESTRO_BASE_URL` vars.** See [Environment variables](/ui/install/environment) |
 | `maestro.extraVolumes` / `extraVolumeMounts` | `[]` | Mount extra config or certs into the pod |
 
-The Cardinal UI pod runs with `readOnlyRootFilesystem: true`. A `tmp` emptyDir is mounted at `/tmp`. If you need additional writable paths (e.g., ontology workspaces), add them via `extraVolumes` + `extraVolumeMounts`.
+The Cardinal UI pod runs with `readOnlyRootFilesystem: true`. A `tmp` emptyDir is mounted at `/tmp`. If you need additional writable paths, add them via `extraVolumes` + `extraVolumeMounts`.
 
 An `initContainer` waits for the MCP gateway service to accept connections before Cardinal UI starts.
 

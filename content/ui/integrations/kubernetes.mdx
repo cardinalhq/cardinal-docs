@@ -2,14 +2,14 @@ import SupportCallout from '../../../components/SupportCallout';
 
 # Kubernetes
 
-Connect Cardinal to a Kubernetes cluster so the AI agent can investigate cluster state and so chart markers in **Explore** highlight when Kubernetes events (BackOff, FailedScheduling, Unhealthy, etc.) coincide with metric or log changes.
+Connect Cardinal to a Kubernetes cluster so your connected agent can read cluster state and so chart markers in **Explore** highlight when Kubernetes events (BackOff, FailedScheduling, Unhealthy, etc.) coincide with metric or log changes.
 
 ## Overview
 
 The Kubernetes integration is **read-only**. It surfaces two capabilities:
 
 - **Chart markers** — `core/v1/Event` records appear as colored markers on the Metrics and Logs timelines, alongside any GitHub events you have enabled. Useful for correlating "what broke" with "what changed."
-- **Agent tools** — read-only kubectl-equivalent access for the AI agent: `list_events`, `list_resources`, `get_resource`, `get_logs`, `list_api_resources`.
+- **MCP tools** — read-only kubectl-equivalent access over the MCP endpoint: `list_events`, `list_resources`, `get_resource`, `get_logs`, `list_api_resources`.
 
 Cardinal never writes to your cluster. The integration stores your credentials encrypted at rest and transmits them per-request to the agent gateway.
 

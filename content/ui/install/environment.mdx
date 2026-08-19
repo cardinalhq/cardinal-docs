@@ -82,13 +82,6 @@ Used by the Cardinal Data Lake provisioner when auto-configuring a new org's buc
 | `DEFAULT_BUCKET_REGION` | |
 | `DEFAULT_BUCKET_COLLECTOR_NAME` | |
 
-### Ontology / repos
-
-| Variable | Default | Notes |
-| -------- | ------- | ----- |
-| `ONTOLOGY_WORKSPACE_DIR` | `/tmp/ontology-workspaces` | Writable path for cloned repos. The default sits on the `tmp` emptyDir — fine for most installs |
-| `GITHUB_PAT` | — | Used by the ontology CLI, not at runtime |
-
 ### Observability
 
 | Variable | Default | Notes |
@@ -97,6 +90,12 @@ Used by the Cardinal Data Lake provisioner when auto-configuring a new org's buc
 | `OTEL_TRACING_ENABLED` | `true` if endpoint set | Set to `false` to disable |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4318` | HTTP OTLP endpoint |
 | `OTEL_EXPORTER_OTLP_HEADERS` | — | `Key=value,Key2=value2` |
+
+### Notifications
+
+| Variable | Default | Notes |
+| -------- | ------- | ----- |
+| `MAESTRO_ALLOW_INSECURE_WEBHOOKS` | `false` | Allow `http://` (not just `https://`) for [webhook notification destinations](/ui/integrations/webhook#security). Only relaxes the protocol check — private/link-local/metadata addresses are still blocked regardless |
 
 ### Misc
 

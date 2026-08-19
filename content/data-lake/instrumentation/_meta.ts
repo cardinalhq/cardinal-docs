@@ -4,5 +4,7 @@ export default {
   python: 'Python',
   java: 'Java',
   go: 'Go',
+  ruby: 'Ruby',
+  dotnet: '.NET',
   reactjs: 'React.js',
 }
