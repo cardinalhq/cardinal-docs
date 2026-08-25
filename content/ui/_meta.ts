@@ -6,6 +6,7 @@ export default {
   install: 'Installation',
   integrations: 'Integrations',
   alerting: 'Alerting',
+  interlinks: 'Interlinks',
   explore: 'Explore',
   'mcp-clients': 'Connect AI Clients',
   updates: 'Software Updates',
