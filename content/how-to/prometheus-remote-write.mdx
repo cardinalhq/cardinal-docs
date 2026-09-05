@@ -115,7 +115,7 @@ service:
       exporters: [awss3/cardinal]
 ```
 
-Do **not** add `cumulativetodelta` to this pipeline. Remote write carries cumulative counters, and Cardinal's counter-reset and rate handling expects them; converting first changes which component owns reset detection.
+Remote write carries **cumulative** counters. See [Collectors](/data-lake/collectors) on temporality: Cardinal stores temporality as-is, and cumulative counters reaching storage unconverted can produce confusing `rate()` results across restarts. If your other collector pipelines already run `cumulativetodelta` for Prometheus-style counters, keep doing so here.
 
 </Step>
 
@@ -153,7 +153,7 @@ Finally, query a known histogram in Cardinal and compare it against the same que
 | Histograms missing, no errors anywhere | `convert_classic_histograms_to_nhcb` unset. Check the collector log for "Dropping classic histogram series". |
 | Summary metrics missing | Not supported on this path. See the limitation above. |
 | `samples_failed_total` climbing | Series rejected by the receiver — usually classic histogram or summary components. |
-| Counters look wrong after migration | A `cumulativetodelta` processor in the pipeline. Remove it. |
+| Counters or `rate()` look wrong after migration | Temporality. Remote write is cumulative — see [Collectors](/data-lake/collectors). |
 | Nothing arrives at all | `protobuf_message` not set to the v2 request, or the collector endpoint is unreachable from Prometheus. |
 
 <NextSteps
