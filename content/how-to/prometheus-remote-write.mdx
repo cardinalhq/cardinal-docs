@@ -1,0 +1,164 @@
+import SupportCallout from '../../components/SupportCallout';
+import { Prerequisites, Steps, Step, NextSteps } from '../../components/HowTo';
+
+# Sending Prometheus Metrics to Cardinal with Remote Write
+
+This guide points an existing Prometheus server at an OpenTelemetry Collector using Prometheus Remote Write 2.0. The collector translates the stream to OTLP and writes it to object storage, where Cardinal ingests it.
+
+Use it to migrate an established Prometheus deployment without replacing your scrape configuration: Prometheus keeps scraping exactly as it does today, and remote write becomes an additional destination alongside its local TSDB.
+
+<Prerequisites
+  items={[
+    {
+      icon: '◈',
+      title: 'Prometheus 3.x',
+      alt: <>Remote Write 2.0 and <code>convert_classic_histograms_to_nhcb</code> both require a recent Prometheus. Check with <code>prometheus --version</code>.</>,
+    },
+    {
+      icon: '◎',
+      title: 'A collector with the PRW receiver',
+      alt: <>A collector build including <code>prometheusremotewrite</code> and your storage exporter.</>,
+    },
+    {
+      icon: '☁',
+      title: 'A storage destination',
+      alt: <>The bucket and prefix Cardinal ingests for your organization.</>,
+    },
+  ]}
+/>
+
+## Required: convert classic histograms
+
+<SupportCallout>
+Set <code>convert_classic_histograms_to_nhcb: true</code> before you begin. Without it, the collector <strong>silently discards every classic histogram</strong> — the pipeline reports healthy and the metrics simply never appear.
+</SupportCallout>
+
+The remote-write receiver accepts native histograms, including Native Histograms with Custom Buckets (NHCB, schema `-53`). It does **not** accept the classic representation, where a histogram arrives as separate `_bucket`, `_sum`, and `_count` scalar series. Those series are dropped at the receiver and logged at `Info` — they are not counted as refused, so no error surfaces.
+
+Because the setting lives in your Prometheus configuration, neither the collector nor Cardinal can compensate when it is unset.
+
+The conversion is **lossless**. NHCB stores your exact bucket boundaries and counts; it re-encodes the same histogram in a form the pipeline transports. Your bucket layout, quantile results, and `histogram_quantile()` output are unchanged.
+
+## Known limitation: summaries
+
+Prometheus **summaries are not supported** on this path. The receiver drops them entirely — the quantile series, `_sum`, and `_count`. No configuration flag converts a summary the way `convert_classic_histograms_to_nhcb` converts a histogram.
+
+If you depend on summary metrics, check which of your exporters emit them before migrating. Client libraries in Go and Java produce summaries by default in some instrumentation, so this is worth auditing rather than assuming. Where you control the instrumentation, switching those metrics to histograms both resolves this and gives you aggregatable percentiles.
+
+<Steps>
+
+<Step title="Turn on histogram conversion">
+
+Set the flag globally so it applies to every scrape job:
+
+```yaml
+global:
+  scrape_interval: 15s
+
+  # Required. Re-encodes classic histograms as NHCB, the representation the
+  # collector's remote-write receiver accepts. Lossless: bucket boundaries
+  # and counts are preserved exactly.
+  convert_classic_histograms_to_nhcb: true
+
+  # Optional. Also scrape native histograms where a target exposes them.
+  scrape_native_histograms: true
+```
+
+It can also be set per scrape job, but a global setting is safer during a migration — a job added later inherits it automatically rather than silently losing its histograms.
+
+</Step>
+
+<Step title="Add the remote write destination">
+
+```yaml
+remote_write:
+  - name: cardinal
+    url: http://otel-collector.observability.svc.cluster.local:4325/api/v1/write
+
+    # Remote Write 2.0. Required: it carries metric metadata and native
+    # histograms atomically, which the receiver needs to type each series.
+    protobuf_message: io.prometheus.write.v2.Request
+    send_native_histograms: true
+```
+
+Prometheus keeps writing to its local TSDB, so this is additive — you can run both destinations during a migration and cut over when you are satisfied.
+
+</Step>
+
+<Step title="Configure the collector">
+
+```yaml
+receivers:
+  prometheusremotewrite/prometheus:
+    endpoint: 0.0.0.0:4325
+
+processors:
+  batch:
+    send_batch_size: 10000
+    send_batch_max_size: 30000
+    timeout: 10s
+
+exporters:
+  awss3/cardinal:
+    marshaler: otlp_proto
+    s3uploader:
+      region: us-east-2
+      s3_bucket: YOUR_BUCKET
+      s3_prefix: otel-raw/YOUR_ORG_ID/YOUR_COLLECTOR_NAME
+      compression: zstd
+
+service:
+  pipelines:
+    metrics:
+      receivers: [prometheusremotewrite/prometheus]
+      processors: [batch]
+      exporters: [awss3/cardinal]
+```
+
+Do **not** add `cumulativetodelta` to this pipeline. Remote write carries cumulative counters, and Cardinal's counter-reset and rate handling expects them; converting first changes which component owns reset detection.
+
+</Step>
+
+<Step title="Verify the histograms actually arrived">
+
+A healthy-looking pipeline is not proof, because dropped series are not counted as refused. Check Prometheus's own remote-write counters:
+
+```promql
+# Should climb once histograms are flowing.
+prometheus_remote_storage_histograms_total
+
+# Should stay flat. A rising value means series are being rejected.
+prometheus_remote_storage_histograms_failed_total
+prometheus_remote_storage_samples_failed_total
+```
+
+Then confirm on the collector side:
+
+```
+kubectl logs deploy/otel-collector | grep -i "Dropping classic histogram"
+```
+
+Any output there means `convert_classic_histograms_to_nhcb` has not taken effect for the jobs producing those series.
+
+Finally, query a known histogram in Cardinal and compare it against the same query in your Prometheus at the same evaluation timestamp. Matching output across both is the real confirmation.
+
+</Step>
+
+</Steps>
+
+## Troubleshooting
+
+| Symptom | Cause |
+| --- | --- |
+| Histograms missing, no errors anywhere | `convert_classic_histograms_to_nhcb` unset. Check the collector log for "Dropping classic histogram series". |
+| Summary metrics missing | Not supported on this path. See the limitation above. |
+| `samples_failed_total` climbing | Series rejected by the receiver — usually classic histogram or summary components. |
+| Counters look wrong after migration | A `cumulativetodelta` processor in the pipeline. Remove it. |
+| Nothing arrives at all | `protobuf_message` not set to the v2 request, or the collector endpoint is unreachable from Prometheus. |
+
+<NextSteps
+  items={[
+    { title: 'Collector configuration reference', href: '/data-lake/collectors' },
+    { title: 'Query language', href: '/data-lake/query-language' },
+  ]}
+/>
