@@ -2,28 +2,38 @@ import SupportCallout from '../../components/SupportCallout';
 
 # Connect AI clients to Cardinal
 
-Cardinal exposes every connected integration (Cardinal Data Lake, GitHub, Jira, Kubernetes, Slack, ServiceNow, …) as Model Context Protocol tools through Cardinal UI's built-in MCP gateway. This page covers connecting AI clients to your Cardinal UI instance:
+Cardinal exposes every connected integration (Cardinal Data Lake, GitHub, Jira, Kubernetes, Slack, ServiceNow, …) as Model Context Protocol tools through Cardinal UI's built-in MCP gateway. This page is the hub for wiring AI clients up: pick your client and follow its install guide, or use the manual configuration path at the bottom if a plugin isn't an option in your environment.
 
-- **Claude Code**, via the official [`cardinal-claude-plugin`](https://github.com/cardinalhq/cardinal-claude-plugin). One command installs the plugin, one more authorizes it in your browser, and your Claude Code session sees every Cardinal tool your org has configured.
-- **OpenAI Codex CLI**, via the official [`cardinal-codex-plugin`](https://github.com/cardinalhq/cardinal-codex-plugin) (see [Install: Codex CLI plugin](/ui/agent-outcomes/install-codex-plugin)) — or by editing `~/.codex/config.toml` directly if the plugin isn't an option.
+Both deployment modes work the same way:
 
-- **OpenCode**, via the native [Cardinal OpenCode plugin](#opencode).
-- **Pi**, via the native [Cardinal Pi extension](#pi), which provides Cardinal tool discovery and execution without a separate MCP extension.
-
-These clients can connect to either deployment:
-
-- **Cardinal Cloud (SaaS)** — `app.cardinalhq.io`. The endpoint is already live; sign in with your Cardinal account and you're done.
-- **Self-hosted Cardinal UI** — your operator exposes Cardinal UI on your cluster's Ingress and provisions a shared API key. The plugin and Codex point at that host.
+- **Cardinal Cloud (SaaS)** — `app.cardinalhq.io`. The endpoint is already live; sign in with your Cardinal account and each plugin's `connect` flow does the rest.
+- **Self-hosted Cardinal UI** — your operator exposes Cardinal UI on your cluster's Ingress. The plugins sign in through your browser like the rest of Cardinal UI; the manual configuration path uses a shared API key that your operator provisions (see [Self-hosted setup](#self-hosted-prepare-your-cardinal-ui-instance) below).
 
 <SupportCallout />
 
+## Pick your client
+
+Each per-session plugin registers a single `cardinal` MCP server (or, for Pi, native Cardinal tool discovery/execution) that exposes whichever integration tools your org has configured, and streams session activity to the [Agent Outcomes dashboard](/ui/agent-outcomes). The per-session plugins (Claude, Codex, Cursor, Gemini, OpenCode, Pi) all support Cardinal Cloud and self-hosted, and each has a `--telemetry-only` variant if you want the dashboard without the tools. Omnigent is different — it ships as a policy applied to your Omnigent installation, not a per-session plugin, so the flags below don't apply there.
+
+| Client | Install guide | Notes |
+| --- | --- | --- |
+| **Claude Code** | [Install: Claude Code plugin](/ui/agent-outcomes/install-claude-plugin) | Managed via `claude plugin marketplace`; `/cardinal:connect` from inside Claude Code. |
+| **OpenAI Codex CLI** | [Install: Codex CLI plugin](/ui/agent-outcomes/install-codex-plugin) | Managed via `codex plugin`. |
+| **Cursor** | [Install: Cursor plugin](/ui/agent-outcomes/install-cursor-plugin) | `git clone` + `python3 scripts/cardinal-connect`. Cloud agents need a `--project` install. |
+| **Google Gemini CLI** | [Install: Gemini CLI plugin](/ui/agent-outcomes/install-gemini-plugin) | `git clone` + `python3 scripts/cardinal-connect`. Uses Gemini CLI's native OTLP exporter for telemetry. |
+| **OpenCode** | [Install: OpenCode plugin](/ui/agent-outcomes/install-opencode-plugin) | `npm install` from a GitHub release + `cardinal-opencode connect`. OpenCode 1.x only (V2 not supported). |
+| **Pi** | [Install: Pi extension](/ui/agent-outcomes/install-pi-plugin) | `npm install` + `pi install` + `cardinal-pi connect`. Tools via `cardinal_list_tools` / `cardinal_call_tool`, no separate MCP extension. |
+| **Omnigent** | [Install: omnigent policy](/ui/agent-outcomes/install-omnigent-policy) | Policy-based install; no per-session plugin needed. |
+
+If your client isn't on this list, use [Manual MCP configuration](#manual-mcp-configuration-without-a-plugin) at the bottom — any client that speaks streamable-HTTP MCP with a custom auth header can talk to the Cardinal UI gateway directly.
+
 ## Self-hosted: prepare your Cardinal UI instance
 
-Skip this section if you're on Cardinal Cloud — your endpoint is `https://app.cardinalhq.io` and there's nothing to install on your side.
+Skip this section if you're on Cardinal Cloud — your endpoint is `https://app.cardinalhq.io` and there's nothing to install on your side. On Cloud, each plugin's browser consent flow mints per-user keys; there is no shared API key to manage.
 
-For self-hosted Cardinal UI you provision one shared API key that gates the MCP endpoint. The plugins sign in through your browser like the rest of Cardinal UI, but the manual setups below use this shared key directly.
+For self-hosted Cardinal UI you provision one shared API key that gates the MCP endpoint for the manual configuration path. The plugins listed above sign users in through their browser and don't need this key.
 
-If your engineers will also use the [Agent Outcomes dashboard](/ui/agent-outcomes), additionally set `MAESTRO_INGEST_ENDPOINT` on the Cardinal UI deployment to your Cardinal Data Lake intake URL — the plugins' connect flow reads the telemetry destination from Cardinal UI's bundle, so this is what routes agent-session telemetry to **your** Cardinal Data Lake rather than omitting it. See [Environment variables](/ui/install/environment).
+If your engineers will also use the [Agent Outcomes dashboard](/ui/agent-outcomes), set `MAESTRO_INGEST_ENDPOINT` on the Cardinal UI deployment to your Cardinal Data Lake intake URL — the plugins' connect flow reads the telemetry destination from Cardinal UI's bundle, so this is what routes agent-session telemetry to **your** Cardinal Data Lake rather than omitting it. See [Environment variables](/ui/install/environment).
 
 ### 1. Provision the API key
 
@@ -81,230 +91,11 @@ curl -H "X-CardinalHQ-API-Key: $CARDINAL_MCP_API_KEY" \
 
 The second command should list every integration you have configured.
 
-## Claude Code via the cardinal-claude-plugin
+## Manual MCP configuration without a plugin
 
-The plugin handles three things on your behalf:
+Use this path only when the plugin listed above isn't an option — a locked-down client install, a client we don't yet have a plugin for, or scripted registration. Most users should use the plugin; it does this for you and keeps the configuration in sync as integrations change.
 
-- Registers a single `cardinal` MCP server with Claude Code. As your admin enables more Cardinal integrations later, the new tools show up automatically — you do not need to re-connect.
-- Streams your Claude Code activity to Cardinal so your team can see which sessions did what.
-- Cleans up cleanly. A `/cardinal:disconnect` command removes everything the plugin added — nothing else in your Claude Code config is touched.
-
-### Requirements
-
-- Claude Code with plugin support (any recent stable release).
-- Python 3.9+ on your `PATH` (the plugin's helpers run as Python scripts).
-- A Cardinal account on `app.cardinalhq.io`, or a self-hosted Cardinal UI your operator has prepared per the section above.
-
-### 1. Install the plugin
-
-```bash
-claude plugin marketplace add cardinalhq/cardinal-claude-plugin
-claude plugin install cardinal@cardinalhq-claude-plugin
-```
-
-### 2. Connect
-
-From inside Claude Code:
-
-```
-/cardinal:connect
-```
-
-The plugin prints a URL like `https://app.cardinalhq.io/connect?code=ABCD-EFGH`. Open it in your browser, sign in if you aren't already, pick the org you want to connect, and click **Approve**. The plugin notices your approval within a few seconds and finishes the setup.
-
-For self-hosted Cardinal UI, pass your host:
-
-```
-/cardinal:connect --host https://ui.example.internal
-```
-
-The default host is `https://app.cardinalhq.io` (Cardinal Cloud).
-
-Then **fully quit Claude Code** (`Cmd-Q` on macOS) and start a new session. Claude Code reads its config at startup, so the new Cardinal tools and telemetry settings only show up in a fresh session.
-
-### 3. Verify
-
-From the new session:
-
-```
-/cardinal:status
-```
-
-You'll see the host, your org, both endpoints, when you connected, and whether each side is reachable. The Cardinal tools should also appear under the `cardinal` MCP server in your tool palette.
-
-### Common variants
-
-```
-/cardinal:connect --telemetry-only      # Stream activity to Cardinal, but skip the MCP tools
-/cardinal:connect --rotate              # Mint fresh keys and overwrite an existing connection
-/cardinal:connect --host https://…      # Point at a self-hosted Cardinal UI
-/cardinal:connect --no-tool-details     # Privacy opt-out — see note below
-/cardinal:connect --dry-run             # Walk the consent flow, print what would change, write nothing
-```
-
-### Privacy
-
-By default, the plugin captures bash command lines and file paths in its activity stream so Cardinal can show which repo and service a session was working on. The contents of your prompts and the tool inputs/outputs themselves are never captured. If your org's policy forbids capturing command lines and paths too, pass `--no-tool-details` — Cardinal will still see that a session happened, but won't be able to tell which repo or service it was about.
-
-### Disconnect
-
-```
-/cardinal:disconnect                    # Disconnect everything
-/cardinal:disconnect --keep-telemetry   # Keep streaming activity, but remove the MCP tools
-```
-
-Disconnect revokes the keys with Cardinal and removes everything the plugin added to your Claude Code config. Anything else you've configured (theme, other plugins, your own env vars) is left exactly as it was.
-
-## OpenCode
-
-The native plugin connects OpenCode to Cardinal tools and emits session, model-usage, and tool telemetry.
-Version 0.1.0 supports the **OpenCode 1.x server-plugin API** (tested with 1.18.30); OpenCode V2 is not supported.
-You need **Node.js 20+**, **Python 3.9+** on your `PATH`, and **macOS or Linux**.
-
-### 1. Install the release package
-
-Run in your terminal. This installs the published GitHub release into a stable local directory:
-
-```bash
-npm install --prefix "$HOME/.local/share/cardinal" https://github.com/cardinalhq/cardinal-agent-plugins/releases/download/opencode-v0.1.0/cardinalhq-opencode-plugin-0.1.0.tgz
-```
-
-Add the following entry to the `plugin` array in `~/.config/opencode/opencode.json`.
-Create the file if it does not exist; otherwise keep your existing settings and plugin entries.
-OpenCode expands `{env:HOME}` to your home directory.
-
-```json
-{
-  "plugin": [
-    "file://{env:HOME}/.local/share/cardinal/node_modules/@cardinalhq/opencode-plugin/index.js"
-  ]
-}
-```
-
-### 2. Connect and restart
-
-```bash
-"$HOME/.local/share/cardinal/node_modules/.bin/cardinal-opencode" connect
-```
-
-Open the printed URL, sign in, select your organization, and approve the connection.
-Then **restart OpenCode**. The plugin registers the `cardinal` MCP server using the saved connection;
-an existing `mcp.cardinal` configuration is preserved.
-
-For self-hosted Cardinal, append `--host https://ui.example.internal` to the connect command.
-The default is `https://app.cardinalhq.io`. Use `--telemetry-only` if you do not want Cardinal tools.
-
-### 3. Verify or disconnect
-
-```bash
-"$HOME/.local/share/cardinal/node_modules/.bin/cardinal-opencode" status
-```
-
-Status probes the telemetry and MCP endpoints. In a fresh OpenCode session, verify that the `cardinal`
-MCP server and its tools are available. To disconnect:
-
-```bash
-"$HOME/.local/share/cardinal/node_modules/.bin/cardinal-opencode" disconnect
-```
-
-Restart OpenCode after changing the connection. Disconnect revokes the MCP key and removes the local
-connection; follow the printed Cardinal API-key settings link to revoke the ingest key as well.
-
-See the [plugin README](https://github.com/cardinalhq/cardinal-agent-plugins/tree/main/adapters/opencode)
-for custom state directories and telemetry details.
-
-## Pi
-
-The native extension supports **`@earendil-works/pi-coding-agent`** (tested with 0.85.1).
-You need **Node.js 22.19+**, **Python 3.9+** on your `PATH`, and **macOS or Linux**.
-The older `@mariozechner/pi-coding-agent` distribution has not been verified with this release.
-
-### 1. Install and register the release package
-
-Run both commands in your terminal. The first installs the GitHub release and its dependencies;
-the second registers the installed directory with Pi:
-
-```bash
-npm install --prefix "$HOME/.local/share/cardinal" https://github.com/cardinalhq/cardinal-agent-plugins/releases/download/pi-v0.1.0/cardinalhq-pi-plugin-0.1.0.tgz
-pi install "$HOME/.local/share/cardinal/node_modules/@cardinalhq/pi-plugin"
-```
-
-### 2. Connect and restart
-
-```bash
-"$HOME/.local/share/cardinal/node_modules/.bin/cardinal-pi" connect
-```
-
-Open the printed URL, sign in, select your organization, and approve the connection. Then **restart Pi**.
-For self-hosted Cardinal, append `--host https://ui.example.internal` to the connect command.
-The default is `https://app.cardinalhq.io`. Use `--telemetry-only` to omit Cardinal tools.
-
-### 3. Verify or disconnect
-
-```bash
-"$HOME/.local/share/cardinal/node_modules/.bin/cardinal-pi" status
-```
-
-Status probes the telemetry and MCP endpoints. A fresh Pi session exposes `cardinal_list_tools` to discover
-your organization's tools and `cardinal_call_tool` to execute them. No separate MCP extension is needed.
-To disconnect:
-
-```bash
-"$HOME/.local/share/cardinal/node_modules/.bin/cardinal-pi" disconnect
-```
-
-Restart Pi after changing the connection. Disconnect revokes the MCP key and removes the local connection;
-follow the printed Cardinal API-key settings link to revoke the ingest key as well.
-
-See the [extension README](https://github.com/cardinalhq/cardinal-agent-plugins/tree/main/adapters/pi)
-for custom state directories and telemetry details.
-
-### OpenCode and Pi release scope
-
-These v0.1.0 packages connect an agent to Cardinal. They do not include the `cardinal-install-site` skill;
-use the [Data Lake installation guide](/data-lake/install) to set up a new site.
-Spend enforcement, subscription-plan reporting, and aggregate subagent costs are not included.
-Session analytics also requires a backend that accepts the corresponding `opencode` or `pi` runtime;
-successful connection alone does not verify dashboard ingestion. Operators can follow the
-[backend rollout requirements](https://github.com/cardinalhq/cardinal-agent-plugins/blob/main/docs/RELEASING-NATIVE.md).
-
-## Codex CLI (manual MCP config)
-
-Most users should install the [`cardinal-codex-plugin`](/ui/agent-outcomes/install-codex-plugin) instead — it configures MCP for you, keeps it in sync, and adds session telemetry for the Agent Outcomes dashboard. Use this manual path only when the plugin isn't an option.
-
-Codex keeps its config in `~/.codex/config.toml` and supports streamable-HTTP MCP servers with custom headers via the `env_http_headers` table.
-
-You'll need three values:
-
-```bash
-export CARDINAL_MCP_HOST="https://app.cardinalhq.io"   # or your self-hosted host
-export CARDINAL_MCP_API_KEY="<your-key>"               # MAESTRO_MCP_API_KEY for self-hosted; for Cloud, ask your Cardinal admin
-export CARDINAL_ORG_ID="<your-org-uuid>"               # in Cardinal UI under Org settings → ID
-```
-
-Drop the `CARDINAL_MCP_API_KEY` export in your shell profile so every Codex session sees it. Then append entries to `~/.codex/config.toml`:
-
-```toml
-[mcp_servers.cardinal-lakerunner]
-url = "https://app.cardinalhq.io/api/orgs/<org-uuid>/integrations/lakerunner/mcp"
-env_http_headers = { "X-CardinalHQ-API-Key" = "CARDINAL_MCP_API_KEY" }
-
-[mcp_servers.cardinal-common]
-url = "https://app.cardinalhq.io/api/orgs/<org-uuid>/integrations/common/mcp"
-env_http_headers = { "X-CardinalHQ-API-Key" = "CARDINAL_MCP_API_KEY" }
-
-[mcp_servers.cardinal-github]
-url = "https://app.cardinalhq.io/api/orgs/<org-uuid>/integrations/github/mcp"
-env_http_headers = { "X-CardinalHQ-API-Key" = "CARDINAL_MCP_API_KEY" }
-```
-
-`env_http_headers` reads the header value from the named environment variable at request time, so the cleartext key never lands in the TOML file.
-
-Verify with `codex mcp list`. To remove an entry: `codex mcp remove cardinal-lakerunner`.
-
-## Manual MCP configuration without the plugin
-
-Use this path only if the plugin isn't available to you — for example, in a locked-down Claude Code install or when you need to script the registration. Most users should use the plugin above; it does this for you and keeps the configuration in sync as integrations change.
+The manual path requires a shared API key, which means it applies to **self-hosted Cardinal UI only** — on Cardinal Cloud, auth is per-user via the browser consent flow, and there is no shared key to hand a client.
 
 ### How requests reach the gateway
 
@@ -320,11 +111,11 @@ The endpoint path has three placeholders:
 
 - `<orgId>` is the UUID of the org whose integrations you want to talk to. Find it in Cardinal UI under **Org settings → ID**, or use the discovery endpoint below.
 - `<driver>` is one of `lakerunner`, `common`, `github`, `jira`, `slack`, `servicenow`, `kube`, etc. The discovery endpoint enumerates what's active for an org.
-- The host is whatever Cardinal UI listens on — `app.cardinalhq.io` for Cardinal Cloud, or whatever Ingress hostname your operator chose for the self-hosted install.
+- The host is whatever Cardinal UI listens on for your self-hosted install.
 
 ### Authentication
 
-External callers send `X-CardinalHQ-API-Key: <your-key>` on every request. Cardinal UI validates it against the `MAESTRO_MCP_API_KEY` env var on the Cardinal UI container; a match grants a service-account context with cross-org access. The header is also accepted as `?apiKey=…` in the query string for clients that can't set headers (though we strongly recommend the header form — query-string secrets leak into request logs).
+External callers send `X-CardinalHQ-API-Key: <your-key>` on every request. Cardinal UI validates it against the `MAESTRO_MCP_API_KEY` env var on the Cardinal UI container; a match grants a service-account context with cross-org access. The header is also accepted as `?apiKey=…` in the query string for clients that can't set headers, though we strongly recommend the header form — query-string secrets leak into request logs.
 
 Treat the key like an admin token: it gates every integration on every org in your installation. Rotate by re-issuing the secret value and doing `kubectl -n maestro rollout restart deploy/<release>-maestro`.
 
@@ -333,7 +124,7 @@ Treat the key like an admin token: it gates every integration on every org in yo
 Before configuring drivers, list the integrations active for your org:
 
 ```bash
-export CARDINAL_MCP_HOST="https://app.cardinalhq.io"
+export CARDINAL_MCP_HOST="https://ui.example.internal"
 export CARDINAL_MCP_API_KEY="<your-key>"
 export CARDINAL_ORG_ID="<your-org-uuid>"
 
@@ -370,6 +161,30 @@ To remove a registration: `claude mcp remove cardinal-lakerunner`.
 
 If you switch to the plugin later, `/cardinal:connect` automatically removes these `cardinal-*` entries from `~/.claude.json` (a backup is written alongside) so they don't collide with the plugin's `cardinal` server.
 
+### Register in Codex CLI
+
+Codex keeps its config in `~/.codex/config.toml` and supports streamable-HTTP MCP servers with custom headers via the `env_http_headers` table.
+
+Drop the `CARDINAL_MCP_API_KEY` export in your shell profile so every Codex session sees it, then append entries to `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.cardinal-lakerunner]
+url = "https://ui.example.internal/api/orgs/<org-uuid>/integrations/lakerunner/mcp"
+env_http_headers = { "X-CardinalHQ-API-Key" = "CARDINAL_MCP_API_KEY" }
+
+[mcp_servers.cardinal-common]
+url = "https://ui.example.internal/api/orgs/<org-uuid>/integrations/common/mcp"
+env_http_headers = { "X-CardinalHQ-API-Key" = "CARDINAL_MCP_API_KEY" }
+
+[mcp_servers.cardinal-github]
+url = "https://ui.example.internal/api/orgs/<org-uuid>/integrations/github/mcp"
+env_http_headers = { "X-CardinalHQ-API-Key" = "CARDINAL_MCP_API_KEY" }
+```
+
+`env_http_headers` reads the header value from the named environment variable at request time, so the cleartext key never lands in the TOML file.
+
+Verify with `codex mcp list`. To remove an entry: `codex mcp remove cardinal-lakerunner`.
+
 ### Picking which drivers to expose
 
 Discovery returns every active integration on the org. Most teams expose a small set:
@@ -388,12 +203,12 @@ Discovery returns every active integration on the org. Most teams expose a small
 
 ## Troubleshooting
 
-- **`/cardinal:connect` says "already connected"** — you have an existing connection. Re-run with `--rotate` to issue fresh keys and replace it. The previous keys are valid for a short overlap so an active session keeps working.
-- **`/cardinal:status` shows everything connected but the `cardinal` tools don't appear** — Claude Code only reads its config when it starts. Fully quit (`Cmd-Q` on macOS) and open a new session.
+- **Plugin says "already connected"** — you have an existing connection. Re-run with `--rotate` to issue fresh keys and replace it. The previous keys are valid for a short overlap so an active session keeps working.
+- **Status shows everything connected but the `cardinal` tools don't appear** — most clients only read their config when they start. Fully quit and reopen (Claude Code: `Cmd-Q` on macOS; Codex CLI, Cursor, Gemini CLI, OpenCode, and Pi: exit and relaunch).
 - **`Unauthorized: missing API key`** (manual path) — header name is case-insensitive but the spelling matters: `X-CardinalHQ-API-Key`. Confirm independently with `curl "$CARDINAL_MCP_HOST/api/health"` (no auth) returns 200 — if that fails, the endpoint isn't reachable, not an auth problem.
 - **`Forbidden` or empty discovery** (manual path) — your `<orgId>` is wrong or the API key is for a different installation. Hit `/api/orgs/<orgId>/integrations` directly with `curl` and inspect the body.
-- **`Failed to connect` in `claude mcp list`** — usually local DNS staleness right after a fresh hostname comes up. On macOS: `sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder`. Confirm independently with `curl` first. Restarting Claude Code also clears its in-process MCP connection state.
-- **`kube` tools return "missing cluster credentials"** — the `kube` driver expects `X-Kube-Cluster` headers that the Cardinal UI UI proxy populates on browser-driven calls. Driving it from Claude/Codex without that header will only work for cluster-list operations; for full Kubernetes access against a specific cluster you'd need to set `X-Kube-Cluster: <slug>` yourself.
+- **`Failed to connect` in `claude mcp list`** — usually local DNS staleness right after a fresh hostname comes up. On macOS: `sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder`. Confirm independently with `curl` first. Restarting the client also clears its in-process MCP connection state.
+- **`kube` tools return "missing cluster credentials"** — the `kube` driver expects `X-Kube-Cluster` headers that the Cardinal UI proxy populates on browser-driven calls. Driving it from a CLI without that header will only work for cluster-list operations; for full Kubernetes access against a specific cluster you'd need to set `X-Kube-Cluster: <slug>` yourself.
 - **Tool calls succeed but return empty results** — check that the underlying integration is enabled and `active` in Cardinal UI (Org settings → Integrations).
 
 <SupportCallout />
