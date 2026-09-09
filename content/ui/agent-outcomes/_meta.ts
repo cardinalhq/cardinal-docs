@@ -5,4 +5,6 @@ export default {
   'install-cursor-plugin': 'Install: Cursor plugin',
   'install-gemini-plugin': 'Install: Gemini CLI plugin',
   'install-omnigent-policy': 'Install: omnigent policy',
+  'install-opencode-plugin': 'Install: OpenCode plugin',
+  'install-pi-plugin': 'Install: Pi extension',
 }

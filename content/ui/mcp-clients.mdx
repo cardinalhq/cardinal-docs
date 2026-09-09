@@ -13,7 +13,7 @@ Both deployment modes work the same way:
 
 ## Pick your client
 
-Each per-session plugin registers a single `cardinal` MCP server that exposes whichever integration tools your org has configured, and streams session activity to the [Agent Outcomes dashboard](/ui/agent-outcomes). The per-session plugins (Claude, Codex, Cursor, Gemini) all support Cardinal Cloud and self-hosted, and each has a `--telemetry-only` variant if you want the dashboard without the tools. Omnigent is different — it ships as a policy applied to your Omnigent installation, not a per-session plugin, so the flags below don't apply there.
+Each per-session plugin registers a single `cardinal` MCP server (or, for Pi, native Cardinal tool discovery/execution) that exposes whichever integration tools your org has configured, and streams session activity to the [Agent Outcomes dashboard](/ui/agent-outcomes). The per-session plugins (Claude, Codex, Cursor, Gemini, OpenCode, Pi) all support Cardinal Cloud and self-hosted, and each has a `--telemetry-only` variant if you want the dashboard without the tools. Omnigent is different — it ships as a policy applied to your Omnigent installation, not a per-session plugin, so the flags below don't apply there.
 
 | Client | Install guide | Notes |
 | --- | --- | --- |
@@ -21,6 +21,8 @@ Each per-session plugin registers a single `cardinal` MCP server that exposes wh
 | **OpenAI Codex CLI** | [Install: Codex CLI plugin](/ui/agent-outcomes/install-codex-plugin) | Managed via `codex plugin`. |
 | **Cursor** | [Install: Cursor plugin](/ui/agent-outcomes/install-cursor-plugin) | `git clone` + `python3 scripts/cardinal-connect`. Cloud agents need a `--project` install. |
 | **Google Gemini CLI** | [Install: Gemini CLI plugin](/ui/agent-outcomes/install-gemini-plugin) | `git clone` + `python3 scripts/cardinal-connect`. Uses Gemini CLI's native OTLP exporter for telemetry. |
+| **OpenCode** | [Install: OpenCode plugin](/ui/agent-outcomes/install-opencode-plugin) | `npm install` from a GitHub release + `cardinal-opencode connect`. OpenCode 1.x only (V2 not supported). |
+| **Pi** | [Install: Pi extension](/ui/agent-outcomes/install-pi-plugin) | `npm install` + `pi install` + `cardinal-pi connect`. Tools via `cardinal_list_tools` / `cardinal_call_tool`, no separate MCP extension. |
 | **Omnigent** | [Install: omnigent policy](/ui/agent-outcomes/install-omnigent-policy) | Policy-based install; no per-session plugin needed. |
 
 If your client isn't on this list, use [Manual MCP configuration](#manual-mcp-configuration-without-a-plugin) at the bottom — any client that speaks streamable-HTTP MCP with a custom auth header can talk to the Cardinal UI gateway directly.
@@ -202,7 +204,7 @@ Discovery returns every active integration on the org. Most teams expose a small
 ## Troubleshooting
 
 - **Plugin says "already connected"** — you have an existing connection. Re-run with `--rotate` to issue fresh keys and replace it. The previous keys are valid for a short overlap so an active session keeps working.
-- **Status shows everything connected but the `cardinal` tools don't appear** — most clients only read their config when they start. Fully quit and reopen (Claude Code: `Cmd-Q` on macOS; Codex CLI, Cursor, and Gemini CLI: exit and relaunch).
+- **Status shows everything connected but the `cardinal` tools don't appear** — most clients only read their config when they start. Fully quit and reopen (Claude Code: `Cmd-Q` on macOS; Codex CLI, Cursor, Gemini CLI, OpenCode, and Pi: exit and relaunch).
 - **`Unauthorized: missing API key`** (manual path) — header name is case-insensitive but the spelling matters: `X-CardinalHQ-API-Key`. Confirm independently with `curl "$CARDINAL_MCP_HOST/api/health"` (no auth) returns 200 — if that fails, the endpoint isn't reachable, not an auth problem.
 - **`Forbidden` or empty discovery** (manual path) — your `<orgId>` is wrong or the API key is for a different installation. Hit `/api/orgs/<orgId>/integrations` directly with `curl` and inspect the body.
 - **`Failed to connect` in `claude mcp list`** — usually local DNS staleness right after a fresh hostname comes up. On macOS: `sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder`. Confirm independently with `curl` first. Restarting the client also clears its in-process MCP connection state.

@@ -1,0 +1,74 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# Install the OpenCode plugin
+
+The native [`@cardinalhq/opencode-plugin`](https://github.com/cardinalhq/cardinal-agent-plugins/tree/main/adapters/opencode) connects OpenCode to Cardinal tools and emits session, model-usage, and tool telemetry to the [Agent Outcomes dashboard](/ui/agent-outcomes).
+
+Version **0.1.0** supports the OpenCode 1.x server-plugin API (tested with 1.18.30); OpenCode V2 is not supported. You need **Node.js 20+**, **Python 3.9+** on your `PATH`, and **macOS or Linux**.
+
+<SupportCallout />
+
+## Requirements
+
+- OpenCode 1.x (tested with 1.18.30). V2 is not supported.
+- Node.js 20+.
+- Python 3.9+ on your `PATH`.
+- macOS or Linux.
+- A Cardinal account on `app.cardinalhq.io`, or a self-hosted Cardinal UI your operator has prepared (see [Connect AI clients](/ui/mcp-clients)).
+
+## 1. Install the release package
+
+Install the published GitHub release into a stable local directory:
+
+```bash
+npm install --prefix "$HOME/.local/share/cardinal" \
+  https://github.com/cardinalhq/cardinal-agent-plugins/releases/download/opencode-v0.1.0/cardinalhq-opencode-plugin-0.1.0.tgz
+```
+
+Add the following entry to the `plugin` array in `~/.config/opencode/opencode.json`. Create the file if it does not exist; otherwise keep your existing settings and plugin entries. OpenCode expands `{env:HOME}` to your home directory.
+
+```json
+{
+  "plugin": [
+    "file://{env:HOME}/.local/share/cardinal/node_modules/@cardinalhq/opencode-plugin/index.js"
+  ]
+}
+```
+
+## 2. Connect
+
+```bash
+"$HOME/.local/share/cardinal/node_modules/.bin/cardinal-opencode" connect
+```
+
+Open the printed URL, sign in, select your organization, and approve the connection. Then **restart OpenCode**. The plugin registers the `cardinal` MCP server using the saved connection; an existing `mcp.cardinal` configuration is preserved.
+
+For self-hosted Cardinal UI, append `--host`:
+
+```bash
+"$HOME/.local/share/cardinal/node_modules/.bin/cardinal-opencode" connect --host https://ui.example.internal
+```
+
+The default is `https://app.cardinalhq.io`. Pass `--telemetry-only` to skip the Cardinal MCP tools.
+
+## 3. Verify
+
+```bash
+"$HOME/.local/share/cardinal/node_modules/.bin/cardinal-opencode" status
+```
+
+Status probes the telemetry and MCP endpoints. In a fresh OpenCode session, verify that the `cardinal` MCP server and its tools are available.
+
+## Disconnect
+
+```bash
+"$HOME/.local/share/cardinal/node_modules/.bin/cardinal-opencode" disconnect
+```
+
+Restart OpenCode after changing the connection. Disconnect revokes the MCP key and removes the local connection; follow the printed Cardinal API-key settings link to revoke the ingest key as well.
+
+## Release scope
+
+The v0.1.0 package connects an agent to Cardinal. It does **not** include the `cardinal-install-site` skill; use the [Data Lake installation guide](/data-lake/install) to set up a new site. Spend enforcement, subscription-plan reporting, and aggregate subagent costs are not included in this release. Session analytics also requires a backend that accepts the `opencode` runtime; successful connection alone does not verify dashboard ingestion. Operators can follow the [backend rollout requirements](https://github.com/cardinalhq/cardinal-agent-plugins/blob/main/docs/RELEASING-NATIVE.md).
+
+See the [plugin README](https://github.com/cardinalhq/cardinal-agent-plugins/tree/main/adapters/opencode) for custom state directories and telemetry details.

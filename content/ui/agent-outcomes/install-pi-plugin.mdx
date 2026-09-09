@@ -1,0 +1,65 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# Install the Pi extension
+
+The native [`@cardinalhq/pi-plugin`](https://github.com/cardinalhq/cardinal-agent-plugins/tree/main/adapters/pi) is a Pi extension that provides Cardinal tool discovery and execution without a separate MCP extension, and emits session, model-usage, and tool telemetry to the [Agent Outcomes dashboard](/ui/agent-outcomes).
+
+Version **0.1.0** supports [`@earendil-works/pi-coding-agent`](https://www.npmjs.com/package/@earendil-works/pi-coding-agent) (tested with 0.85.1). The older `@mariozechner/pi-coding-agent` distribution has not been verified with this release.
+
+<SupportCallout />
+
+## Requirements
+
+- `@earendil-works/pi-coding-agent` (tested with 0.85.1).
+- Node.js 22.19+.
+- Python 3.9+ on your `PATH`.
+- macOS or Linux.
+- A Cardinal account on `app.cardinalhq.io`, or a self-hosted Cardinal UI your operator has prepared (see [Connect AI clients](/ui/mcp-clients)).
+
+## 1. Install and register
+
+Install the GitHub release and its dependencies, then register the installed directory with Pi:
+
+```bash
+npm install --prefix "$HOME/.local/share/cardinal" \
+  https://github.com/cardinalhq/cardinal-agent-plugins/releases/download/pi-v0.1.0/cardinalhq-pi-plugin-0.1.0.tgz
+pi install "$HOME/.local/share/cardinal/node_modules/@cardinalhq/pi-plugin"
+```
+
+## 2. Connect
+
+```bash
+"$HOME/.local/share/cardinal/node_modules/.bin/cardinal-pi" connect
+```
+
+Open the printed URL, sign in, select your organization, and approve the connection. Then **restart Pi**.
+
+For self-hosted Cardinal UI, append `--host`:
+
+```bash
+"$HOME/.local/share/cardinal/node_modules/.bin/cardinal-pi" connect --host https://ui.example.internal
+```
+
+The default is `https://app.cardinalhq.io`. Pass `--telemetry-only` to omit the Cardinal tools.
+
+## 3. Verify
+
+```bash
+"$HOME/.local/share/cardinal/node_modules/.bin/cardinal-pi" status
+```
+
+Status probes the telemetry and MCP endpoints. A fresh Pi session exposes `cardinal_list_tools` to discover your organization's tools and `cardinal_call_tool` to execute them — no separate MCP extension is needed.
+
+## Disconnect
+
+```bash
+"$HOME/.local/share/cardinal/node_modules/.bin/cardinal-pi" disconnect
+```
+
+Restart Pi after changing the connection. Disconnect revokes the MCP key and removes the local connection; follow the printed Cardinal API-key settings link to revoke the ingest key as well.
+
+## Release scope
+
+The v0.1.0 package connects an agent to Cardinal. It does **not** include the `cardinal-install-site` skill; use the [Data Lake installation guide](/data-lake/install) to set up a new site. Spend enforcement, subscription-plan reporting, and aggregate subagent costs are not included in this release. Session analytics also requires a backend that accepts the `pi` runtime; successful connection alone does not verify dashboard ingestion. Operators can follow the [backend rollout requirements](https://github.com/cardinalhq/cardinal-agent-plugins/blob/main/docs/RELEASING-NATIVE.md).
+
+See the [extension README](https://github.com/cardinalhq/cardinal-agent-plugins/tree/main/adapters/pi) for custom state directories and telemetry details.
