@@ -1,0 +1,92 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# Install the Gemini CLI plugin
+
+The [`cardinal-gemini-plugin`](https://github.com/cardinalhq/cardinal-gemini-plugin) puts your Google Gemini CLI sessions on the [Agent Outcomes dashboard](/ui/agent-outcomes), matching the Claude Code, Codex CLI, and Cursor plugins:
+
+- **Telemetry** — Gemini CLI ships a native OpenTelemetry exporter; the plugin points it directly at Cardinal ingest so `gemini_cli.token.usage`, `gemini_cli.tool.call.*`, `gemini_cli.api.request.*`, and session/config/agent/compression events arrive without any hook code. Plugin-owned hooks emit the same Cardinal event contract as the sibling plugins on top, so sessions are attributed to engineer, branch, PR, and initiative with per-turn token and tool usage.
+- **MCP tools** — a managed `cardinal` MCP server entry, installed as a Gemini CLI extension bundle under `~/.gemini/extensions/cardinal/`, exposing whichever tools your org has integrations for. Pass `--telemetry-only` to skip this side.
+
+Sessions in a git repo receive the initiative branch-naming convention at start, and org [spend-limit policies](/ui/agent-outcomes#spend-limits) are enforced in-session — quiet context at *notify*, a visible message at *warn*, a stopped turn at *block*. Verdicts are cached locally, so the spend gate never adds a network hop to your prompt path.
+
+<SupportCallout />
+
+## Requirements
+
+- Gemini CLI with hooks, MCP server, and extensions support.
+- Python 3.11+ on your `PATH`.
+- A Cardinal account on `app.cardinalhq.io`, or a self-hosted Cardinal UI your operator has prepared (see [Connect AI clients](/ui/mcp-clients)).
+
+## 1. Install
+
+Gemini CLI doesn't have a plugin marketplace, so the install is a `git clone` + run:
+
+```bash
+git clone https://github.com/cardinalhq/cardinal-gemini-plugin.git ~/workspace/cardinal-gemini-plugin
+```
+
+## 2. Connect
+
+```bash
+python3 ~/workspace/cardinal-gemini-plugin/plugins/cardinal-gemini-plugin/scripts/cardinal-connect
+```
+
+The connect script prints a URL like `https://app.cardinalhq.io/connect?code=ABCD-EFGH`. Open it in your browser, sign in if you aren't already, pick the org to connect, and click **Approve**. The plugin picks up your consent within a few seconds and writes:
+
+| File | What gets written |
+| --- | --- |
+| `~/.gemini/extensions/cardinal/gemini-extension.json` | Extension manifest with the `mcpServers.cardinal` entry, tagged `cardinalManaged: true`. |
+| `~/.gemini/extensions/cardinal/hooks/hooks.json` | Managed Cardinal hook entries for `SessionStart`, `BeforeAgent`, `AfterModel`, `AfterTool`, `AfterAgent`, `PreCompress`, and `SessionEnd`. |
+| `~/.gemini/extensions/cardinal/GEMINI.md` | Context file loaded into the model context by Gemini CLI. |
+| `~/.gemini/settings.json` | Managed `telemetry` block pointing Gemini CLI's native OTLP exporter at Cardinal ingest. |
+| `~/.gemini/cardinal.json` | Non-secret connection state for status/disconnect. |
+| `~/.gemini/cardinal-secrets.json` | Your minted keys, written mode `0600`. |
+
+For self-hosted Cardinal UI, add `--host`:
+
+```bash
+python3 scripts/cardinal-connect --host https://ui.example.internal
+```
+
+With `--host` set, nothing touches Cardinal Cloud: your Cardinal UI runs the consent flow, mints the keys, and hands the plugin your endpoints. The telemetry side requires your operator to have set `MAESTRO_INGEST_ENDPOINT` on the Cardinal UI deployment (see [Environment variables](/ui/install/environment)); without it the connect bundle omits telemetry and sessions never reach the dashboard.
+
+Then **restart Gemini CLI** so it reloads MCP, hooks, and extensions.
+
+## 3. Verify
+
+```bash
+python3 scripts/cardinal-status
+```
+
+You'll see the connected org, both endpoints, key prefixes, and a reachability probe against each side. Run a session in any git repo and it appears on the Outcomes dashboard within a few minutes.
+
+## Variants
+
+```bash
+python3 scripts/cardinal-connect --telemetry-only   # Outcomes dashboard only; skip the MCP tools
+python3 scripts/cardinal-connect --rotate           # Mint fresh keys, overwrite an existing connection
+python3 scripts/cardinal-connect --no-extension     # Skip the extension bundle (MCP + GEMINI.md), keep telemetry
+python3 scripts/cardinal-connect --host https://…   # Point at a self-hosted Cardinal UI
+python3 scripts/cardinal-connect --dry-run          # Walk the consent flow, write nothing
+```
+
+## Getting attributed correctly
+
+Sessions are attributed to an **initiative** by branch name: `<type>/<kebab-name>`, where the type prefix is one of `feat`, `fix`, `refactor`, `infra`, `chore`, `research`, or `spike` (for example `feat/outcomes-observability` → initiative *outcomes-observability*, type *feature*). Sessions on `main`/`master`/`develop`/`trunk` are treated as research/scoping work. The plugin surfaces this convention to Gemini at the start of every session so branches it cuts for you classify cleanly.
+
+## Privacy
+
+The plugin captures tool names, bash command lines, and file paths so Cardinal can tell which repo and service a session worked on. The contents of your prompts are never captured. Per-turn token counts come straight from Gemini CLI's `AfterModel` hook payload — no transcript scraping — and are attributed to the model id the hook reports.
+
+## Payload-shape capture
+
+A few Gemini CLI hook payload key names (notably `AfterAgent` token totals and `PreCompress` context slice) haven't been observed widely in the wild, so the emitter probes several key spellings and falls back gracefully. If your `AfterAgent` events look sparse, set `CARDINAL_GEMINI_DEBUG_PAYLOADS=1` before starting Gemini CLI — raw hook payloads land under `~/.gemini/cardinal/telemetry/debug/<Event>-<ts>.json`. Share those with the plugin maintainers so the parity spec can be locked to real key names.
+
+## Disconnect
+
+```bash
+python3 scripts/cardinal-disconnect          # Remove everything the plugin added
+python3 scripts/cardinal-disconnect --force  # Skip the reachability probe on the revoke step
+```
+
+Disconnect revokes the keys with Cardinal and removes only the plugin-owned settings, extension bundle, and local state; everything else in your Gemini CLI config is left as it was.
