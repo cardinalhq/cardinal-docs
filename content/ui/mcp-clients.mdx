@@ -2,12 +2,15 @@ import SupportCallout from '../../components/SupportCallout';
 
 # Connect AI clients to Cardinal
 
-Cardinal exposes every connected integration (Cardinal Data Lake, GitHub, Jira, Kubernetes, Slack, ServiceNow, …) as Model Context Protocol tools through Cardinal UI's built-in MCP gateway. This page covers wiring two clients up to your Cardinal UI instance:
+Cardinal exposes every connected integration (Cardinal Data Lake, GitHub, Jira, Kubernetes, Slack, ServiceNow, …) as Model Context Protocol tools through Cardinal UI's built-in MCP gateway. This page covers connecting AI clients to your Cardinal UI instance:
 
 - **Claude Code**, via the official [`cardinal-claude-plugin`](https://github.com/cardinalhq/cardinal-claude-plugin). One command installs the plugin, one more authorizes it in your browser, and your Claude Code session sees every Cardinal tool your org has configured.
 - **OpenAI Codex CLI**, via the official [`cardinal-codex-plugin`](https://github.com/cardinalhq/cardinal-codex-plugin) (see [Install: Codex CLI plugin](/ui/agent-outcomes/install-codex-plugin)) — or by editing `~/.codex/config.toml` directly if the plugin isn't an option.
 
-Both clients work the same way against either deployment:
+- **OpenCode**, via the native [Cardinal OpenCode plugin](#opencode).
+- **Pi**, via the native [Cardinal Pi extension](#pi), which provides Cardinal tool discovery and execution without a separate MCP extension.
+
+These clients can connect to either deployment:
 
 - **Cardinal Cloud (SaaS)** — `app.cardinalhq.io`. The endpoint is already live; sign in with your Cardinal account and you're done.
 - **Self-hosted Cardinal UI** — your operator exposes Cardinal UI on your cluster's Ingress and provisions a shared API key. The plugin and Codex point at that host.
@@ -151,6 +154,119 @@ By default, the plugin captures bash command lines and file paths in its activit
 ```
 
 Disconnect revokes the keys with Cardinal and removes everything the plugin added to your Claude Code config. Anything else you've configured (theme, other plugins, your own env vars) is left exactly as it was.
+
+## OpenCode
+
+The native plugin connects OpenCode to Cardinal tools and emits session, model-usage, and tool telemetry.
+Version 0.1.0 supports the **OpenCode 1.x server-plugin API** (tested with 1.18.30); OpenCode V2 is not supported.
+You need **Node.js 20+**, **Python 3.9+** on your `PATH`, and **macOS or Linux**.
+
+### 1. Install the release package
+
+Run in your terminal. This installs the published GitHub release into a stable local directory:
+
+```bash
+npm install --prefix "$HOME/.local/share/cardinal" https://github.com/cardinalhq/cardinal-agent-plugins/releases/download/opencode-v0.1.0/cardinalhq-opencode-plugin-0.1.0.tgz
+```
+
+Add the following entry to the `plugin` array in `~/.config/opencode/opencode.json`.
+Create the file if it does not exist; otherwise keep your existing settings and plugin entries.
+OpenCode expands `{env:HOME}` to your home directory.
+
+```json
+{
+  "plugin": [
+    "file://{env:HOME}/.local/share/cardinal/node_modules/@cardinalhq/opencode-plugin/index.js"
+  ]
+}
+```
+
+### 2. Connect and restart
+
+```bash
+"$HOME/.local/share/cardinal/node_modules/.bin/cardinal-opencode" connect
+```
+
+Open the printed URL, sign in, select your organization, and approve the connection.
+Then **restart OpenCode**. The plugin registers the `cardinal` MCP server using the saved connection;
+an existing `mcp.cardinal` configuration is preserved.
+
+For self-hosted Cardinal, append `--host https://ui.example.internal` to the connect command.
+The default is `https://app.cardinalhq.io`. Use `--telemetry-only` if you do not want Cardinal tools.
+
+### 3. Verify or disconnect
+
+```bash
+"$HOME/.local/share/cardinal/node_modules/.bin/cardinal-opencode" status
+```
+
+Status probes the telemetry and MCP endpoints. In a fresh OpenCode session, verify that the `cardinal`
+MCP server and its tools are available. To disconnect:
+
+```bash
+"$HOME/.local/share/cardinal/node_modules/.bin/cardinal-opencode" disconnect
+```
+
+Restart OpenCode after changing the connection. Disconnect revokes the MCP key and removes the local
+connection; follow the printed Cardinal API-key settings link to revoke the ingest key as well.
+
+See the [plugin README](https://github.com/cardinalhq/cardinal-agent-plugins/tree/main/adapters/opencode)
+for custom state directories and telemetry details.
+
+## Pi
+
+The native extension supports **`@earendil-works/pi-coding-agent`** (tested with 0.85.1).
+You need **Node.js 22.19+**, **Python 3.9+** on your `PATH`, and **macOS or Linux**.
+The older `@mariozechner/pi-coding-agent` distribution has not been verified with this release.
+
+### 1. Install and register the release package
+
+Run both commands in your terminal. The first installs the GitHub release and its dependencies;
+the second registers the installed directory with Pi:
+
+```bash
+npm install --prefix "$HOME/.local/share/cardinal" https://github.com/cardinalhq/cardinal-agent-plugins/releases/download/pi-v0.1.0/cardinalhq-pi-plugin-0.1.0.tgz
+pi install "$HOME/.local/share/cardinal/node_modules/@cardinalhq/pi-plugin"
+```
+
+### 2. Connect and restart
+
+```bash
+"$HOME/.local/share/cardinal/node_modules/.bin/cardinal-pi" connect
+```
+
+Open the printed URL, sign in, select your organization, and approve the connection. Then **restart Pi**.
+For self-hosted Cardinal, append `--host https://ui.example.internal` to the connect command.
+The default is `https://app.cardinalhq.io`. Use `--telemetry-only` to omit Cardinal tools.
+
+### 3. Verify or disconnect
+
+```bash
+"$HOME/.local/share/cardinal/node_modules/.bin/cardinal-pi" status
+```
+
+Status probes the telemetry and MCP endpoints. A fresh Pi session exposes `cardinal_list_tools` to discover
+your organization's tools and `cardinal_call_tool` to execute them. No separate MCP extension is needed.
+To disconnect:
+
+```bash
+"$HOME/.local/share/cardinal/node_modules/.bin/cardinal-pi" disconnect
+```
+
+Restart Pi after changing the connection. Disconnect revokes the MCP key and removes the local connection;
+follow the printed Cardinal API-key settings link to revoke the ingest key as well.
+
+See the [extension README](https://github.com/cardinalhq/cardinal-agent-plugins/tree/main/adapters/pi)
+for custom state directories and telemetry details.
+
+### OpenCode and Pi release scope
+
+These v0.1.0 packages connect an agent to Cardinal. They do not include the `cardinal-install-site` skill;
+use the [Data Lake installation guide](/data-lake/install) to set up a new site.
+Spend enforcement, subscription-plan reporting, and aggregate subagent costs are not included.
+Session analytics also requires a backend that accepts the corresponding `opencode` or `pi` runtime;
+successful connection alone does not verify dashboard ingestion. Operators can follow the
+[backend rollout requirements](https://github.com/cardinalhq/cardinal-agent-plugins/blob/main/docs/RELEASING-NATIVE.md).
 
 ## Codex CLI (manual MCP config)
 
