@@ -8,7 +8,7 @@ Connect Cardinal to a Kubernetes cluster so your connected agent can read cluste
 
 The Kubernetes integration is **read-only**. It surfaces two capabilities:
 
-- **Chart markers** — `core/v1/Event` records appear as colored markers on the Metrics and Logs timelines, alongside any GitHub events you have enabled. Useful for correlating "what broke" with "what changed."
+- **Chart markers** — Kubernetes Events appear as colored markers on the Metrics and Logs timelines, alongside any GitHub events you have enabled. Useful for correlating "what broke" with "what changed."
 - **MCP tools** — read-only kubectl-equivalent access over the MCP endpoint: `list_events`, `list_resources`, `get_resource`, `get_logs`, `list_api_resources`.
 
 Cardinal never writes to your cluster. The integration stores your credentials encrypted at rest and transmits them per-request to the agent gateway.
@@ -402,7 +402,18 @@ Once the integration is created:
 1. Open any **Metrics** or **Logs** dashboard in Explore.
 2. Click **Event Sources** in the chart toolbar.
 3. Toggle **Kubernetes** on and step through the wizard: pick a cluster, namespaces (or `*` for all), and event reasons to surface.
-4. Markers appear inline on the chart with reason-based colors (BackOff and FailedScheduling are red; Unhealthy and Killing are amber; informational reasons are neutral).
+4. Markers appear inline on the chart with reason-based colors (BackOff and FailedScheduling are red; Unhealthy and Killing are amber; config changes are violet; informational reasons are neutral).
+
+### Where the markers come from
+
+If you also run the Cardinal collector's Kubernetes object receiver in this cluster, markers are read back out of your telemetry rather than from the cluster's API server. Two things follow, and both are worth knowing:
+
+- **History goes back as far as your log retention.** The API server keeps Events for roughly an hour and discards them when the object they describe is deleted, so a chart older than that has nothing to mark. Events shipped to Cardinal live as long as any other log and outlive the Pod they came from.
+- **Configuration changes show up too.** Kubernetes emits no Event when a ConfigMap, Service, Ingress, NetworkPolicy, or StorageClass is written, so these markers exist only on this path. They appear as `ObjectCreated`, `ObjectUpdated`, and `ObjectDeleted` in the wizard's reason list.
+
+The collector's `k8s_cluster_name` label must match the integration's slug, or Cardinal cannot connect the two and quietly falls back to the API server. The infra map reports this mismatch by name when it finds one.
+
+Without that receiver, markers come from the API server as before, with its retention window.
 
 ## What This Enables
 
