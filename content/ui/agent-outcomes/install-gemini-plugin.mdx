@@ -13,7 +13,7 @@ Sessions in a git repo receive the initiative branch-naming convention at start,
 
 ## Requirements
 
-- Gemini CLI with hooks, MCP server, and extensions support.
+- Gemini CLI 0.26.0 or later, where hooks are on by default. Earlier versions need hooks explicitly enabled in Gemini CLI's settings.
 - Python 3.11+ on your `PATH`.
 - A Cardinal account on `app.cardinalhq.io`, or a self-hosted Cardinal UI your operator has prepared (see [Connect AI clients](/ui/mcp-clients)).
 
@@ -36,7 +36,7 @@ The connect script prints a URL like `https://app.cardinalhq.io/connect?code=ABC
 | File | What gets written |
 | --- | --- |
 | `~/.gemini/extensions/cardinal/gemini-extension.json` | Extension manifest with the `mcpServers.cardinal` entry, tagged `cardinalManaged: true`. |
-| `~/.gemini/extensions/cardinal/hooks/hooks.json` | Managed Cardinal hook entries for `SessionStart`, `BeforeAgent`, `AfterModel`, `AfterTool`, `AfterAgent`, `PreCompress`, and `SessionEnd`. |
+| `~/.gemini/extensions/cardinal/hooks/hooks.json` | Managed Cardinal hook entries for `SessionStart`, `BeforeAgent`, `AfterModel`, `AfterTool`, `PreCompress`, and `SessionEnd`. |
 | `~/.gemini/extensions/cardinal/GEMINI.md` | Context file loaded into the model context by Gemini CLI. |
 | `~/.gemini/settings.json` | Managed `telemetry` block pointing Gemini CLI's native OTLP exporter at Cardinal ingest. |
 | `~/.gemini/cardinal.json` | Non-secret connection state for status/disconnect. |
@@ -74,13 +74,29 @@ python3 scripts/cardinal-connect --dry-run          # Walk the consent flow, wri
 
 Sessions are attributed to an **initiative** by branch name: `<type>/<kebab-name>`, where the type prefix is one of `feat`, `fix`, `refactor`, `infra`, `chore`, `research`, or `spike` (for example `feat/outcomes-observability` → initiative *outcomes-observability*, type *feature*). Sessions on `main`/`master`/`develop`/`trunk` are treated as research/scoping work. The plugin surfaces this convention to Gemini at the start of every session so branches it cuts for you classify cleanly.
 
+## Upgrading from before 0.17.0
+
+Plugin versions before 0.17.0 wrote a hook registration that Gemini CLI ignored, so their hooks never ran. Re-run `cardinal-connect` to rewrite it (no new consent needed), then restart Gemini CLI. `cardinal-status` reports an old registration or a Gemini CLI version too old to load hooks.
+
+## Pull requests and decisions
+
+Each prompt's branch state includes the branch's pull request when `gh` is installed and signed in and a PR exists. Network work runs in the background, so the hooks don't slow your prompts.
+
+**Decision capture** is off by default:
+
+```bash
+python3 scripts/cardinal-decision on
+```
+
+While it's on, each prompt tells Gemini to record material choices with `cardinal-decision record …`, and each decision is sent tagged with the session, repo, branch, and PR. `python3 scripts/cardinal-decision off` turns it off. With Gemini CLI's sandbox enabled, the record command can't write `~/.gemini`; it exits with a message telling you to allow that path or run without the sandbox.
+
 ## Privacy
 
-The plugin captures tool names, bash command lines, and file paths so Cardinal can tell which repo and service a session worked on. The contents of your prompts are never captured. Per-turn token counts come straight from Gemini CLI's `AfterModel` hook payload — no transcript scraping — and are attributed to the model id the hook reports.
+The plugin captures tool names, bash command lines, and file paths so Cardinal can tell which repo and service a session worked on. The contents of your prompts are never captured. Per-turn token counts come straight from Gemini CLI's `AfterModel` hook payload — no transcript scraping — and are attributed to the model id the hook reports. Hooks don't receive cached-token counts, so reported cost is an upper bound.
 
 ## Payload-shape capture
 
-A few Gemini CLI hook payload key names (notably `AfterAgent` token totals and `PreCompress` context slice) haven't been observed widely in the wild, so the emitter probes several key spellings and falls back gracefully. If your `AfterAgent` events look sparse, set `CARDINAL_GEMINI_DEBUG_PAYLOADS=1` before starting Gemini CLI — raw hook payloads land under `~/.gemini/cardinal/telemetry/debug/<Event>-<ts>.json`. Share those with the plugin maintainers so the parity spec can be locked to real key names.
+The hooks follow Gemini CLI's published hook payload types, but haven't been observed widely in the wild. If your sessions look sparse, set `CARDINAL_GEMINI_DEBUG_PAYLOADS=1` before starting Gemini CLI — raw hook payloads land under `~/.gemini/cardinal/telemetry/debug/<Event>-<ts>.json`. Share those with the plugin maintainers so the parity spec can be locked to real key names.
 
 ## Disconnect
 

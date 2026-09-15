@@ -13,7 +13,7 @@ Both deployment modes work the same way:
 
 ## Pick your client
 
-Each per-session plugin registers a single `cardinal` MCP server (or, for Pi, native Cardinal tool discovery/execution) that exposes whichever integration tools your org has configured, and streams session activity to the [Agent Outcomes dashboard](/ui/agent-outcomes). The per-session plugins (Claude, Codex, Cursor, Gemini, OpenCode, Pi) all support Cardinal Cloud and self-hosted, and each has a `--telemetry-only` variant if you want the dashboard without the tools. Omnigent is different — it ships as a policy applied to your Omnigent installation, not a per-session plugin, so the flags below don't apply there.
+Each per-session plugin registers a single `cardinal` MCP server (or, for Pi, native Cardinal tool discovery/execution) that exposes whichever integration tools your org has configured, and streams session activity to the [Agent Outcomes dashboard](/ui/agent-outcomes). The per-session plugins (Claude, Codex, Cursor, Gemini, OpenCode, Pi) all support Cardinal Cloud and self-hosted, and each has a `--telemetry-only` variant if you want the dashboard without the tools.
 
 | Client | Install guide | Notes |
 | --- | --- | --- |
@@ -23,8 +23,6 @@ Each per-session plugin registers a single `cardinal` MCP server (or, for Pi, na
 | **Google Gemini CLI** | [Install: Gemini CLI plugin](/ui/agent-outcomes/install-gemini-plugin) | `git clone` + `python3 scripts/cardinal-connect`. Uses Gemini CLI's native OTLP exporter for telemetry. |
 | **OpenCode** | [Install: OpenCode plugin](/ui/agent-outcomes/install-opencode-plugin) | `npm install` from a GitHub release + `cardinal-opencode connect`. OpenCode 1.x only (V2 not supported). |
 | **Pi** | [Install: Pi extension](/ui/agent-outcomes/install-pi-plugin) | `npm install` + `pi install` + `cardinal-pi connect`. Tools via `cardinal_list_tools` / `cardinal_call_tool`, no separate MCP extension. |
-| **Omnigent** | [Install: omnigent policy](/ui/agent-outcomes/install-omnigent-policy) | Policy-based install; no per-session plugin needed. |
-
 If your client isn't on this list, use [Manual MCP configuration](#manual-mcp-configuration-without-a-plugin) at the bottom — any client that speaks streamable-HTTP MCP with a custom auth header can talk to the Cardinal UI gateway directly.
 
 ## Self-hosted: prepare your Cardinal UI instance

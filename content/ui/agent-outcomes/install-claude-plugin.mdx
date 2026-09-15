@@ -68,6 +68,14 @@ You'll see the host, your org, both endpoints, key prefixes, and a reachability 
 
 Sessions are attributed to an **initiative** by branch name: `<type>/<kebab-name>`, where the type prefix is one of `feat`, `fix`, `refactor`, `infra`, `chore`, `research`, or `spike` (for example `feat/outcomes-observability` → initiative *outcomes-observability*, type *feature*). Sessions on `main`/`master`/`develop`/`trunk` are treated as research/scoping work. The plugin reminds Claude of this convention at the start of every session, so branches it cuts for you classify cleanly.
 
+## Pull requests and decisions
+
+Each prompt's branch state includes the branch's pull request when the GitHub CLI (`gh`) is installed and signed in and a PR exists for the branch, so sessions link to their PR directly.
+
+**Decision capture** is off by default. To turn it on, set `CARDINAL_DECISIONS=1` in the `env` block of `~/.claude/settings.json` and start a new session, or run the plugin's `cardinal-decision on`. While it's on, the plugin asks Claude to record each material choice (the question, the option chosen, why, and what it rejected) with `cardinal-decision record`, and each one is sent to Cardinal tagged with the session, repo, branch, and PR. `cardinal-decision off` turns it off.
+
+If you use Claude Code's Bash sandbox, the record command needs to write `~/.claude/cardinal` and reach your Cardinal ingest host, so Claude Code asks before running it outside the sandbox. Add both to your sandbox allowlist to skip the prompt.
+
 ## Privacy
 
 By default the plugin captures bash command lines and file paths so Cardinal can tell which repo and service a session worked on. The contents of your prompts and tool inputs/outputs are never captured. If your org's policy forbids command lines and paths too, connect with `--no-tool-details` — sessions still appear, but as `repo=unknown`.
