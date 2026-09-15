@@ -72,9 +72,23 @@ python3 scripts/cardinal-connect --dry-run          # Walk the consent flow, wri
 
 Upgrading from a version before 0.4.0? Re-run `cardinal-connect --rotate` once so the newer hooks are registered.
 
+Upgrading to 0.22.0 from an earlier version? Run `python3 scripts/cardinal-connect --repair-hooks`, then restart Codex, so the new `PostToolUse` hook that records decisions is registered.
+
 ## Getting attributed correctly
 
 Sessions are attributed to an **initiative** by branch name: `<type>/<kebab-name>`, where the type prefix is one of `feat`, `fix`, `refactor`, `infra`, `chore`, `research`, or `spike` (for example `fix/login-crash` → initiative *login-crash*, type *bugfix*). Sessions on `main`/`master`/`develop`/`trunk` are treated as research/scoping work. The plugin surfaces this convention to Codex at session start, so branches it cuts for you classify cleanly.
+
+## Pull requests and decisions
+
+Each prompt's branch state includes the branch's pull request when `gh` is installed and signed in and a PR exists. The lookup is cached and refreshed in the background, so the first prompt on a new branch may not carry it yet.
+
+**Decision capture** is off by default. Turn it on from your own terminal, not through Codex, whose sandbox can't write the setting:
+
+```bash
+python3 scripts/cardinal-decision on
+```
+
+While it's on, Codex is asked to record each material choice by running `cardinal-decision record …`. Inside Codex's sandbox that command only checks its arguments and prints them; Cardinal's `PostToolUse` hook, which runs outside the sandbox, records the decision, sends it tagged with the session, repo, branch, and PR, and tells Codex the recorded id or why nothing was recorded. `python3 scripts/cardinal-decision off` turns it off, and `CARDINAL_DECISIONS=1` or `0` in Codex's environment overrides the setting.
 
 ## Privacy
 
