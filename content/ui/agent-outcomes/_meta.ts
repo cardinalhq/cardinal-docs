@@ -6,4 +6,5 @@ export default {
   'install-gemini-plugin': 'Install: Gemini CLI plugin',
   'install-opencode-plugin': 'Install: OpenCode plugin',
   'install-pi-plugin': 'Install: Pi extension',
+  'install-devin-poller': 'Install: Devin poller',
 }
