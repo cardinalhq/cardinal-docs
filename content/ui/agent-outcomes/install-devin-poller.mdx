@@ -1,0 +1,98 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# Install the Devin poller
+
+[Devin](https://devin.ai) runs in Cognition's cloud, so there's nothing to install inside it. Instead, the [Cardinal Devin poller](https://github.com/cardinalhq/cardinal-agent-plugins/tree/main/adapters/devin) runs on infrastructure you control, reads your organization's Devin sessions through the Devin API, and sends them to the [Agent Outcomes dashboard](/ui/agent-outcomes). Run **one poller per Devin organization**.
+
+Version **0.1.0** is the first release. It hasn't yet been validated against a live Devin organization, so check the dashboard after your first sessions and [contact support](#need-help) if anything looks off.
+
+<SupportCallout />
+
+## What it captures
+
+- **Sessions and pull requests** — each Devin session that opens a pull request is attributed to its repo and PR. With a GitHub token, the poller also resolves the PR's head branch, commit, and initiative.
+- **Decisions (opt-in)** — sessions started with Cardinal's decision playbook and output schema report the choices Devin made. They're recorded as they appear in the session's structured output.
+
+It does **not** capture token usage or cost (Devin doesn't expose usage through its API), per-message activity, or tool calls. Sessions that don't open a pull request aren't shown.
+
+## Requirements
+
+- A Devin **service user** API key (created by a Devin org admin). Set `DEVIN_ORG_ID` too if you use Devin's v3 API.
+- A Cardinal account on `app.cardinalhq.io`, or a self-hosted Cardinal UI. Your Cardinal deployment must be recent enough to accept Devin sessions; on self-hosted installs, ask your operator.
+- Optional: a GitHub token with read access to the repos Devin works in, for branch and initiative attribution.
+- To run it: Docker, Kubernetes, or Python 3.9+ on macOS or Linux.
+
+## 1. Connect to Cardinal (container)
+
+Create a volume for the poller's state, then run `connect` once. It prints a URL like `https://app.cardinalhq.io/connect?code=ABCD-EFGH`; open it, sign in, pick your organization, and click **Approve**. The credential is saved in the volume.
+
+```bash
+docker volume create cardinal-devin-data
+docker run -it --rm -v cardinal-devin-data:/data \
+  ghcr.io/cardinalhq/cardinal-devin-poller:v0.1.0 connect
+```
+
+For a self-hosted Cardinal UI, add `--host https://ui.example.internal` after `connect`.
+
+## 2. Run the poller
+
+```bash
+docker run -d --name cardinal-devin-poller --restart unless-stopped \
+  -e DEVIN_API_KEY -e DEVIN_ORG_ID -e GITHUB_TOKEN \
+  -v cardinal-devin-data:/data \
+  ghcr.io/cardinalhq/cardinal-devin-poller:v0.1.0
+```
+
+The poller checks Devin every five minutes and keeps its progress in `/data`, so restarts don't send sessions twice. Keep one poller per organization, and never let two pollers share a state volume.
+
+**Without the `connect` step** (for example on Kubernetes), pass the Cardinal ingest endpoint and key as environment variables instead: `CARDINAL_INGEST_ENDPOINT` and `CARDINAL_INGEST_API_KEY` (both required together), plus optional `CARDINAL_ORG` and `CARDINAL_DEPLOYMENT_ENV`. Environment values take precedence over a stored connection. The [poller README](https://github.com/cardinalhq/cardinal-agent-plugins/tree/main/adapters/devin) has a Kubernetes example: run a single replica with a persistent volume for `/data`.
+
+## 3. Verify
+
+```bash
+docker run --rm -v cardinal-devin-data:/data \
+  -e DEVIN_API_KEY -e DEVIN_ORG_ID -e GITHUB_TOKEN \
+  ghcr.io/cardinalhq/cardinal-devin-poller:v0.1.0 status
+```
+
+Status shows where the Cardinal credential comes from (never the key itself), whether a Devin key and GitHub token are set, and the poller's progress. To see what would be sent without sending it, run `poll --once --dry-run` the same way. Devin sessions with pull requests appear on the Outcomes dashboard within a few poll cycles.
+
+## Decision capture
+
+Decisions only come from sessions created with Cardinal's playbook and output schema, both shipped with the poller. The playbook tells Devin to record material choices, and the schema makes Devin return them in the session's structured output:
+
+1. Create a Devin playbook from the playbook text in the [poller README](https://github.com/cardinalhq/cardinal-agent-plugins/tree/main/adapters/devin), and note its id.
+2. When you create a Devin session through the API, pass that id as `playbook_id` and the schema as `structured_output_schema`.
+
+Print the schema with:
+
+```bash
+docker run --rm ghcr.io/cardinalhq/cardinal-devin-poller:v0.1.0 decision-schema
+```
+
+The playbook is in the [poller README](https://github.com/cardinalhq/cardinal-agent-plugins/tree/main/adapters/devin). Each decision is attached to the session's repo, branch, and pull request.
+
+## Without Docker
+
+Download the release and run the poller directly (Python 3.9+):
+
+```bash
+VERSION=0.1.0
+gh release download "devin-v${VERSION}" --repo cardinalhq/cardinal-agent-plugins \
+  --pattern "cardinal-devin-${VERSION}.tar.gz"
+tar -xzf "cardinal-devin-${VERSION}.tar.gz"
+"./cardinal-devin-${VERSION}/bin/cardinal-devin" connect
+"./cardinal-devin-${VERSION}/bin/cardinal-devin" poll --interval 300
+```
+
+State is kept in `~/.cardinal-devin` unless you set `CARDINAL_DEVIN_HOME`.
+
+## Limits
+
+- Polling means sessions appear minutes after they update, not instantly.
+- If the poller is down longer than its lookback window (seven days by default), sessions that finished during the gap are skipped.
+- Attribution uses the email Devin reports for the session's user; sessions whose user can't be resolved show as `unknown`.
+
+## Need help
+
+See the [poller README](https://github.com/cardinalhq/cardinal-agent-plugins/tree/main/adapters/devin) for every option, or contact support.
