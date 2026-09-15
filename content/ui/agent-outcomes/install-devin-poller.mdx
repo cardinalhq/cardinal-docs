@@ -9,9 +9,10 @@ import SupportCallout from '../../../components/SupportCallout';
 ## What it captures
 
 - **Sessions and pull requests** — each Devin session that opens a pull request is attributed to its repo and PR. With a GitHub token, the poller also resolves the PR's head branch, commit, and initiative.
+- **ACU usage** — Devin bills in ACUs (Agent Compute Units) rather than tokens, and the poller reports them alongside sessions so Devin spend shows up next to Claude and Codex token spend on the dashboard. See [ACU usage capture](#acu-usage-capture) below.
 - **Decisions (opt-in)** — sessions started with Cardinal's decision playbook and output schema report the choices Devin made. They're recorded as they appear in the session's structured output.
 
-It does **not** capture token usage or cost (Devin doesn't expose usage through its API), per-message activity, or tool calls. Sessions that don't open a pull request aren't shown.
+It does **not** capture per-message activity or tool calls. Sessions that don't open a pull request aren't shown.
 
 ## Requirements
 
@@ -27,7 +28,7 @@ Create a volume for the poller's state, then run `connect` once. It prints a URL
 ```bash
 docker volume create cardinal-devin-data
 docker run -it --rm -v cardinal-devin-data:/data \
-  ghcr.io/cardinalhq/cardinal-devin-poller:v0.1.0 connect
+  ghcr.io/cardinalhq/cardinal-devin-poller:v0.2.0 connect
 ```
 
 For a self-hosted Cardinal UI, add `--host https://ui.example.internal` after `connect`.
@@ -38,7 +39,7 @@ For a self-hosted Cardinal UI, add `--host https://ui.example.internal` after `c
 docker run -d --name cardinal-devin-poller --restart unless-stopped \
   -e DEVIN_API_KEY -e DEVIN_ORG_ID -e GITHUB_TOKEN \
   -v cardinal-devin-data:/data \
-  ghcr.io/cardinalhq/cardinal-devin-poller:v0.1.0
+  ghcr.io/cardinalhq/cardinal-devin-poller:v0.2.0
 ```
 
 The poller checks Devin every five minutes and keeps its progress in `/data`, so restarts don't send sessions twice. Keep one poller per organization, and never let two pollers share a state volume.
@@ -50,10 +51,38 @@ The poller checks Devin every five minutes and keeps its progress in `/data`, so
 ```bash
 docker run --rm -v cardinal-devin-data:/data \
   -e DEVIN_API_KEY -e DEVIN_ORG_ID -e GITHUB_TOKEN \
-  ghcr.io/cardinalhq/cardinal-devin-poller:v0.1.0 status
+  ghcr.io/cardinalhq/cardinal-devin-poller:v0.2.0 status
 ```
 
 Status shows where the Cardinal credential comes from (never the key itself), whether a Devin key and GitHub token are set, and the poller's progress. To see what would be sent without sending it, run `poll --once --dry-run` the same way. Devin sessions with pull requests appear on the Outcomes dashboard within a few poll cycles.
+
+## ACU usage capture
+
+Devin bills in **ACUs (Agent Compute Units)** rather than tokens, so the poller reads consumption from the Devin API and reports it alongside every session. On the Outcomes dashboard, Devin spend then sits next to Claude and Codex token spend in the KPI strip, the ledger, and the per-initiative and per-PR panels.
+
+For each session, the poller emits a `cardinal.turn_usage` record with:
+
+- `cardinal_billing_unit = "acu"` — flags this as ACU spend, not tokens.
+- `cardinal_acu_total` — the session's total ACUs, summed across the days it ran.
+- `cardinal_acu_cascade`, `cardinal_acu_devin`, `cardinal_acu_review`, `cardinal_acu_terminal` — the per-product ACU split, on v3 tenants only (see below).
+- `period_start_ns` / `period_end_ns` — the session's active window.
+
+Each usage record carries the same repo, branch, PR, and initiative attribution as the session's `cardinal.git_state` and `cardinal.decision` events, so it lines up with the same case files.
+
+### Required Devin key scope
+
+Usage capture calls the Devin **consumption** endpoint, which is a scoped capability on service-user keys. When you create the service user, tick the **consumption** scope alongside the session-read scope the rest of the poller needs.
+
+If the key doesn't have consumption scope, the poller logs a one-time warning and turns usage off for that key. Sessions, pull requests, and decisions keep flowing — only the ACU numbers are missing. To fix it, grant the scope to the existing key (or issue a new one) and restart the poller.
+
+### v1 vs v3 tenants
+
+The poller uses whichever Devin API version your key targets:
+
+- **v1 keys** — Devin returns a single **enterprise-wide** consumption figure for the poll window. The poller attributes that total across the sessions in the window; the per-product columns (`cardinal_acu_cascade` and friends) are not available.
+- **v3 keys** — Devin returns **per-session, per-day** consumption with the product-level split. `cardinal_acu_total` is that session's own ACUs, and the per-product columns are populated.
+
+Set `DEVIN_ORG_ID` on the poller for v3 keys, as the [Requirements](#requirements) section notes. Nothing else in the install steps changes.
 
 ## Decision capture
 
@@ -65,7 +94,7 @@ Decisions only come from sessions created with Cardinal's playbook and output sc
 Print the schema with:
 
 ```bash
-docker run --rm ghcr.io/cardinalhq/cardinal-devin-poller:v0.1.0 decision-schema
+docker run --rm ghcr.io/cardinalhq/cardinal-devin-poller:v0.2.0 decision-schema
 ```
 
 The playbook is in the [poller README](https://github.com/cardinalhq/cardinal-agent-plugins/tree/main/adapters/devin). Each decision is attached to the session's repo, branch, and pull request.
@@ -75,7 +104,7 @@ The playbook is in the [poller README](https://github.com/cardinalhq/cardinal-ag
 Download the release and run the poller directly (Python 3.9+):
 
 ```bash
-VERSION=0.1.0
+VERSION=0.2.0
 gh release download "devin-v${VERSION}" --repo cardinalhq/cardinal-agent-plugins \
   --pattern "cardinal-devin-${VERSION}.tar.gz"
 tar -xzf "cardinal-devin-${VERSION}.tar.gz"
