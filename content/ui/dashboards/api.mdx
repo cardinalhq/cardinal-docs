@@ -121,7 +121,7 @@ The response is the stored dashboard:
 }
 ```
 
-`createdBy` and `updatedBy` are `null` for changes made with an API key. They hold a user id only when a signed-in user made the change in the UI.
+API keys aren't recorded as authors. A dashboard created with a key has `createdBy: null`. An update made with a key leaves `updatedBy` as it was, so it still names the last signed-in user who edited the dashboard; `updatedAt` always reflects the latest change.
 
 ### List
 
