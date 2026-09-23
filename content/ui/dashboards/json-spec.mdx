@@ -5,7 +5,7 @@ import SupportCallout from '../../../components/SupportCallout';
 Every Cardinal UI dashboard is stored as one JSON document, the **dashboard spec**. It describes the panels, the queries behind them, how they are laid out, and any variables. The same document is used in three places:
 
 - **Export** on an open dashboard downloads it.
-- **Dashboards → Add Dashboard → Import JSON** creates a dashboard from it.
+- **Dashboards → Add Dashboard → Import from JSON** creates a dashboard from it.
 - The [Dashboards API](/ui/dashboards/api) takes it as the `spec` field.
 
 A machine-readable JSON Schema is published at [`/schemas/dashboard.schema.json`](/schemas/dashboard.schema.json). Point your editor or CI at it to get completion and validation while you generate specs from code.
@@ -18,12 +18,12 @@ Hand-writing a spec from scratch is rarely the fastest route. Instead:
 
 1. Build one dashboard in the UI the way you want it.
 2. Click **Export** to download its JSON.
-3. Use that file as a template: substitute service names, thresholds or queries in your own tooling.
-4. Load the results back with **Import JSON** or the [API](/ui/dashboards/api).
+3. Use that file as a template: substitute service names, thresholds or queries in your own tooling. If you exported a dashboard you added from the gallery, delete its `libraryRef` field. While that field is set, Cardinal UI keeps showing the gallery's version and ignores your changes.
+4. Load the results back with **Import from JSON**, or send the file's `spec` field (`jq .spec export.json`) to the [API](/ui/dashboards/api).
 
 ## File formats Import accepts
 
-**Import JSON** accepts either of these:
+**Import from JSON** accepts either of these:
 
 - **The export envelope** that **Export** produces:
 
@@ -42,7 +42,9 @@ Hand-writing a spec from scratch is rarely the fastest route. Instead:
 
 The dialog also asks for a category, which decides where the dashboard is listed.
 
-Import is forgiving. A panel with an unknown `kind`, or one missing `id`, `title` or `queries`, is dropped with a warning instead of failing the whole file. The same goes for an invalid variable or grid cell. The schema is stricter: it rejects unknown fields. So a spec that validates against the schema will always import cleanly.
+Import is forgiving. A panel with an unknown `kind`, or one missing `id`, `title` or `queries`, is dropped with a warning instead of failing the whole file. The same goes for an invalid variable or grid cell. The schema is stricter: it rejects unknown fields. So a spec that validates against the schema imports without warnings.
+
+A few problems still reject the whole file: a missing `duration`, `panels` that isn't an object, or a section without a `cells` list. If variables' `scope` settings depend on each other in a loop, Import removes those scopes and warns you.
 
 ## Top-level fields
 
@@ -52,7 +54,7 @@ Import is forgiving. A panel with an unknown `kind`, or one missing `id`, `title
 | `panels` | yes | Object of panels keyed by panel id. Grid cells refer to panels by this key, so keep it the same as the panel's `id`. |
 | `sections` | yes | Ordered list of sections. Each section holds the grid positions of its panels. |
 | `variables` | no | Dashboard variables (drop-down pickers) whose values are substituted into queries. See [Variables](#variables). |
-| `category` | no | Where the dashboard is listed on the Dashboards page: `applications`, `infrastructure`, `kubernetes`, `eks`, `ecs`, `rds`, `sqs`, `kafka`, `aws-networking`, `proxmox`, `ceph`, `bind`, `headscale`, `outcomes`. Omitted → *Uncategorized*. **Import JSON** ignores this field and uses the category you pick in the dialog; the API honors it. |
+| `category` | no | Where the dashboard is listed on the Dashboards page: `applications`, `infrastructure`, `kubernetes`, `eks`, `ecs`, `rds`, `sqs`, `kafka`, `aws-networking`, `proxmox`, `ceph`, `bind`, `headscale`, `outcomes`, `custom`. Omitted or unknown → **Custom**. **Import from JSON** ignores this field and uses the category you pick in the dialog; the API honors it. |
 | `smooth` | no | `true` applies a display-only moving average to time-series panels. Default `false`. |
 | `sharedCrosshair` | no | Hovering a time on one chart draws a line at the same time on every other time-axis chart. Default on; set `false` to turn it off. |
 | `schemaVersion` | no | Spec format version, currently `2`. **Export** stamps it for you. |
@@ -205,7 +207,7 @@ Variables add drop-down pickers to the dashboard. A variable named `app` is subs
 | `kind` | Always `"query"`. |
 | `source` | Where the options come from. **Metrics:** `{ "signal": "metrics", "metric": "<metric>", "label": "<label>" }`, which offers the values of `<label>` on `<metric>`. Add `"scope": "cluster=~\"$cluster\""` to limit the options by another variable's selection. **Logs:** `{ "signal": "logs", "label": "<label>" }`, with an optional `expr` selector. |
 | `multi` | Allow several values. They are substituted as a regex alternation, so match them with `=~`. |
-| `includeAll` | Offer an **All** option, substituted as `.+`. |
+| `includeAll` | With `multi`, offer an **All** option, substituted as `.+`. |
 | `defaultValue` | Initial selection, as a list of strings. |
 | `regex` | Hide options that don't match this regex. |
 | `sort` | `alphabetical` (default), `alphabetical-desc`, `numerical`, `numerical-desc`. |

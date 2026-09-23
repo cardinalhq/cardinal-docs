@@ -4,7 +4,7 @@ import SupportCallout from '../../../components/SupportCallout';
 
 Cardinal UI's dashboards can be listed, read, created, updated and deleted over HTTP. Use the API to generate dashboards from code, for example one per service, or to keep a fleet of dashboards in version control and sync it from CI.
 
-The request body carries the [dashboard JSON spec](/ui/dashboards/json-spec), the same document the UI's **Export** and **Import JSON** use.
+The request body carries the [dashboard JSON spec](/ui/dashboards/json-spec), the same document the UI's **Export** and **Import from JSON** use.
 
 > **Version:** creating and updating dashboards with an API key needs Cardinal UI **v1.95.35** or later. Earlier versions answer those requests with `500`. Reads and deletes work on earlier versions.
 
@@ -130,11 +130,13 @@ curl -s "$CARDINAL_URL/api/orgs/$ORG_ID/dashboards" \
   -H "X-CardinalHQ-API-Key: $CARDINAL_KEY" | jq '.[] | {id, name, category}'
 ```
 
-Each entry has `id`, `name`, `category` (when the spec sets one), `createdAt` and `updatedAt`, but no `spec`. Fetch a single dashboard to get its spec.
+Each entry includes `id`, `name`, `category` (when the spec sets one), `createdAt` and `updatedAt`, but not `spec`. Fetch a single dashboard to get its spec.
 
 ### Update
 
 `PUT` changes only the fields you send. Send `name` alone to rename. A `spec` you send **replaces the stored spec completely**; it is not merged. To change one panel, `GET` the dashboard, edit its spec, and `PUT` the whole spec back.
+
+If the spec contains `libraryRef`, delete it before you `POST` or `PUT`. Dashboards added from the gallery carry this field, and while it's set Cardinal UI keeps showing the gallery's version and ignores your changes.
 
 ```bash
 curl -s -X PUT "$CARDINAL_URL/api/orgs/$ORG_ID/dashboards/$DASHBOARD_ID" \
@@ -168,7 +170,9 @@ import json, os, pathlib, requests
 BASE = f"{os.environ['CARDINAL_URL']}/api/orgs/{os.environ['ORG_ID']}/dashboards"
 HEADERS = {"X-CardinalHQ-API-Key": os.environ["CARDINAL_KEY"]}
 
-existing = {d["name"]: d["id"] for d in requests.get(BASE, headers=HEADERS).json()}
+resp = requests.get(BASE, headers=HEADERS)
+resp.raise_for_status()
+existing = {d["name"]: d["id"] for d in resp.json()}
 
 for path in sorted(pathlib.Path("dashboards").glob("*.json")):
     name, spec = path.stem, json.loads(path.read_text())
@@ -191,4 +195,5 @@ Dashboard names aren't unique. If two dashboards share a name, this script updat
 | `401` | Missing or unknown API key. |
 | `403 org_scope_mismatch` | The organization key belongs to a different org than the one in the path. |
 | `403 insufficient_scope` | The key isn't allowed to call this endpoint. Plugin and personal keys can't manage dashboards; use an organization key. |
-| `404` | No dashboard with that id in this org, or it has been deleted. |
+| `404` | No dashboard with that id in this org, or it has been deleted. Ids are UUIDs; a malformed id fails with `500`. |
+| `413` | Request body larger than 100 KB. Send compact JSON (no indentation). |

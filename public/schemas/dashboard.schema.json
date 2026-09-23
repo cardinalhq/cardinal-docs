@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://docs.cardinalhq.io/schemas/dashboard.schema.json",
   "title": "Cardinal UI dashboard spec",
-  "description": "The spec object accepted by Import JSON and by POST/PUT /api/orgs/{orgId}/dashboards. See https://docs.cardinalhq.io/ui/dashboards/json-spec.",
+  "description": "The spec object accepted by Import from JSON and by POST/PUT /api/orgs/{orgId}/dashboards. See https://docs.cardinalhq.io/ui/dashboards/json-spec.",
   "$ref": "#/definitions/Dashboard",
   "definitions": {
     "Dashboard": {
@@ -14,11 +14,11 @@
         },
         "category": {
           "type": "string",
-          "description": "Where the dashboard is listed on the Dashboards page. Omitted means Uncategorized."
+          "description": "Where the dashboard is listed on the Dashboards page. Omitted or unknown means Custom."
         },
         "libraryRef": {
           "type": "string",
-          "description": "Set by Cardinal UI on dashboards added from the gallery. Ignored on import; don't set it yourself."
+          "description": "Set on dashboards added from the gallery. While it is set, Cardinal UI shows the gallery's version and ignores this spec. Delete it before sending a spec to the API; Import from JSON removes it for you."
         },
         "duration": {
           "type": "string",
@@ -60,7 +60,7 @@
         "sections"
       ],
       "additionalProperties": false,
-      "description": "A Cardinal UI dashboard spec: the object accepted by Import JSON and by POST/PUT /api/orgs/{orgId}/dashboards."
+      "description": "A Cardinal UI dashboard spec: the object accepted by Import from JSON and by POST/PUT /api/orgs/{orgId}/dashboards."
     },
     "Panel": {
       "anyOf": [
@@ -115,6 +115,10 @@
         "title": {
           "type": "string",
           "description": "Panel header text."
+        },
+        "description": {
+          "type": "string",
+          "description": "Markdown help text shown behind a ? icon next to the title."
         },
         "queries": {
           "type": "array",
@@ -334,6 +338,10 @@
           "type": "string",
           "description": "Panel header text."
         },
+        "description": {
+          "type": "string",
+          "description": "Markdown help text shown behind a ? icon next to the title."
+        },
         "queries": {
           "type": "array",
           "items": {
@@ -406,6 +414,10 @@
           "type": "string",
           "description": "Panel header text."
         },
+        "description": {
+          "type": "string",
+          "description": "Markdown help text shown behind a ? icon next to the title."
+        },
         "queries": {
           "type": "array",
           "items": {
@@ -463,6 +475,10 @@
           "type": "string",
           "description": "Panel header text."
         },
+        "description": {
+          "type": "string",
+          "description": "Markdown help text shown behind a ? icon next to the title."
+        },
         "queries": {
           "type": "array",
           "items": {
@@ -502,6 +518,10 @@
         "title": {
           "type": "string",
           "description": "Panel header text."
+        },
+        "description": {
+          "type": "string",
+          "description": "Markdown help text shown behind a ? icon next to the title."
         },
         "queries": {
           "type": "array",
@@ -550,6 +570,10 @@
         "title": {
           "type": "string",
           "description": "Panel header text."
+        },
+        "description": {
+          "type": "string",
+          "description": "Markdown help text shown behind a ? icon next to the title."
         },
         "queries": {
           "type": "array",
@@ -618,6 +642,10 @@
           "type": "string",
           "description": "Panel header text."
         },
+        "description": {
+          "type": "string",
+          "description": "Markdown help text shown behind a ? icon next to the title."
+        },
         "queries": {
           "type": "array",
           "items": {
@@ -661,6 +689,10 @@
         "title": {
           "type": "string",
           "description": "Panel header text."
+        },
+        "description": {
+          "type": "string",
+          "description": "Markdown help text shown behind a ? icon next to the title."
         },
         "queries": {
           "type": "array",
@@ -762,6 +794,10 @@
           "type": "string",
           "description": "Panel header text."
         },
+        "description": {
+          "type": "string",
+          "description": "Markdown help text shown behind a ? icon next to the title."
+        },
         "queries": {
           "type": "array",
           "items": {
@@ -818,6 +854,10 @@
         "title": {
           "type": "string",
           "description": "Panel header text."
+        },
+        "description": {
+          "type": "string",
+          "description": "Markdown help text shown behind a ? icon next to the title."
         },
         "queries": {
           "type": "array",
@@ -1032,7 +1072,7 @@
         },
         "includeAll": {
           "type": "boolean",
-          "description": "Offer an All option, substituted as .+."
+          "description": "With multi, offer an All option, substituted as .+."
         },
         "regex": {
           "type": "string",
