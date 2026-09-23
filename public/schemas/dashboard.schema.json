@@ -18,7 +18,7 @@
         },
         "libraryRef": {
           "type": "string",
-          "description": "Set on dashboards added from the gallery. While it is set, Cardinal UI shows the gallery's version and ignores this spec. Delete it before sending a spec to the API; Import from JSON removes it for you."
+          "description": "Set on dashboards added from the gallery. While it is set, Cardinal UI shows the gallery's version instead of this spec. Delete it before creating a dashboard from an exported spec; updates and Import from JSON remove it for you."
         },
         "duration": {
           "type": "string",

@@ -136,7 +136,9 @@ Each entry includes `id`, `name`, `category` (when the spec sets one), `createdA
 
 `PUT` changes only the fields you send. Send `name` alone to rename. A `spec` you send **replaces the stored spec completely**; it is not merged. To change one panel, `GET` the dashboard, edit its spec, and `PUT` the whole spec back.
 
-If the spec contains `libraryRef`, delete it before you `POST` or `PUT`. Dashboards added from the gallery carry this field, and while it's set Cardinal UI keeps showing the gallery's version and ignores your changes.
+Dashboards added from the gallery carry a `libraryRef` field that keeps them showing the gallery's version. A `PUT` that includes a spec removes it, so your edited spec is what's shown from then on, the same as editing in the UI.
+
+When you **create** a dashboard from an exported gallery dashboard, delete `libraryRef` from the spec before you `POST` it. Otherwise the new dashboard shows the gallery's version instead of your spec.
 
 ```bash
 curl -s -X PUT "$CARDINAL_URL/api/orgs/$ORG_ID/dashboards/$DASHBOARD_ID" \

@@ -18,7 +18,7 @@ Hand-writing a spec from scratch is rarely the fastest route. Instead:
 
 1. Build one dashboard in the UI the way you want it.
 2. Click **Export** to download its JSON.
-3. Use that file as a template: substitute service names, thresholds or queries in your own tooling. If you exported a dashboard you added from the gallery, delete its `libraryRef` field. While that field is set, Cardinal UI keeps showing the gallery's version and ignores your changes.
+3. Use that file as a template: substitute service names, thresholds or queries in your own tooling. If you exported a dashboard you added from the gallery, delete its `libraryRef` field before creating new dashboards from it; otherwise they show the gallery's version instead of your spec.
 4. Load the results back with **Import from JSON**, or send the file's `spec` field (`jq .spec export.json`) to the [API](/ui/dashboards/api).
 
 ## File formats Import accepts
