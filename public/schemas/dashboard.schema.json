@@ -1,0 +1,1090 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://docs.cardinalhq.io/schemas/dashboard.schema.json",
+  "title": "Cardinal UI dashboard spec",
+  "description": "The `spec` object accepted by Dashboards \u2192 Import JSON and by POST/PUT /api/orgs/{orgId}/dashboards. Generated from Cardinal UI's dashboard types.",
+  "$ref": "#/definitions/Dashboard",
+  "definitions": {
+    "Dashboard": {
+      "type": "object",
+      "properties": {
+        "schemaVersion": {
+          "type": "number",
+          "description": "Spec format version. Stamped on export so future panel-kind changes have an upgrade hook on import. Optional for backward compat with existing rows that pre-date this field."
+        },
+        "category": {
+          "type": "string",
+          "description": "Category id; the dashboards list page groups by category. See categories.ts."
+        },
+        "libraryRef": {
+          "type": "string",
+          "description": "Id of the gallery (blessed) dashboard this one was added from, while it still tracks upstream: the stored spec is only a fallback snapshot and the viewer renders the in-repo spec so library fixes reach users. Cleared on the first spec write \u2014 see `library-link.ts` (fork-on-edit), which also lists where that is enforced."
+        },
+        "duration": {
+          "type": "string",
+          "description": "Default lookback window when the user first opens the dashboard. Standard relative-duration strings (\"1h\", \"24h\", \"7d\"). Users can override in the toolbar; this is just the initial value."
+        },
+        "panels": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/Panel"
+          }
+        },
+        "sections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DashboardSection"
+          }
+        },
+        "variables": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DashboardVariable"
+          },
+          "description": "Variables declared on the dashboard. Picked values are interpolated into every panel's queries at render time. Optional for backward compat with v1 specs (which had no variables concept)."
+        },
+        "smooth": {
+          "type": "boolean",
+          "description": "Opt into display-side smoothing of timeseries panels (a centered moving average applied just before the chart \u2014 purely cosmetic, doesn't change the queries). Off by default. See `series-smoothing.ts`."
+        },
+        "sharedCrosshair": {
+          "type": "boolean",
+          "description": "Hovering a time on one chart draws a line at the same time on every other time-axis chart in the dashboard. On by default; set `false` to turn it off."
+        }
+      },
+      "required": [
+        "duration",
+        "panels",
+        "sections"
+      ],
+      "additionalProperties": false
+    },
+    "Panel": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/TimeSeriesPanel"
+        },
+        {
+          "$ref": "#/definitions/StatPanel"
+        },
+        {
+          "$ref": "#/definitions/GaugePanel"
+        },
+        {
+          "$ref": "#/definitions/ServiceGaugesPanel"
+        },
+        {
+          "$ref": "#/definitions/ServiceMemoryBarsPanel"
+        },
+        {
+          "$ref": "#/definitions/BarPanel"
+        },
+        {
+          "$ref": "#/definitions/PiePanel"
+        },
+        {
+          "$ref": "#/definitions/LabelPanel"
+        },
+        {
+          "$ref": "#/definitions/ServiceGraphPanel"
+        },
+        {
+          "$ref": "#/definitions/LogEventsPanel"
+        }
+      ]
+    },
+    "TimeSeriesPanel": {
+      "type": "object",
+      "properties": {
+        "yAxisLabel": {
+          "type": "string",
+          "description": "Y-axis title, e.g. \"Logins\". Drawn as \"Logins (unit)\" when `unit` is also set; without a title the unit alone labels the axis."
+        },
+        "xAxisLabel": {
+          "type": "string",
+          "description": "X-axis title, drawn under the time ticks."
+        },
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional markdown help text. When set, PanelFrame shows a `?` icon next to the title; hovering/clicking opens a popover with the rendered markdown. Use for panels whose math isn't obvious from the title alone (SLOs, burn rates, latency percentiles)."
+        },
+        "queries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PanelQuery"
+          }
+        },
+        "interlinks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PanelInterlink"
+          },
+          "description": "Optional contextual navigation targets \u2014 see v2/interlinks.ts."
+        },
+        "kind": {
+          "type": "string",
+          "const": "timeseries"
+        },
+        "unit": {
+          "type": "string",
+          "description": "y-axis unit label (\"%\", \"bytes\", \"rec/s\", etc.). Purely decorative."
+        },
+        "variant": {
+          "$ref": "#/definitions/TimeSeriesVariant",
+          "description": "Render style. Omitted \u2192 \"line\"."
+        },
+        "yMin": {
+          "type": "number",
+          "description": "Lock the Y-axis lower bound (disables auto-fit on that edge)."
+        },
+        "yMax": {
+          "type": "number",
+          "description": "Lock the Y-axis upper bound (disables auto-fit on that edge)."
+        },
+        "integerYMax": {
+          "type": "boolean",
+          "description": "Auto-fit the Y-axis but snap the upper bound to the smallest integer >= the highest plotted value, floored at 0 (or `yMin`). For integer-valued series (e.g. replica counts) whose samples may be fractional aggregates."
+        },
+        "percentScale": {
+          "type": "boolean",
+          "description": "Hold the Y axis at 0..100 so the plot area itself encodes severity: a nearly-full disk draws a nearly-full chart, and two percent panels stay comparable instead of each auto-fitting to its own range. Soft ceiling \u2014 values above 100 (RequestHandlerAvgIdlePercent reports 100.14) expand the axis rather than clipping flat at the top.\n\nOpt-in per panel rather than inferred from `unit: \"%\"`: a metric that lives near 0.5% (pressure stall) is unreadable pinned to 0..100."
+        },
+        "highlightWhen": {
+          "$ref": "#/definitions/PanelHighlightWhen",
+          "description": "Shade the chart background over time spans where a threshold query is active (e.g. an \"issue\" flag). See  {@link  PanelHighlightWhen } ."
+        },
+        "smooth": {
+          "type": "boolean",
+          "description": "Per-panel override of the dashboard-level `smooth` setting. Set `false` to keep this panel's lines raw even when the dashboard smooths (e.g. integer step series like replica counts that smoothing would distort)."
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "queries",
+        "title"
+      ],
+      "additionalProperties": false
+    },
+    "PanelQuery": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string",
+          "description": "Optional display name for the series returned by this query. Supports `{{label}}` templating against the metric's tags (matches Perses's seriesNameFormat so dashboard-definition.ts migrates cleanly)."
+        },
+        "queryKind": {
+          "type": "string",
+          "enum": [
+            "prometheus",
+            "loki"
+          ],
+          "description": "Query language \u2014 PromQL (default) or LogQL. Routes to the matching lakerunner endpoint. Omitted on existing panels \u2192 treated as prometheus."
+        },
+        "includePartialStep": {
+          "type": "boolean",
+          "description": "Evaluate through the next step boundary to include the final partial bucket. Queries must filter source events to the original selected bounds (e.g. chq_tsns > $start_ns and chq_tsns <= $end_ns for LogQL)."
+        },
+        "color": {
+          "type": "string",
+          "description": "Explicit series color (hex, e.g. \"#3b82f6\") for every series this query produces. Overrides the positional auto-palette and semantic-tag color so a series keeps its hue regardless of index \u2014 needed when queries are reordered for draw/z-order (later queries paint on top). Omitted \u2192 the auto-palette color by position."
+        },
+        "formulaSource": {
+          "type": "string",
+          "description": "When this entry is the resolved form of a user-authored formula (e.g. \"(A / B) * 100\"), `formulaSource` carries the original expression so the editor can hydrate it back as a formula instead of a raw query. The runtime ignores this field \u2014 `query` is the executable PromQL."
+        },
+        "hidden": {
+          "type": "boolean",
+          "description": "Helper-only query: the editor keeps this entry (so it can reconstruct a formula that references it on reopen) but the panel renderer skips fetching/plotting it. Use for letter-bound queries that exist purely to feed formulas, where the formula's resolved PromQL already inlines their expressions."
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "additionalProperties": false,
+      "description": "A single PromQL or LogQL query powering part of a panel."
+    },
+    "PanelInterlink": {
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string",
+          "description": "Menu label; supports {{labelName}} templating against the clicked series's tags."
+        },
+        "targetDashboardId": {
+          "type": "string",
+          "description": "Blessed dashboard id (reserved kebab-case) OR a user dashboard UUID."
+        },
+        "entityKind": {
+          "type": "string",
+          "description": "Optional grouping \u2014 surfaced as an icon or section header in the popover. Free-form; suggested values: \"guest\" | \"node\" | \"storage\" | \"logs\"."
+        },
+        "requiredLabels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Labels required on the clicked series for this interlink to appear."
+        },
+        "paramMap": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Map from target-variable name \u2192 source-label name on the clicked series."
+        },
+        "keepTimeRange": {
+          "type": "boolean",
+          "description": "Preserve the current dashboard's from/to on the target. Default true."
+        },
+        "group": {
+          "type": "string",
+          "description": "Optional popover section header \u2014 \"Investigate\", \"Related\", \"Logs\"."
+        }
+      },
+      "required": [
+        "label",
+        "targetDashboardId",
+        "requiredLabels",
+        "paramMap"
+      ],
+      "additionalProperties": false
+    },
+    "TimeSeriesVariant": {
+      "type": "string",
+      "enum": [
+        "line",
+        "bar",
+        "stacked-bar",
+        "normalized-bar",
+        "area",
+        "stacked-area"
+      ],
+      "description": "Chart draw style for TimeSeriesPanel. Defaults to \"line\" (Prometheus-style continuous line). \"stacked-bar\" is the right pick for count-per-bucket log rollups grouped by (service_name, level)."
+    },
+    "PanelHighlightWhen": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "description": "PromQL/LogQL query. Group by a label so each value gets its own band."
+        },
+        "queryKind": {
+          "type": "string",
+          "enum": [
+            "prometheus",
+            "loki"
+          ]
+        },
+        "threshold": {
+          "type": "number",
+          "description": "Value strictly above which a sample is \"active\". Default 0.5."
+        },
+        "colors": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Band color keyed by the series short label (the group-by value, e.g. \"error\" / \"clamped\")."
+        },
+        "defaultColor": {
+          "type": "string",
+          "description": "Color for series whose label isn't in `colors`. Default red."
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "additionalProperties": false,
+      "description": "Background shading driven by a threshold query. Each series the query returns (group by a label, e.g. `max by (kind)(...)`) is scanned over time; every contiguous span where the value exceeds `threshold` becomes a shaded band on the panel background, labeled by the series's short label and colored from `colors`. Concurrent series overlap as separate (stacked) bands."
+    },
+    "StatPanel": {
+      "type": "object",
+      "properties": {
+        "sparkline": {
+          "type": "boolean",
+          "description": "See  {@link  SparklineOptions } ."
+        },
+        "sparklineColor": {
+          "type": "string",
+          "description": "Sparkline stroke/fill color. Default blue."
+        },
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional markdown help text. When set, PanelFrame shows a `?` icon next to the title; hovering/clicking opens a popover with the rendered markdown. Use for panels whose math isn't obvious from the title alone (SLOs, burn rates, latency percentiles)."
+        },
+        "queries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PanelQuery"
+          }
+        },
+        "interlinks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PanelInterlink"
+          },
+          "description": "Optional contextual navigation targets \u2014 see v2/interlinks.ts."
+        },
+        "kind": {
+          "type": "string",
+          "const": "stat"
+        },
+        "calculation": {
+          "type": "string",
+          "enum": [
+            "last",
+            "mean",
+            "max",
+            "min",
+            "sum"
+          ],
+          "description": "How to reduce the series to a single number. Default \"last\"."
+        },
+        "format": {
+          "type": "object",
+          "properties": {
+            "unit": {
+              "type": "string"
+            },
+            "decimalPlaces": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false,
+          "description": "Formatting hint for the big number."
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "queries",
+        "title"
+      ],
+      "additionalProperties": false
+    },
+    "GaugePanel": {
+      "type": "object",
+      "properties": {
+        "sparkline": {
+          "type": "boolean"
+        },
+        "sparklineColor": {
+          "type": "string",
+          "description": "Sparkline stroke/fill color. Default blue."
+        },
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional markdown help text. When set, PanelFrame shows a `?` icon next to the title; hovering/clicking opens a popover with the rendered markdown. Use for panels whose math isn't obvious from the title alone (SLOs, burn rates, latency percentiles)."
+        },
+        "queries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PanelQuery"
+          }
+        },
+        "interlinks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PanelInterlink"
+          },
+          "description": "Optional contextual navigation targets \u2014 see v2/interlinks.ts."
+        },
+        "kind": {
+          "type": "string",
+          "const": "gauge"
+        },
+        "max": {
+          "type": "number"
+        },
+        "format": {
+          "type": "object",
+          "properties": {
+            "unit": {
+              "type": "string"
+            },
+            "decimalPlaces": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "queries",
+        "title"
+      ],
+      "additionalProperties": false
+    },
+    "ServiceGaugesPanel": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional markdown help text. When set, PanelFrame shows a `?` icon next to the title; hovering/clicking opens a popover with the rendered markdown. Use for panels whose math isn't obvious from the title alone (SLOs, burn rates, latency percentiles)."
+        },
+        "queries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PanelQuery"
+          }
+        },
+        "interlinks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PanelInterlink"
+          },
+          "description": "Optional contextual navigation targets \u2014 see v2/interlinks.ts."
+        },
+        "kind": {
+          "type": "string",
+          "const": "service-gauges"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "queries",
+        "title"
+      ],
+      "additionalProperties": false,
+      "description": "Auto-discovering per-service gauge panel. Three queries (CPU, Memory, Pods) are grouped by `service_name` at render time \u2014 the panel emits one card per service with a nested CPU/Memory horseshoe gauge and the pod count. Use this instead of listing each service individually; the services list comes from whatever `service_name` labels the backend returns.\n\nQueries should be the `max by (service_name)(...)` / `count by (service_name)(...)` forms that preserve the `service_name` label \u2014 ratios 0\u20131 for CPU/Memory."
+    },
+    "ServiceMemoryBarsPanel": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional markdown help text. When set, PanelFrame shows a `?` icon next to the title; hovering/clicking opens a popover with the rendered markdown. Use for panels whose math isn't obvious from the title alone (SLOs, burn rates, latency percentiles)."
+        },
+        "queries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PanelQuery"
+          }
+        },
+        "interlinks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PanelInterlink"
+          },
+          "description": "Optional contextual navigation targets \u2014 see v2/interlinks.ts."
+        },
+        "kind": {
+          "type": "string",
+          "const": "service-memory-bars"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "queries",
+        "title"
+      ],
+      "additionalProperties": false,
+      "description": "Per-service memory bars. One horizontal bar per service, each split into two signals over the reduced (mean) window: \"In Use\" (non-reclaimable working set that OOM-kills the pod) vs \"Cache\" (reclaimable page cache). The track is scaled to the pod memory limit so the empty remainder reads as real headroom, and the In Use segment is colored by its ratio to the limit (green/amber/red). Purpose-built for the System Health dashboard \u2014 communicates \"real vs cache\" to operators who don't grok cgroup memory states."
+    },
+    "BarPanel": {
+      "type": "object",
+      "properties": {
+        "yAxisLabel": {
+          "type": "string",
+          "description": "Y-axis title, e.g. \"Logins\". Drawn as \"Logins (unit)\" when `unit` is also set; without a title the unit alone labels the axis."
+        },
+        "xAxisLabel": {
+          "type": "string",
+          "description": "X-axis title, drawn under the time ticks."
+        },
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional markdown help text. When set, PanelFrame shows a `?` icon next to the title; hovering/clicking opens a popover with the rendered markdown. Use for panels whose math isn't obvious from the title alone (SLOs, burn rates, latency percentiles)."
+        },
+        "queries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PanelQuery"
+          }
+        },
+        "interlinks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PanelInterlink"
+          },
+          "description": "Optional contextual navigation targets \u2014 see v2/interlinks.ts."
+        },
+        "kind": {
+          "type": "string",
+          "const": "bar"
+        },
+        "reducer": {
+          "$ref": "#/definitions/SeriesReducer",
+          "description": "How samples landing in the same bar are combined once the range holds more samples than there are bars (~60). Default \"last\".\n\nSet this deliberately on gauges and rates: the default bucketing used to be an unconditional sum, which turned a 94%-full disk into a 284% bar and 852% once three brokers stacked on it. \"sum\" is still right for counters (log volume by service), which is what this panel kind was built for."
+        },
+        "unit": {
+          "type": "string"
+        },
+        "percentScale": {
+          "type": "boolean",
+          "description": "Hold the Y axis at 0..100 so the plot area itself encodes severity: a nearly-full disk draws a nearly-full chart, and two percent panels stay comparable instead of each auto-fitting to its own range. Soft ceiling \u2014 values above 100 (RequestHandlerAvgIdlePercent reports 100.14) expand the axis rather than clipping flat at the top.\n\nOpt-in per panel rather than inferred from `unit: \"%\"`: a metric that lives near 0.5% (pressure stall) is unreadable pinned to 0..100."
+        },
+        "color": {
+          "type": "string",
+          "description": "Single base color override applied to every series in the panel. When unset, each series gets a distinct color from the default palette. Most useful for single-series panels (CPU, memory) where the rainbow assignment feels arbitrary; multi-series stacks lose visual separation when set."
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "queries",
+        "title"
+      ],
+      "additionalProperties": false,
+      "description": "Bar chart \u2014 a stacked-bar view over time (see BarPanelView), NOT one bar per series. Each series is a stack segment; the x axis stays time."
+    },
+    "SeriesReducer": {
+      "type": "string",
+      "enum": [
+        "last",
+        "mean",
+        "max",
+        "min",
+        "sum"
+      ],
+      "description": "How a non-time-series viz (bar / pie) reduces each series's time samples to a single scalar. Default is \"last\"."
+    },
+    "PiePanel": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional markdown help text. When set, PanelFrame shows a `?` icon next to the title; hovering/clicking opens a popover with the rendered markdown. Use for panels whose math isn't obvious from the title alone (SLOs, burn rates, latency percentiles)."
+        },
+        "queries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PanelQuery"
+          }
+        },
+        "interlinks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PanelInterlink"
+          },
+          "description": "Optional contextual navigation targets \u2014 see v2/interlinks.ts."
+        },
+        "kind": {
+          "type": "string",
+          "const": "pie"
+        },
+        "reducer": {
+          "$ref": "#/definitions/SeriesReducer"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "queries",
+        "title"
+      ],
+      "additionalProperties": false,
+      "description": "Pie chart \u2014 one slice per series returned by the query, after reducing each series's time samples to a single scalar via `reducer` (default \"last\")."
+    },
+    "LabelPanel": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional markdown help text. When set, PanelFrame shows a `?` icon next to the title; hovering/clicking opens a popover with the rendered markdown. Use for panels whose math isn't obvious from the title alone (SLOs, burn rates, latency percentiles)."
+        },
+        "queries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PanelQuery"
+          }
+        },
+        "interlinks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PanelInterlink"
+          },
+          "description": "Optional contextual navigation targets \u2014 see v2/interlinks.ts."
+        },
+        "kind": {
+          "type": "string",
+          "const": "label"
+        },
+        "reducer": {
+          "$ref": "#/definitions/SeriesReducer"
+        },
+        "timestampAge": {
+          "type": "boolean",
+          "description": "Interpret query values as Unix timestamps in seconds. Show the age of the newest event per series at the dashboard's selected end time. Only events in (start, end] count; older, future, and non-finite values are excluded. Uses max before subtraction, overriding `reducer`, so sparse events do not need a sample at the final evaluation step."
+        },
+        "sort": {
+          "type": "string",
+          "enum": [
+            "label",
+            "value-asc",
+            "value-desc"
+          ],
+          "description": "Card order. Default \"label\" \u2014 a numeric-aware compare on the series name, which keeps a guest/service fan-out in a stable, scannable order across refreshes. \"value-asc\" puts the worst first for triage; \"value-desc\" the largest first."
+        },
+        "format": {
+          "type": "object",
+          "properties": {
+            "unit": {
+              "type": "string"
+            },
+            "decimalPlaces": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false,
+          "description": "Formatting hint applied to every card. Same shape as StatPanel.format."
+        },
+        "color": {
+          "type": "string",
+          "description": "Static color override. Replaces the auto-palette assignment when set; ignored if a threshold matches the reduced value."
+        },
+        "thresholds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ColorStop"
+          },
+          "description": "Threshold table for conditional coloring. The applied color is the highest stop whose `value` <= the reduced value. Falls back to `color` (or the auto-palette) when no stop applies."
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "queries",
+        "title"
+      ],
+      "additionalProperties": false
+    },
+    "ColorStop": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "number"
+        },
+        "color": {
+          "type": "string",
+          "description": "CSS color string. Hex (`#3b82f6`), named (`red`), or HSL all work."
+        }
+      },
+      "required": [
+        "value",
+        "color"
+      ],
+      "additionalProperties": false,
+      "description": "A point on a numeric threshold scale. The applied color for a given reduced value is the highest stop whose `value` <= the actual value."
+    },
+    "ServiceGraphPanel": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional markdown help text. When set, PanelFrame shows a `?` icon next to the title; hovering/clicking opens a popover with the rendered markdown. Use for panels whose math isn't obvious from the title alone (SLOs, burn rates, latency percentiles)."
+        },
+        "queries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PanelQuery"
+          }
+        },
+        "interlinks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PanelInterlink"
+          },
+          "description": "Optional contextual navigation targets \u2014 see v2/interlinks.ts."
+        },
+        "kind": {
+          "type": "string",
+          "const": "service-graph"
+        },
+        "metric": {
+          "type": "string",
+          "enum": [
+            "requests",
+            "errors",
+            "latency"
+          ],
+          "description": "Which signal to render. Default \"requests\"."
+        },
+        "serviceName": {
+          "type": "string",
+          "description": "When set, focus the graph on this service's BFS neighborhood; when omitted, the panel renders the full graph across all services. Accepts a literal service name (\"checkoutservice\") or a dashboard-variable token (\"$service\" / \"${service}\"); multi-value and \"all\" selections fall back to the unfiltered graph."
+        },
+        "maxHops": {
+          "type": "number",
+          "description": "BFS radius applied when `serviceName` is set. Ignored otherwise. Default 3."
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "queries",
+        "title"
+      ],
+      "additionalProperties": false,
+      "description": "Service-graph (sankey) panel. Unlike every other kind, this one has no PromQL \u2014 its data comes from the `discover_service_graph` MCP tool. The panel reads `instance` from the active LakerunnerProvider context and the time window from the dashboard's range. `queries` is required by BasePanel but unused; authors save with `queries: []`."
+    },
+    "LogEventsPanel": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional markdown help text. When set, PanelFrame shows a `?` icon next to the title; hovering/clicking opens a popover with the rendered markdown. Use for panels whose math isn't obvious from the title alone (SLOs, burn rates, latency percentiles)."
+        },
+        "queries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PanelQuery"
+          }
+        },
+        "interlinks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PanelInterlink"
+          },
+          "description": "Optional contextual navigation targets \u2014 see v2/interlinks.ts."
+        },
+        "kind": {
+          "type": "string",
+          "const": "log-events"
+        },
+        "distributionOnly": {
+          "type": "boolean",
+          "description": "Show only the per-service severity composition chart from Logs Explore. Raw log lines are neither requested nor displayed."
+        },
+        "logqlState": {
+          "$ref": "#/definitions/LogQueryBuilderState",
+          "description": "Builder-mode shape: LogQL builder state with `aggregation === undefined`."
+        },
+        "rawLogql": {
+          "type": "string",
+          "description": "Code-mode shape: raw LogQL log expression (selector + optional pipeline)."
+        },
+        "limit": {
+          "type": "number",
+          "description": "Maximum number of lines to fetch. Default 100."
+        },
+        "serviceName": {
+          "type": "string",
+          "description": "Legacy fields, written before the builder migration. The renderer hydrates them into a LogQueryBuilderState on the fly."
+        },
+        "level": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "queries",
+        "title"
+      ],
+      "additionalProperties": false,
+      "description": "Log-events panel. Renders a distribution chart above a LogViewer for the LogQL builder's filters (or a raw code-mode log expression). `queries` is unused \u2014 authors save with `queries: []`."
+    },
+    "LogQueryBuilderState": {
+      "type": "object",
+      "properties": {
+        "filters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/LogFilter"
+          }
+        },
+        "aggregation": {
+          "$ref": "#/definitions/LogAggregation"
+        },
+        "groupBy": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "window": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "filters",
+        "groupBy",
+        "window"
+      ],
+      "additionalProperties": false
+    },
+    "LogFilter": {
+      "type": "object",
+      "properties": {
+        "tag": {
+          "type": "string"
+        },
+        "op": {
+          "$ref": "#/definitions/LogFilterOp"
+        },
+        "value": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "tag",
+        "op",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "LogFilterOp": {
+      "$ref": "#/definitions/FilterOp"
+    },
+    "FilterOp": {
+      "type": "string",
+      "enum": [
+        "=",
+        "!=",
+        "=~",
+        "!~"
+      ]
+    },
+    "LogAggregation": {
+      "type": "string",
+      "enum": [
+        "count",
+        "rate",
+        "error_rate"
+      ]
+    },
+    "DashboardSection": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "cells": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/GridCell"
+          }
+        },
+        "rowHeight": {
+          "type": "number",
+          "description": "Pixel height per row-unit for this section. When set, the section opts out of the dashboard's fit-to-viewport row-height scaling and renders with literal cell heights of `h * rowHeight`. Use for sections (e.g. compact KPIs) that should keep a fixed visual size regardless of how tall the rest of the dashboard is."
+        },
+        "defaultCollapsed": {
+          "type": "boolean",
+          "description": "Seed the section as collapsed on first render. View-only \u2014 the user can still expand it, and their choice isn't persisted back. Use to fold away detail-heavy sections so the dashboard opens on the summary."
+        }
+      },
+      "required": [
+        "title",
+        "cells"
+      ],
+      "additionalProperties": false,
+      "description": "A section header + its grid cells; matches the \"collapsible row\" layout we had in Perses. Sections render vertically stacked."
+    },
+    "GridCell": {
+      "type": "object",
+      "properties": {
+        "i": {
+          "type": "string"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "w": {
+          "type": "number"
+        },
+        "h": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "i",
+        "x",
+        "y",
+        "w",
+        "h"
+      ],
+      "additionalProperties": false,
+      "description": "Layout cell in a 24-column grid (matches Perses's column count to keep migrated specs visually identical). `h` is in the grid's row-height units."
+    },
+    "DashboardVariable": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Stable identifier; also the substitution key. Must match /^[a-zA-Z_][a-zA-Z0-9_]*$/."
+        },
+        "label": {
+          "type": "string",
+          "description": "Human-friendly label shown above the picker. Defaults to `name`."
+        },
+        "kind": {
+          "type": "string",
+          "const": "query",
+          "description": "v1 only supports \"query\". Future: \"custom\" | \"constant\" | \"text\" | \"interval\"."
+        },
+        "source": {
+          "$ref": "#/definitions/VariableQuerySource"
+        },
+        "multi": {
+          "type": "boolean",
+          "description": "Multi-select picker. Default false."
+        },
+        "includeAll": {
+          "type": "boolean",
+          "description": "Offer an \"All\" option that substitutes `.+` (instead of enumerating every value \u2014 avoids regex blow-up at high cardinality). Only meaningful when `multi` is true. Default false."
+        },
+        "regex": {
+          "type": "string",
+          "description": "Optional regex applied client-side after fetching options, used to filter out blanks / internal values."
+        },
+        "sort": {
+          "type": "string",
+          "enum": [
+            "alphabetical",
+            "alphabetical-desc",
+            "numerical",
+            "numerical-desc"
+          ],
+          "description": "Sort order for displayed options. Default \"alphabetical\"."
+        },
+        "defaultValue": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Default selection if the URL param is absent. Single-value variables pick `defaultValue[0]`; multi-value pick all entries. If absent and `includeAll` is true, defaults to \"All\"; otherwise defaults to the first option after sort."
+        }
+      },
+      "required": [
+        "name",
+        "kind",
+        "source"
+      ],
+      "additionalProperties": false,
+      "description": "A dashboard-level variable. Selected values are interpolated into every panel's PromQL/LogQL query at render time via `$<name>` / `${<name>}` tokens. URL-shareable (one `var-<name>` query param per variable)."
+    },
+    "VariableQuerySource": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "signal": {
+              "type": "string",
+              "const": "metrics"
+            },
+            "metric": {
+              "type": "string"
+            },
+            "label": {
+              "type": "string"
+            },
+            "scope": {
+              "type": "string",
+              "description": "Extra label matchers appended to the `{__name__=\"<metric>\"}` selector used to fetch this variable's picker options, written as a raw selector fragment \u2014 `clustername=~\"$cluster\"`. `$<name>` tokens are substituted from the current selections with the same rules panel queries use (see variables.ts), so multi-select parents become a regex alternation and \"All\" becomes `.+`.\n\nThis is what makes one variable depend on another: a `service` variable scoped by `$cluster` only offers services that exist in the selected cluster, instead of every service in the org. A scoped variable whose parent has no value yet reports `incomplete` and skips the fetch rather than querying with an unresolved `$token`.\n\nCycles (`a` scoped by `$b` scoped by `$a`) are rejected \u2014 see `findVariableCycle`."
+            }
+          },
+          "required": [
+            "signal",
+            "metric",
+            "label"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "signal": {
+              "type": "string",
+              "const": "logs"
+            },
+            "label": {
+              "type": "string"
+            },
+            "expr": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "signal",
+            "label"
+          ],
+          "additionalProperties": false
+        }
+      ],
+      "description": "Source for a query-driven variable's picker options. The signal discriminator selects the resolution path (metric tag values vs log tag values). v1 shipped only the \"query\" kind; the kind discriminator on  {@link  DashboardVariable }  is forward-compatible scaffolding."
+    }
+  }
+}

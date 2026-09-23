@@ -1,0 +1,274 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# Dashboard JSON spec
+
+Every Cardinal UI dashboard is stored as one JSON document, the **dashboard spec**. It describes the panels, the queries behind them, how they are laid out, and any variables. The same document is used in three places:
+
+- **Export** on an open dashboard downloads it.
+- **Dashboards → Add Dashboard → Import JSON** creates a dashboard from it.
+- The [Dashboards API](/ui/dashboards/api) takes it as the `spec` field.
+
+A machine-readable JSON Schema is published at [`/schemas/dashboard.schema.json`](/schemas/dashboard.schema.json). Point your editor or CI at it to get completion and validation while you generate specs from code.
+
+<SupportCallout />
+
+## Round trip: build in the UI, then template it
+
+Hand-writing a spec from scratch is rarely the fastest route. Instead:
+
+1. Build one dashboard in the UI the way you want it.
+2. Click **Export** to download its JSON.
+3. Use that file as a template: substitute service names, thresholds or queries in your own tooling.
+4. Load the results back with **Import JSON** or the [API](/ui/dashboards/api).
+
+## File formats Import accepts
+
+**Import JSON** accepts either of these:
+
+- **The export envelope** that **Export** produces:
+
+  ```json
+  {
+    "schemaVersion": 2,
+    "name": "Login health",
+    "exportedAt": "2026-09-23T18:00:00.000Z",
+    "spec": { "duration": "1h", "panels": { }, "sections": [ ] }
+  }
+  ```
+
+  `name` pre-fills the dashboard name in the import dialog.
+
+- **A bare spec**, i.e. just the `spec` object. The dialog then uses the file name as the dashboard name.
+
+The dialog also asks for a category, which decides where the dashboard is listed.
+
+Import is forgiving. A panel with an unknown `kind`, or one missing `id`, `title` or `queries`, is dropped with a warning instead of failing the whole file. The same goes for an invalid variable or grid cell. The schema is stricter: it rejects unknown fields. So a spec that validates against the schema will always import cleanly.
+
+## Top-level fields
+
+| Field | Required | Description |
+| --- | --- | --- |
+| `duration` | yes | Default time window when the dashboard opens: `"15m"`, `"1h"`, `"24h"`, `"7d"`, … Viewers can change it in the toolbar. |
+| `panels` | yes | Object of panels keyed by panel id. Grid cells refer to panels by this key, so keep it the same as the panel's `id`. |
+| `sections` | yes | Ordered list of sections. Each section holds the grid positions of its panels. |
+| `variables` | no | Dashboard variables (drop-down pickers) whose values are substituted into queries. See [Variables](#variables). |
+| `category` | no | Where the dashboard is listed on the Dashboards page: `applications`, `infrastructure`, `kubernetes`, `eks`, `ecs`, `rds`, `sqs`, `kafka`, `aws-networking`, `proxmox`, `ceph`, `bind`, `headscale`, `outcomes`. Omitted → *Uncategorized*. **Import JSON** ignores this field and uses the category you pick in the dialog; the API honors it. |
+| `smooth` | no | `true` applies a display-only moving average to time-series panels. Default `false`. |
+| `sharedCrosshair` | no | Hovering a time on one chart draws a line at the same time on every other time-axis chart. Default on; set `false` to turn it off. |
+| `schemaVersion` | no | Spec format version, currently `2`. **Export** stamps it for you. |
+
+## Sections and layout
+
+Panels are placed on a **24-column grid** inside sections. Sections stack vertically, and each can be collapsed.
+
+```json
+"sections": [
+  {
+    "title": "Logins",
+    "cells": [
+      { "i": "logins_rate", "x": 0,  "y": 0, "w": 16, "h": 8 },
+      { "i": "logins_now",  "x": 16, "y": 0, "w": 8,  "h": 8 }
+    ]
+  }
+]
+```
+
+| Field | Description |
+| --- | --- |
+| `title` | Section header text. |
+| `cells[].i` | Id of the panel in this cell. It must be a key in `panels`. |
+| `cells[].x`, `cells[].y` | Column (0–23) and row of the top-left corner. |
+| `cells[].w`, `cells[].h` | Width in columns (1–24) and height in row units. |
+| `rowHeight` | Optional fixed pixel height per row unit for this section. Without it, row height scales to fit the viewport. |
+| `defaultCollapsed` | Optional. `true` opens the section collapsed. |
+
+A panel that isn't referenced by any cell is kept in the spec but not shown.
+
+## Panels
+
+Every panel has these fields:
+
+| Field | Required | Description |
+| --- | --- | --- |
+| `id` | yes | Unique within the dashboard. Use the same value as its key in `panels`. |
+| `kind` | yes | One of the kinds below. |
+| `title` | yes | Panel header text. |
+| `queries` | yes | List of queries. Use `[]` for kinds that don't query (`service-graph`, `log-events`). |
+| `description` | no | Markdown help text, shown behind a `?` icon next to the title. |
+| `interlinks` | no | Click-through links to other dashboards. See the schema's `PanelInterlink`. |
+
+### Queries
+
+```json
+{ "query": "sum by (app) (rate(login_success_total[5m]))", "name": "{{app}}" }
+```
+
+| Field | Description |
+| --- | --- |
+| `query` | PromQL (default) or LogQL expression. `$variable` and `${variable}` tokens are substituted from the dashboard's variables. |
+| `queryKind` | `"prometheus"` (default) or `"loki"` for LogQL. |
+| `name` | Legend name for the returned series. `{{label}}` inserts a label value. |
+| `color` | Fixed hex color for this query's series, e.g. `"#3b82f6"`. |
+| `hidden` | `true` keeps the query in the spec but doesn't plot it. |
+
+### `timeseries`
+
+A line, area or bar chart over time. This is the kind to use for most metrics.
+
+| Field | Description |
+| --- | --- |
+| `variant` | `line` (default), `area`, `stacked-area`, `bar`, `stacked-bar`, `normalized-bar`. |
+| `unit` | Unit shown on the Y axis, e.g. `"ms"`, `"%"`, `"req/s"`. |
+| `yAxisLabel` | Y-axis title. Drawn as `Title (unit)` when `unit` is also set. |
+| `xAxisLabel` | X-axis title, drawn under the time ticks. |
+| `yMin`, `yMax` | Pin the Y axis to fixed bounds instead of auto-fitting. |
+| `integerYMax` | Round the top of the Y axis up to a whole number (counts, replicas). |
+| `percentScale` | Hold the Y axis at 0–100. |
+| `smooth` | Per-panel override of the dashboard-level `smooth`. |
+| `highlightWhen` | Shade the background wherever a second query is above a threshold: `{ "query": "…", "threshold": 0.5, "colors": { "<label>": "#hex" } }`. |
+
+### `bar`
+
+A stacked bar chart over time, one stack segment per series.
+
+| Field | Description |
+| --- | --- |
+| `reducer` | How samples in the same bar are combined: `last` (default), `mean`, `max`, `min`, `sum`. Use `sum` for counters and `last`/`max` for gauges. |
+| `unit`, `yAxisLabel`, `xAxisLabel`, `percentScale` | As for `timeseries`. |
+| `color` | Single color for every series. |
+
+### `stat` and `gauge`
+
+A single number, or an arc for `gauge`.
+
+| Field | Description |
+| --- | --- |
+| `calculation` | `stat` only. How the series is reduced to one number: `last` (default), `mean`, `max`, `min`, `sum`. |
+| `max` | `gauge` only. Upper bound of the arc. Omit it to auto-scale. |
+| `format` | `{ "unit": "sessions", "decimalPlaces": 0 }`. |
+| `sparkline`, `sparklineColor` | Draw the underlying series as a small trend line under the number. |
+
+### `label`
+
+One card per series the query returns, e.g. one per `service_name` when the query groups by it.
+
+| Field | Description |
+| --- | --- |
+| `reducer` | As for `bar`. Default `last`. |
+| `sort` | `label` (default), `value-asc`, `value-desc`. |
+| `format` | As for `stat`. |
+| `color` | Static card color. |
+| `thresholds` | Conditional colors: `[{ "value": 0, "color": "green" }, { "value": 5, "color": "red" }]`. The highest stop at or below the value wins. |
+| `timestampAge` | Treat values as Unix timestamps in seconds and show how long ago the newest one was. |
+
+### `pie`
+
+One slice per series, reduced with `reducer` (default `last`).
+
+### `log-events`
+
+Log lines with a volume chart above them. Set `queries` to `[]`, and give either `rawLogql` (a LogQL log selector and pipeline) or `logqlState` (the Logs Explore builder's state, easiest to get from an export). Add `limit` (default 100) to cap the number of lines, or set `distributionOnly: true` to show just the per-service severity chart.
+
+### `service-graph`
+
+A service dependency graph built from traces. Set `queries` to `[]`. Options:
+
+- `metric`: `requests` (default), `errors` or `latency`
+- `serviceName`: centre the graph on this service; a `$variable` works here
+- `maxHops`: how far out from `serviceName` to go (default 3)
+
+### `service-gauges` and `service-memory-bars`
+
+Purpose-built panels for Cardinal's system dashboards. Each expects a fixed set of queries in a fixed order. Copy one from an exported gallery dashboard rather than writing it by hand.
+
+## Variables
+
+Variables add drop-down pickers to the dashboard. A variable named `app` is substituted wherever a query contains `$app` or `${app}`.
+
+```json
+"variables": [
+  {
+    "name": "app",
+    "label": "Application",
+    "kind": "query",
+    "source": { "signal": "metrics", "metric": "login_success_total", "label": "app" },
+    "multi": true,
+    "includeAll": true
+  }
+]
+```
+
+| Field | Description |
+| --- | --- |
+| `name` | Letters, digits and `_`, not starting with a digit. This is the token used in queries. |
+| `label` | Text above the picker. Defaults to `name`. |
+| `kind` | Always `"query"`. |
+| `source` | Where the options come from. **Metrics:** `{ "signal": "metrics", "metric": "<metric>", "label": "<label>" }`, which offers the values of `<label>` on `<metric>`. Add `"scope": "cluster=~\"$cluster\""` to limit the options by another variable's selection. **Logs:** `{ "signal": "logs", "label": "<label>" }`, with an optional `expr` selector. |
+| `multi` | Allow several values. They are substituted as a regex alternation, so match them with `=~`. |
+| `includeAll` | Offer an **All** option, substituted as `.+`. |
+| `defaultValue` | Initial selection, as a list of strings. |
+| `regex` | Hide options that don't match this regex. |
+| `sort` | `alphabetical` (default), `alphabetical-desc`, `numerical`, `numerical-desc`. |
+
+## Complete example
+
+This dashboard charts login successes and failures for one or more applications. It shows the current failure count as a single number that turns red at 5 or more.
+
+```json
+{
+  "schemaVersion": 2,
+  "category": "applications",
+  "duration": "6h",
+  "variables": [
+    {
+      "name": "app",
+      "label": "Application",
+      "kind": "query",
+      "source": { "signal": "metrics", "metric": "login_success_total", "label": "app" },
+      "multi": true,
+      "includeAll": true
+    }
+  ],
+  "panels": {
+    "logins": {
+      "id": "logins",
+      "kind": "timeseries",
+      "title": "Logins per minute",
+      "yAxisLabel": "Logins",
+      "unit": "/min",
+      "queries": [
+        { "query": "sum by (app) (rate(login_success_total{app=~\"$app\"}[5m])) * 60", "name": "{{app}} success" },
+        { "query": "sum by (app) (rate(login_failure_total{app=~\"$app\"}[5m])) * 60", "name": "{{app}} failure", "color": "#ef4444" }
+      ]
+    },
+    "failures_now": {
+      "id": "failures_now",
+      "kind": "label",
+      "title": "Failed logins (last 5m)",
+      "reducer": "last",
+      "thresholds": [
+        { "value": 0, "color": "#22c55e" },
+        { "value": 5, "color": "#ef4444" }
+      ],
+      "queries": [
+        { "query": "sum by (app) (increase(login_failure_total{app=~\"$app\"}[5m]))", "name": "{{app}}" }
+      ]
+    }
+  },
+  "sections": [
+    {
+      "title": "Logins",
+      "cells": [
+        { "i": "logins", "x": 0, "y": 0, "w": 16, "h": 8 },
+        { "i": "failures_now", "x": 16, "y": 0, "w": 8, "h": 8 }
+      ]
+    }
+  ]
+}
+```
+
+Dashboards show metrics. To be **notified** when a condition holds for a while (for example, more than 5 failed logins per minute for 10 minutes), create an [alert rule](/ui/alerting/create-alert-rule) with a **For** duration.
+
+## Versions
+
+Axis titles (`yAxisLabel`, `xAxisLabel`) and `sharedCrosshair` need Cardinal UI **v1.95.35** or later. Earlier versions accept a spec that contains them but don't draw them.
