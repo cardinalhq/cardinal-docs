@@ -31,10 +31,14 @@ Explore checks the expression while you type. Expressions that cannot be represe
 
 ## Investigate log volume
 
-The distribution chart groups matching logs by service and severity. Use it to find which service contributes most of the current volume and whether that volume is mostly informational, warnings, or errors.
+The distribution chart groups matching logs by service and severity. Use it to find which service contributes most of the current volume and whether that volume is mostly informational, warnings, or errors. It has three tabs:
 
-- Click a **service row** to open its severity history over time.
-- Click a **severity segment** to add that level to the search.
+- **Levels by service** shows each service's mix of log levels as a full-width bar, with its total log count and the share of its logs at ERROR or FATAL level (for example, `2.3% err`). Services with the highest error share are listed first. Click a service name to open its severity history over time, or click a level segment to open that service with the level added to the search.
+- **Count by service** charts log volume over time, one series per service. Click a series to open that service's severity history.
+- **Count by level** charts log volume over time, one series per level. Click a series to show only that level.
+
+Around the chart:
+
 - Use **All services** to return from a service drill-down.
 - Use the KPI chips to compare total volume and severity counts for the current scope.
 
