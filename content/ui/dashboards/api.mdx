@@ -1,0 +1,201 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# Dashboards API
+
+Cardinal UI's dashboards can be listed, read, created, updated and deleted over HTTP. Use the API to generate dashboards from code, for example one per service, or to keep a fleet of dashboards in version control and sync it from CI.
+
+The request body carries the [dashboard JSON spec](/ui/dashboards/json-spec), the same document the UI's **Export** and **Import from JSON** use.
+
+> **Version:** creating and updating dashboards with an API key needs Cardinal UI **v1.96.0** or later. Earlier versions answer those requests with `500`. Reads and deletes work on earlier versions.
+
+<SupportCallout />
+
+## Authentication
+
+Every request carries an API key in the `X-CardinalHQ-API-Key` header.
+
+### Self-hosted Cardinal UI
+
+Self-hosted installs have two kinds of key:
+
+| Key | Reach | Use it for |
+| --- | --- | --- |
+| **System API key**: the `MAESTRO_MCP_API_KEY` value your operator set on the Cardinal UI deployment | Every organization in the installation, including admin endpoints | One-off setup: looking up your org id and minting an org key. Keep it out of CI. |
+| **Organization API key**: minted with the system key | A single organization, with owner-level access inside it | Scripts and CI that manage that org's dashboards |
+
+If `MAESTRO_MCP_API_KEY` isn't set yet, see [Connect AI Clients → Provision the API key](/ui/mcp-clients#1-provision-the-api-key). The same key is used here.
+
+**1. Find your organization id.**
+
+```bash
+export CARDINAL_URL=https://cardinal.example.internal   # your Cardinal UI host
+export SYSTEM_KEY=...                                    # MAESTRO_MCP_API_KEY
+
+curl -s "$CARDINAL_URL/api/admin/orgs" \
+  -H "X-CardinalHQ-API-Key: $SYSTEM_KEY" | jq '.[] | {id, name, slug}'
+```
+
+**2. Mint an organization key.**
+
+```bash
+export ORG_ID=...   # the id from step 1
+
+curl -s -X POST "$CARDINAL_URL/api/admin/api-keys" \
+  -H "X-CardinalHQ-API-Key: $SYSTEM_KEY" \
+  -H "Content-Type: application/json" \
+  -d "{\"ownerType\": \"organization\", \"ownerId\": \"$ORG_ID\", \"label\": \"dashboards-ci\"}"
+```
+
+The response's `rawKey` is the key. It is shown **only once**, so store it in your secret manager straight away. Keep the response's `id` as well; you need it to revoke the key later:
+
+```bash
+curl -s -X DELETE "$CARDINAL_URL/api/admin/api-keys/<id>" \
+  -H "X-CardinalHQ-API-Key: $SYSTEM_KEY"
+```
+
+An organization key can act as an owner of its organization on any Cardinal UI endpoint, not only dashboards. A request that names a different org in its path is refused with `403 org_scope_mismatch`. Treat the key as a secret and give each automation its own key, so you can revoke one without breaking the others.
+
+### Cardinal Cloud
+
+On `app.cardinalhq.io`, contact Cardinal support for an organization API key and your organization id. The rest of this page is the same, with `CARDINAL_URL=https://app.cardinalhq.io`.
+
+## Endpoints
+
+All paths are relative to your Cardinal UI host. `{orgId}` is your organization id.
+
+| Method | Path | Does |
+| --- | --- | --- |
+| `GET` | `/api/orgs/{orgId}/dashboards` | List dashboards, without their specs. |
+| `GET` | `/api/orgs/{orgId}/dashboards/{id}` | Get one dashboard, including its spec. |
+| `POST` | `/api/orgs/{orgId}/dashboards` | Create a dashboard. Body: `{ "name": "...", "spec": { ... } }`. Returns `201`. |
+| `PUT` | `/api/orgs/{orgId}/dashboards/{id}` | Update a dashboard. Body: `{ "name"?: "...", "spec"?: { ... } }`. |
+| `DELETE` | `/api/orgs/{orgId}/dashboards/{id}` | Delete a dashboard. Returns `204`. |
+
+Every dashboard gets a server-generated id (a UUID) when it's created. You can't choose the id, and there's no create-or-update by name; see [Syncing from code](#syncing-from-code) for how to handle that.
+
+### Create
+
+```bash
+export CARDINAL_KEY=...   # organization key
+
+curl -s -X POST "$CARDINAL_URL/api/orgs/$ORG_ID/dashboards" \
+  -H "X-CardinalHQ-API-Key: $CARDINAL_KEY" \
+  -H "Content-Type: application/json" \
+  -d @- <<'EOF'
+{
+  "name": "Login health",
+  "spec": {
+    "schemaVersion": 2,
+    "category": "applications",
+    "duration": "6h",
+    "panels": {
+      "logins": {
+        "id": "logins",
+        "kind": "timeseries",
+        "title": "Logins per minute",
+        "yAxisLabel": "Logins",
+        "queries": [{ "query": "sum(rate(login_success_total[5m])) * 60" }]
+      }
+    },
+    "sections": [
+      { "title": "Logins", "cells": [{ "i": "logins", "x": 0, "y": 0, "w": 24, "h": 8 }] }
+    ]
+  }
+}
+EOF
+```
+
+The response is the stored dashboard:
+
+```json
+{
+  "id": "5b0c8f5e-3f0e-4d8a-9a57-1f7d2c6b9e10",
+  "orgId": "…",
+  "name": "Login health",
+  "spec": { "…": "…" },
+  "createdBy": null,
+  "updatedBy": null,
+  "createdAt": "2026-09-23T18:00:00.000Z",
+  "updatedAt": "2026-09-23T18:00:00.000Z",
+  "deletedAt": null
+}
+```
+
+API keys aren't recorded as authors. A dashboard created with a key has `createdBy: null`. An update made with a key leaves `updatedBy` as it was, so it still names the last signed-in user who edited the dashboard; `updatedAt` always reflects the latest change.
+
+### List
+
+```bash
+curl -s "$CARDINAL_URL/api/orgs/$ORG_ID/dashboards" \
+  -H "X-CardinalHQ-API-Key: $CARDINAL_KEY" | jq '.[] | {id, name, category}'
+```
+
+Each entry includes `id`, `name`, `category` (when the spec sets one), `createdAt` and `updatedAt`, but not `spec`. Fetch a single dashboard to get its spec.
+
+### Update
+
+`PUT` changes only the fields you send. Send `name` alone to rename. A `spec` you send **replaces the stored spec completely**; it is not merged. To change one panel, `GET` the dashboard, edit its spec, and `PUT` the whole spec back.
+
+Dashboards added from the gallery carry a `libraryRef` field that keeps them showing the gallery's version. A `PUT` that includes a spec removes it, so your edited spec is what's shown from then on, the same as editing in the UI.
+
+When you **create** a dashboard from an exported gallery dashboard, delete `libraryRef` from the spec before you `POST` it. Otherwise the new dashboard shows the gallery's version instead of your spec.
+
+```bash
+curl -s -X PUT "$CARDINAL_URL/api/orgs/$ORG_ID/dashboards/$DASHBOARD_ID" \
+  -H "X-CardinalHQ-API-Key: $CARDINAL_KEY" \
+  -H "Content-Type: application/json" \
+  -d @login-health.json   # { "name": "...", "spec": { ... } }
+```
+
+### Delete
+
+```bash
+curl -s -X DELETE "$CARDINAL_URL/api/orgs/$ORG_ID/dashboards/$DASHBOARD_ID" \
+  -H "X-CardinalHQ-API-Key: $CARDINAL_KEY"
+```
+
+## Validate before you send
+
+The API stores the spec as given; it doesn't check its structure. A malformed spec is accepted, and then renders as empty or erroring panels. Validate every spec against the [published JSON Schema](/schemas/dashboard.schema.json) before sending it. For example, with [`check-jsonschema`](https://github.com/python-jsonschema/check-jsonschema):
+
+```bash
+check-jsonschema --schemafile https://docs.cardinalhq.io/schemas/dashboard.schema.json login-health.spec.json
+```
+
+## Syncing from code
+
+To manage a set of dashboards from files, match them by name. Update the dashboard when one with that name exists; otherwise create it. This script syncs every `*.json` file in a directory. Each file holds a bare spec, and the file name is the dashboard name.
+
+```python
+import json, os, pathlib, requests
+
+BASE = f"{os.environ['CARDINAL_URL']}/api/orgs/{os.environ['ORG_ID']}/dashboards"
+HEADERS = {"X-CardinalHQ-API-Key": os.environ["CARDINAL_KEY"]}
+
+resp = requests.get(BASE, headers=HEADERS)
+resp.raise_for_status()
+existing = {d["name"]: d["id"] for d in resp.json()}
+
+for path in sorted(pathlib.Path("dashboards").glob("*.json")):
+    name, spec = path.stem, json.loads(path.read_text())
+    body = {"name": name, "spec": spec}
+    if name in existing:
+        r = requests.put(f"{BASE}/{existing[name]}", headers=HEADERS, json=body)
+    else:
+        r = requests.post(BASE, headers=HEADERS, json=body)
+    r.raise_for_status()
+    print(f"{r.request.method} {name}")
+```
+
+Dashboard names aren't unique. If two dashboards share a name, this script updates only one of them, so keep names unique in the orgs you sync.
+
+## Errors
+
+| Status | Meaning |
+| --- | --- |
+| `400` | `name` missing on create. |
+| `401` | Missing or unknown API key. |
+| `403 org_scope_mismatch` | The organization key belongs to a different org than the one in the path. |
+| `403 insufficient_scope` | The key isn't allowed to call this endpoint. Plugin and personal keys can't manage dashboards; use an organization key. |
+| `404` | No dashboard with that id in this org, or it has been deleted. Ids are UUIDs; a malformed id fails with `500`. |
+| `413` | Request body larger than 100 KB. Send compact JSON (no indentation). |

@@ -5,6 +5,7 @@ export default {
   },
   install: 'Installation',
   integrations: 'Integrations',
+  dashboards: 'Dashboards',
   alerting: 'Alerting',
   interlinks: 'Interlinks',
   explore: 'Explore',

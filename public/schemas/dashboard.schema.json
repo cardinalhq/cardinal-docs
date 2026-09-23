@@ -1,0 +1,1159 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://docs.cardinalhq.io/schemas/dashboard.schema.json",
+  "title": "Cardinal UI dashboard spec",
+  "description": "The spec object accepted by Import from JSON and by POST/PUT /api/orgs/{orgId}/dashboards. See https://docs.cardinalhq.io/ui/dashboards/json-spec.",
+  "$ref": "#/definitions/Dashboard",
+  "definitions": {
+    "Dashboard": {
+      "type": "object",
+      "properties": {
+        "schemaVersion": {
+          "type": "number",
+          "description": "Spec format version. Currently 2."
+        },
+        "category": {
+          "type": "string",
+          "description": "Where the dashboard is listed on the Dashboards page. Omitted or unknown means Custom."
+        },
+        "libraryRef": {
+          "type": "string",
+          "description": "Set on dashboards added from the gallery. While it is set, Cardinal UI shows the gallery's version instead of this spec. Delete it before creating a dashboard from an exported spec; updates and Import from JSON remove it for you."
+        },
+        "duration": {
+          "type": "string",
+          "description": "Default time window when the dashboard opens, e.g. \"1h\", \"24h\", \"7d\"."
+        },
+        "panels": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/Panel"
+          },
+          "description": "Panels keyed by panel id."
+        },
+        "sections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DashboardSection"
+          },
+          "description": "Ordered list of sections holding the grid layout."
+        },
+        "variables": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DashboardVariable"
+          },
+          "description": "Dashboard variables whose selected values are substituted into queries."
+        },
+        "smooth": {
+          "type": "boolean",
+          "description": "Apply a display-only moving average to time-series panels. Default false."
+        },
+        "sharedCrosshair": {
+          "type": "boolean",
+          "description": "Hovering a time on one chart draws a line at the same time on every other time-axis chart. Default true."
+        }
+      },
+      "required": [
+        "duration",
+        "panels",
+        "sections"
+      ],
+      "additionalProperties": false,
+      "description": "A Cardinal UI dashboard spec: the object accepted by Import from JSON and by POST/PUT /api/orgs/{orgId}/dashboards."
+    },
+    "Panel": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/TimeSeriesPanel"
+        },
+        {
+          "$ref": "#/definitions/StatPanel"
+        },
+        {
+          "$ref": "#/definitions/GaugePanel"
+        },
+        {
+          "$ref": "#/definitions/ServiceGaugesPanel"
+        },
+        {
+          "$ref": "#/definitions/ServiceMemoryBarsPanel"
+        },
+        {
+          "$ref": "#/definitions/BarPanel"
+        },
+        {
+          "$ref": "#/definitions/PiePanel"
+        },
+        {
+          "$ref": "#/definitions/LabelPanel"
+        },
+        {
+          "$ref": "#/definitions/ServiceGraphPanel"
+        },
+        {
+          "$ref": "#/definitions/LogEventsPanel"
+        }
+      ],
+      "description": "One dashboard panel. The kind field selects the panel type."
+    },
+    "TimeSeriesPanel": {
+      "type": "object",
+      "properties": {
+        "yAxisLabel": {
+          "type": "string",
+          "description": "Y-axis title. Drawn as \"Title (unit)\" when unit is also set."
+        },
+        "xAxisLabel": {
+          "type": "string",
+          "description": "X-axis title, drawn under the time ticks."
+        },
+        "id": {
+          "type": "string",
+          "description": "Panel id, unique within the dashboard. Use the same value as its key in panels."
+        },
+        "title": {
+          "type": "string",
+          "description": "Panel header text."
+        },
+        "description": {
+          "type": "string",
+          "description": "Markdown help text shown behind a ? icon next to the title."
+        },
+        "queries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PanelQuery"
+          },
+          "description": "Queries that feed the panel. Use [] for panel kinds that don't query."
+        },
+        "interlinks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PanelInterlink"
+          },
+          "description": "Click-through links from a series to another dashboard."
+        },
+        "kind": {
+          "type": "string",
+          "const": "timeseries",
+          "description": "Panel kind."
+        },
+        "unit": {
+          "type": "string",
+          "description": "Unit shown on the Y axis, e.g. \"ms\", \"%\", \"req/s\"."
+        },
+        "variant": {
+          "$ref": "#/definitions/TimeSeriesVariant",
+          "description": "Draw style. Default line."
+        },
+        "yMin": {
+          "type": "number",
+          "description": "Fixed lower bound for the Y axis."
+        },
+        "yMax": {
+          "type": "number",
+          "description": "Fixed upper bound for the Y axis."
+        },
+        "integerYMax": {
+          "type": "boolean",
+          "description": "Round the top of the Y axis up to a whole number."
+        },
+        "percentScale": {
+          "type": "boolean",
+          "description": "Hold the Y axis at 0-100."
+        },
+        "highlightWhen": {
+          "$ref": "#/definitions/PanelHighlightWhen",
+          "description": "Shade the background wherever a second query is above a threshold."
+        },
+        "smooth": {
+          "type": "boolean",
+          "description": "Per-panel override of the dashboard-level smooth setting."
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "queries",
+        "title"
+      ],
+      "additionalProperties": false,
+      "description": "Line, area or bar chart over time."
+    },
+    "PanelQuery": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "description": "PromQL (default) or LogQL expression. $variable and ${variable} are substituted from dashboard variables."
+        },
+        "name": {
+          "type": "string",
+          "description": "Legend name for returned series. {{label}} inserts a label value."
+        },
+        "queryKind": {
+          "type": "string",
+          "enum": [
+            "prometheus",
+            "loki"
+          ],
+          "description": "Query language: prometheus (default) or loki."
+        },
+        "includePartialStep": {
+          "type": "boolean",
+          "description": "Include the final, still-filling time bucket."
+        },
+        "color": {
+          "type": "string",
+          "description": "Fixed hex color for this query's series."
+        },
+        "formulaSource": {
+          "type": "string",
+          "description": "Set by the panel editor when the query came from a formula. Not needed when writing specs by hand."
+        },
+        "hidden": {
+          "type": "boolean",
+          "description": "Keep the query in the spec without plotting it."
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "additionalProperties": false,
+      "description": "A PromQL or LogQL query."
+    },
+    "PanelInterlink": {
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string",
+          "description": "Menu label. {{label}} inserts a value from the clicked series."
+        },
+        "targetDashboardId": {
+          "type": "string",
+          "description": "Id of the dashboard to open."
+        },
+        "entityKind": {
+          "type": "string",
+          "description": "Optional grouping hint for the link menu."
+        },
+        "requiredLabels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Labels the clicked series must have for the link to appear."
+        },
+        "paramMap": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Target variable name mapped to the source series label that fills it."
+        },
+        "keepTimeRange": {
+          "type": "boolean",
+          "description": "Keep the current time range on the target dashboard. Default true."
+        },
+        "group": {
+          "type": "string",
+          "description": "Optional section header in the link menu."
+        }
+      },
+      "required": [
+        "label",
+        "targetDashboardId",
+        "requiredLabels",
+        "paramMap"
+      ],
+      "additionalProperties": false,
+      "description": "A link from a clicked series to another dashboard."
+    },
+    "TimeSeriesVariant": {
+      "type": "string",
+      "enum": [
+        "line",
+        "bar",
+        "stacked-bar",
+        "normalized-bar",
+        "area",
+        "stacked-area"
+      ],
+      "description": "Time-series draw style."
+    },
+    "PanelHighlightWhen": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "description": "PromQL or LogQL query. Group by a label to get one band per value."
+        },
+        "queryKind": {
+          "type": "string",
+          "enum": [
+            "prometheus",
+            "loki"
+          ],
+          "description": "Query language: prometheus (default) or loki."
+        },
+        "threshold": {
+          "type": "number",
+          "description": "A sample above this value is shaded. Default 0.5."
+        },
+        "colors": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Band color per series label value."
+        },
+        "defaultColor": {
+          "type": "string",
+          "description": "Band color for label values not listed in colors."
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "additionalProperties": false,
+      "description": "Background shading driven by a threshold query."
+    },
+    "StatPanel": {
+      "type": "object",
+      "properties": {
+        "sparkline": {
+          "type": "boolean",
+          "description": "Draw the series as a small trend line under the number."
+        },
+        "sparklineColor": {
+          "type": "string",
+          "description": "Sparkline color."
+        },
+        "id": {
+          "type": "string",
+          "description": "Panel id, unique within the dashboard. Use the same value as its key in panels."
+        },
+        "title": {
+          "type": "string",
+          "description": "Panel header text."
+        },
+        "description": {
+          "type": "string",
+          "description": "Markdown help text shown behind a ? icon next to the title."
+        },
+        "queries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PanelQuery"
+          },
+          "description": "Queries that feed the panel. Use [] for panel kinds that don't query."
+        },
+        "interlinks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PanelInterlink"
+          },
+          "description": "Click-through links from a series to another dashboard."
+        },
+        "kind": {
+          "type": "string",
+          "const": "stat",
+          "description": "Panel kind."
+        },
+        "calculation": {
+          "type": "string",
+          "enum": [
+            "last",
+            "mean",
+            "max",
+            "min",
+            "sum"
+          ],
+          "description": "How the series is reduced to one number. Default last."
+        },
+        "format": {
+          "type": "object",
+          "properties": {
+            "unit": {
+              "type": "string"
+            },
+            "decimalPlaces": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false,
+          "description": "Number formatting: unit suffix and decimal places."
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "queries",
+        "title"
+      ],
+      "additionalProperties": false,
+      "description": "A single number."
+    },
+    "GaugePanel": {
+      "type": "object",
+      "properties": {
+        "sparkline": {
+          "type": "boolean",
+          "description": "Draw the series as a small trend line under the number."
+        },
+        "sparklineColor": {
+          "type": "string",
+          "description": "Sparkline color."
+        },
+        "id": {
+          "type": "string",
+          "description": "Panel id, unique within the dashboard. Use the same value as its key in panels."
+        },
+        "title": {
+          "type": "string",
+          "description": "Panel header text."
+        },
+        "description": {
+          "type": "string",
+          "description": "Markdown help text shown behind a ? icon next to the title."
+        },
+        "queries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PanelQuery"
+          },
+          "description": "Queries that feed the panel. Use [] for panel kinds that don't query."
+        },
+        "interlinks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PanelInterlink"
+          },
+          "description": "Click-through links from a series to another dashboard."
+        },
+        "kind": {
+          "type": "string",
+          "const": "gauge",
+          "description": "Panel kind."
+        },
+        "max": {
+          "type": "number",
+          "description": "Upper bound of the arc. Omit to auto-scale."
+        },
+        "format": {
+          "type": "object",
+          "properties": {
+            "unit": {
+              "type": "string"
+            },
+            "decimalPlaces": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false,
+          "description": "Number formatting: unit suffix and decimal places."
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "queries",
+        "title"
+      ],
+      "additionalProperties": false,
+      "description": "A single number drawn as an arc."
+    },
+    "ServiceGaugesPanel": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Panel id, unique within the dashboard. Use the same value as its key in panels."
+        },
+        "title": {
+          "type": "string",
+          "description": "Panel header text."
+        },
+        "description": {
+          "type": "string",
+          "description": "Markdown help text shown behind a ? icon next to the title."
+        },
+        "queries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PanelQuery"
+          },
+          "description": "Queries that feed the panel. Use [] for panel kinds that don't query."
+        },
+        "interlinks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PanelInterlink"
+          },
+          "description": "Click-through links from a series to another dashboard."
+        },
+        "kind": {
+          "type": "string",
+          "const": "service-gauges",
+          "description": "Panel kind."
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "queries",
+        "title"
+      ],
+      "additionalProperties": false,
+      "description": "Per-service CPU, memory and pod gauges. Expects a fixed set of queries; copy one from an exported gallery dashboard."
+    },
+    "ServiceMemoryBarsPanel": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Panel id, unique within the dashboard. Use the same value as its key in panels."
+        },
+        "title": {
+          "type": "string",
+          "description": "Panel header text."
+        },
+        "description": {
+          "type": "string",
+          "description": "Markdown help text shown behind a ? icon next to the title."
+        },
+        "queries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PanelQuery"
+          },
+          "description": "Queries that feed the panel. Use [] for panel kinds that don't query."
+        },
+        "interlinks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PanelInterlink"
+          },
+          "description": "Click-through links from a series to another dashboard."
+        },
+        "kind": {
+          "type": "string",
+          "const": "service-memory-bars",
+          "description": "Panel kind."
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "queries",
+        "title"
+      ],
+      "additionalProperties": false,
+      "description": "Per-service memory bars. Expects a fixed set of queries; copy one from an exported gallery dashboard."
+    },
+    "BarPanel": {
+      "type": "object",
+      "properties": {
+        "yAxisLabel": {
+          "type": "string",
+          "description": "Y-axis title. Drawn as \"Title (unit)\" when unit is also set."
+        },
+        "xAxisLabel": {
+          "type": "string",
+          "description": "X-axis title, drawn under the time ticks."
+        },
+        "id": {
+          "type": "string",
+          "description": "Panel id, unique within the dashboard. Use the same value as its key in panels."
+        },
+        "title": {
+          "type": "string",
+          "description": "Panel header text."
+        },
+        "description": {
+          "type": "string",
+          "description": "Markdown help text shown behind a ? icon next to the title."
+        },
+        "queries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PanelQuery"
+          },
+          "description": "Queries that feed the panel. Use [] for panel kinds that don't query."
+        },
+        "interlinks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PanelInterlink"
+          },
+          "description": "Click-through links from a series to another dashboard."
+        },
+        "kind": {
+          "type": "string",
+          "const": "bar",
+          "description": "Panel kind."
+        },
+        "reducer": {
+          "$ref": "#/definitions/SeriesReducer",
+          "description": "How samples in the same bar are combined. Default last; use sum for counters."
+        },
+        "unit": {
+          "type": "string",
+          "description": "Unit shown on the Y axis, e.g. \"ms\", \"%\", \"req/s\"."
+        },
+        "percentScale": {
+          "type": "boolean",
+          "description": "Hold the Y axis at 0-100."
+        },
+        "color": {
+          "type": "string",
+          "description": "Single color for every series."
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "queries",
+        "title"
+      ],
+      "additionalProperties": false,
+      "description": "Stacked bar chart over time."
+    },
+    "SeriesReducer": {
+      "type": "string",
+      "enum": [
+        "last",
+        "mean",
+        "max",
+        "min",
+        "sum"
+      ],
+      "description": "How a series' samples are reduced to one value."
+    },
+    "PiePanel": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Panel id, unique within the dashboard. Use the same value as its key in panels."
+        },
+        "title": {
+          "type": "string",
+          "description": "Panel header text."
+        },
+        "description": {
+          "type": "string",
+          "description": "Markdown help text shown behind a ? icon next to the title."
+        },
+        "queries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PanelQuery"
+          },
+          "description": "Queries that feed the panel. Use [] for panel kinds that don't query."
+        },
+        "interlinks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PanelInterlink"
+          },
+          "description": "Click-through links from a series to another dashboard."
+        },
+        "kind": {
+          "type": "string",
+          "const": "pie",
+          "description": "Panel kind."
+        },
+        "reducer": {
+          "$ref": "#/definitions/SeriesReducer",
+          "description": "How each series' samples are reduced: last (default), mean, max, min or sum."
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "queries",
+        "title"
+      ],
+      "additionalProperties": false,
+      "description": "One slice per series."
+    },
+    "LabelPanel": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Panel id, unique within the dashboard. Use the same value as its key in panels."
+        },
+        "title": {
+          "type": "string",
+          "description": "Panel header text."
+        },
+        "description": {
+          "type": "string",
+          "description": "Markdown help text shown behind a ? icon next to the title."
+        },
+        "queries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PanelQuery"
+          },
+          "description": "Queries that feed the panel. Use [] for panel kinds that don't query."
+        },
+        "interlinks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PanelInterlink"
+          },
+          "description": "Click-through links from a series to another dashboard."
+        },
+        "kind": {
+          "type": "string",
+          "const": "label",
+          "description": "Panel kind."
+        },
+        "reducer": {
+          "$ref": "#/definitions/SeriesReducer",
+          "description": "How each series' samples are reduced: last (default), mean, max, min or sum."
+        },
+        "timestampAge": {
+          "type": "boolean",
+          "description": "Treat values as Unix timestamps in seconds and show how long ago the newest one was."
+        },
+        "sort": {
+          "type": "string",
+          "enum": [
+            "label",
+            "value-asc",
+            "value-desc"
+          ],
+          "description": "Card order. Default label."
+        },
+        "format": {
+          "type": "object",
+          "properties": {
+            "unit": {
+              "type": "string"
+            },
+            "decimalPlaces": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false,
+          "description": "Number formatting: unit suffix and decimal places."
+        },
+        "color": {
+          "type": "string",
+          "description": "Static card color."
+        },
+        "thresholds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ColorStop"
+          },
+          "description": "Conditional colors. The highest stop at or below the value wins."
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "queries",
+        "title"
+      ],
+      "additionalProperties": false,
+      "description": "One card per series returned by the query."
+    },
+    "ColorStop": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "number",
+          "description": "Threshold value."
+        },
+        "color": {
+          "type": "string",
+          "description": "CSS color."
+        }
+      },
+      "required": [
+        "value",
+        "color"
+      ],
+      "additionalProperties": false,
+      "description": "A threshold color stop."
+    },
+    "ServiceGraphPanel": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Panel id, unique within the dashboard. Use the same value as its key in panels."
+        },
+        "title": {
+          "type": "string",
+          "description": "Panel header text."
+        },
+        "description": {
+          "type": "string",
+          "description": "Markdown help text shown behind a ? icon next to the title."
+        },
+        "queries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PanelQuery"
+          },
+          "description": "Queries that feed the panel. Use [] for panel kinds that don't query."
+        },
+        "interlinks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PanelInterlink"
+          },
+          "description": "Click-through links from a series to another dashboard."
+        },
+        "kind": {
+          "type": "string",
+          "const": "service-graph",
+          "description": "Panel kind."
+        },
+        "metric": {
+          "type": "string",
+          "enum": [
+            "requests",
+            "errors",
+            "latency"
+          ],
+          "description": "Signal to show. Default requests."
+        },
+        "serviceName": {
+          "type": "string",
+          "description": "Center the graph on this service. A $variable works here."
+        },
+        "maxHops": {
+          "type": "number",
+          "description": "How far out from serviceName to draw. Default 3."
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "queries",
+        "title"
+      ],
+      "additionalProperties": false,
+      "description": "Service dependency graph built from traces. Use queries: []."
+    },
+    "LogEventsPanel": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Panel id, unique within the dashboard. Use the same value as its key in panels."
+        },
+        "title": {
+          "type": "string",
+          "description": "Panel header text."
+        },
+        "description": {
+          "type": "string",
+          "description": "Markdown help text shown behind a ? icon next to the title."
+        },
+        "queries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PanelQuery"
+          },
+          "description": "Queries that feed the panel. Use [] for panel kinds that don't query."
+        },
+        "interlinks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PanelInterlink"
+          },
+          "description": "Click-through links from a series to another dashboard."
+        },
+        "kind": {
+          "type": "string",
+          "const": "log-events",
+          "description": "Panel kind."
+        },
+        "distributionOnly": {
+          "type": "boolean",
+          "description": "Show only the per-service severity chart, without log lines."
+        },
+        "logqlState": {
+          "$ref": "#/definitions/LogQueryBuilderState",
+          "description": "Logs Explore builder state. Easiest to get from an exported dashboard."
+        },
+        "rawLogql": {
+          "type": "string",
+          "description": "LogQL log selector and pipeline."
+        },
+        "limit": {
+          "type": "number",
+          "description": "Maximum number of log lines. Default 100."
+        },
+        "serviceName": {
+          "type": "string",
+          "description": "Deprecated: use rawLogql or logqlState."
+        },
+        "level": {
+          "type": "string",
+          "description": "Deprecated: use rawLogql or logqlState."
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "queries",
+        "title"
+      ],
+      "additionalProperties": false,
+      "description": "Log lines with a volume chart. Use queries: [] and set rawLogql or logqlState."
+    },
+    "LogQueryBuilderState": {
+      "type": "object",
+      "properties": {
+        "filters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/LogFilter"
+          }
+        },
+        "aggregation": {
+          "$ref": "#/definitions/LogAggregation"
+        },
+        "groupBy": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "window": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "filters",
+        "groupBy",
+        "window"
+      ],
+      "additionalProperties": false,
+      "description": "Logs Explore builder state."
+    },
+    "LogFilter": {
+      "type": "object",
+      "properties": {
+        "tag": {
+          "type": "string"
+        },
+        "op": {
+          "$ref": "#/definitions/LogFilterOp"
+        },
+        "value": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "tag",
+        "op",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "LogFilterOp": {
+      "$ref": "#/definitions/FilterOp"
+    },
+    "FilterOp": {
+      "type": "string",
+      "enum": [
+        "=",
+        "!=",
+        "=~",
+        "!~"
+      ]
+    },
+    "LogAggregation": {
+      "type": "string",
+      "enum": [
+        "count",
+        "rate",
+        "error_rate"
+      ]
+    },
+    "DashboardSection": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Section header text."
+        },
+        "cells": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/GridCell"
+          },
+          "description": "Grid positions of the panels in this section."
+        },
+        "rowHeight": {
+          "type": "number",
+          "description": "Fixed pixel height per row unit. Omit to fit the viewport."
+        },
+        "defaultCollapsed": {
+          "type": "boolean",
+          "description": "Open the section collapsed."
+        }
+      },
+      "required": [
+        "title",
+        "cells"
+      ],
+      "additionalProperties": false,
+      "description": "A collapsible section of the dashboard grid."
+    },
+    "GridCell": {
+      "type": "object",
+      "properties": {
+        "i": {
+          "type": "string",
+          "description": "Id of the panel in this cell."
+        },
+        "x": {
+          "type": "number",
+          "description": "Column of the top-left corner, 0-23."
+        },
+        "y": {
+          "type": "number",
+          "description": "Row of the top-left corner."
+        },
+        "w": {
+          "type": "number",
+          "description": "Width in columns, 1-24."
+        },
+        "h": {
+          "type": "number",
+          "description": "Height in row units."
+        }
+      },
+      "required": [
+        "i",
+        "x",
+        "y",
+        "w",
+        "h"
+      ],
+      "additionalProperties": false,
+      "description": "A panel's position on the 24-column grid."
+    },
+    "DashboardVariable": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Token used in queries. Letters, digits and _, not starting with a digit."
+        },
+        "label": {
+          "type": "string",
+          "description": "Text above the picker. Defaults to name."
+        },
+        "kind": {
+          "type": "string",
+          "const": "query",
+          "description": "Always query."
+        },
+        "source": {
+          "$ref": "#/definitions/VariableQuerySource",
+          "description": "Where the picker's options come from."
+        },
+        "multi": {
+          "type": "boolean",
+          "description": "Allow several values. They are substituted as a regex alternation; match with =~."
+        },
+        "includeAll": {
+          "type": "boolean",
+          "description": "With multi, offer an All option, substituted as .+."
+        },
+        "regex": {
+          "type": "string",
+          "description": "Hide options that don't match this regex."
+        },
+        "sort": {
+          "type": "string",
+          "enum": [
+            "alphabetical",
+            "alphabetical-desc",
+            "numerical",
+            "numerical-desc"
+          ],
+          "description": "Option order. Default alphabetical."
+        },
+        "defaultValue": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Initial selection."
+        }
+      },
+      "required": [
+        "name",
+        "kind",
+        "source"
+      ],
+      "additionalProperties": false,
+      "description": "A dashboard variable. Its selected values replace $name in queries."
+    },
+    "VariableQuerySource": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "signal": {
+              "type": "string",
+              "const": "metrics"
+            },
+            "metric": {
+              "type": "string"
+            },
+            "label": {
+              "type": "string"
+            },
+            "scope": {
+              "type": "string",
+              "description": "Extra label matchers that limit the options by another variable, e.g. cluster=~\"$cluster\"."
+            }
+          },
+          "required": [
+            "signal",
+            "metric",
+            "label"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "signal": {
+              "type": "string",
+              "const": "logs"
+            },
+            "label": {
+              "type": "string"
+            },
+            "expr": {
+              "type": "string",
+              "description": "Optional LogQL selector that limits the options."
+            }
+          },
+          "required": [
+            "signal",
+            "label"
+          ],
+          "additionalProperties": false
+        }
+      ],
+      "description": "Metrics: values of a label on a metric. Logs: values of a log label."
+    }
+  }
+}
