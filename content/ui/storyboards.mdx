@@ -1,0 +1,163 @@
+import SupportCallout from '../../components/SupportCallout';
+
+# Investigation Storyboards
+
+An Investigation Storyboard turns a finished investigation into a short sequence of **scenes** that explain what happened, what was checked, what was ruled out, and what is still open. Each scene has a one-sentence statement and its own interactive visual, and every number in it traces back to an **evidence receipt**: a record of the Cardinal tool call that produced it.
+
+Claude authors the view and the argument. Cardinal owns the runtime and the evidence. Claude decides which scenes to show and how to draw them, whether that is a timeline, a trace waterfall, or the pods of a Kubernetes cluster drawn inside their nodes. It cannot supply the numbers itself: every value it shows comes from a receipt, or from arithmetic Cardinal performs over receipts.
+
+A storyboard is neither a dashboard nor a transcript. An investigation of 70 queries and three abandoned paths might become six scenes, and a wrong turn is kept only when a reader needs to see why it was ruled out. A storyboard may end on **open** when the evidence doesn't support a root cause.
+
+<SupportCallout />
+
+## Scenes
+
+Each scene has:
+
+- a **statement** that stands on its own without the visual;
+- a **state**: `supported`, `ruled_out`, `open`, or `context`;
+- optional **claims** that type each relationship honestly, so that "A preceded B" (`precedes`) is never silently upgraded to "A caused B" (`causes`); and
+- a **Canvas**: the visual, drawn by Claude with HTML, SVG, d3 and Cardinal's built-in visualizations (timeline, trace waterfall, infrastructure graph, compare, diff).
+
+Consecutive scenes can share one Canvas, so the same picture stays on screen and each scene highlights, reveals, or annotates a different part of it.
+
+## Evidence receipts
+
+Every successful **read-only** Cardinal tool call mints a receipt, such as a Cardinal Data Lake query, a Kubernetes read, or a lookup. The receipt id comes back with the result as a trailer:
+
+```
+[receipt:rcpt_3f9c2a71b0e84d5c96a1f2e7]
+```
+
+The trailer is appended as the last text block of the result. For tools that return structured output, the same text is also in the `_receipt` field, so Claude sees it whichever form your client displays. A receipt records the tool, its arguments, the resolved absolute time window, and the result Claude saw.
+
+- **What gets no receipt:** write actions (creating an incident, sending a Slack message), failed calls, and Kubernetes reads of Secrets.
+- **Credentials:** credential fields are redacted when the receipt is recorded, and a scene can never bind them.
+- **Pixels are never evidence.** A picture can suggest a hypothesis, but any quantitative or population-level statement in a scene must resolve to a receipt or to a calculation over receipts. When Claude notices a pattern in a preview that it never measured, it measures it with another tool call and cites the new receipt.
+
+### Datasets
+
+A scene can draw a population far larger than Claude ever loaded, such as every trace in a window rather than the first 50. When a scene binds a receipt as a **dataset**, Cardinal re-runs the receipted query at the same absolute window with raised limits and freezes the full result alongside the receipt. If the original result was already complete, it is frozen as is. Cardinal warns when the frozen dataset disagrees with what Claude saw.
+
+Datasets never re-query once frozen. A storyboard therefore looks the same after the underlying telemetry ages out of retention.
+
+### Retention
+
+Receipts are kept for **14 days**. A receipt cited by a **published** storyboard is kept for as long as that storyboard exists, along with its dataset. Receipts cited only by a draft still expire at 14 days. If a draft cites an expired receipt, publishing fails with `receipt_not_found`; Claude re-runs the query and cites the new receipt.
+
+## Before you start
+
+### Self-hosted Cardinal UI
+
+Storyboards need no feature flag and no extra services. Storyboards and datasets are stored in Cardinal UI's existing Postgres, and nothing is rendered in the Cardinal UI pod. Your operator needs:
+
+- **Cardinal UI image v1.97.10 or later.**
+- **`MAESTRO_MCP_API_KEY` on the MCP gateway sidecar as well as the Cardinal UI container.** The sidecar uses it to call back into Cardinal UI when Claude creates, previews, and publishes a storyboard. The `maestro` Helm chart **0.10.28 or later** sets it on both containers from one Secret. On an older chart, add the same `MAESTRO_MCP_API_KEY` entry (the same Secret and key) to both `maestro.env` and `mcpGateway.env`; see [Connect AI clients](/ui/mcp-clients#self-hosted-prepare-your-cardinal-ui-instance).
+- **`GATEWAY_AGGREGATOR_ENABLED=true` on the sidecar.** Receipts are minted on the gateway's aggregated MCP endpoint, which the plugins use. With it unset, tool calls return no `[receipt:…]` trailer and there is nothing to cite:
+
+  ```yaml
+  mcpGateway:
+    env:
+      - name: GATEWAY_AGGREGATOR_ENABLED
+        value: "true"
+  ```
+
+- **`MAESTRO_BASE_URL`** (recommended). With it set, the `view_url` Claude hands you is an absolute link. Without it, Claude returns an app-relative path such as `/storyboards/sb_…?org=…`; open it on your Cardinal UI host. Local previews work either way. See [Environment variables](/ui/install/environment).
+
+### Cardinal Cloud
+
+On `app.cardinalhq.io` storyboards are already on for every org. There is nothing to configure.
+
+### Everyone
+
+- **Claude Code** with the Cardinal plugin **0.32.0 or later**, connected to your org. See [Install: Claude Code plugin](/ui/agent-outcomes/install-claude-plugin#storyboard-skills).
+- The **Member** or **Owner** role in the org, to author and to view storyboards.
+- An investigation done with Cardinal's tools in the same session, or within the last 14 days, so its receipts are still available.
+- **Optional:** Google Chrome or Chromium on macOS or Linux, for local previews.
+
+## Create a storyboard
+
+After investigating with Cardinal's tools, ask Claude in plain words:
+
+> *Storyboard this investigation for the team.*
+>
+> *Write up how we found the checkout regression, with visuals.*
+
+The plugin's `/cardinal:storyboard` skill takes over; you can also invoke it directly. Claude drafts the scenes, validates them with Cardinal, previews each scene, critiques what it sees, revises, and publishes:
+
+```
+investigation (collects receipt ids)
+  → draft scenes and Canvas visuals
+  → preview: Cardinal validates the draft; your local Chrome renders each scene to PNGs
+  → Claude reads the PNGs: is the point obvious in five seconds?
+  → revise → preview again → … → publish
+  → view_url
+```
+
+The first preview of a draft that binds datasets can take a while, because Cardinal re-runs those queries. Later previews reuse the frozen datasets.
+
+### Local previews
+
+Previews render **on your machine**, in your own Chrome or Chromium, and the resulting images go back to Claude so it can judge the scene as a reader would. Cardinal renders nothing on its servers. The preview browser runs headless, with its OS sandbox on, networking locked off, and a throwaway profile.
+
+Previews are optional. Without a usable local Chrome, or on Windows, Claude tells you once that previews were skipped and keeps authoring. Skipping them can lower the quality of the visuals, but it doesn't affect whether a storyboard can be published, or what publishing checks. Setup details are on the [Claude Code plugin page](/ui/agent-outcomes/install-claude-plugin#local-previews).
+
+## Publish
+
+Publishing runs Cardinal's evidence checks. They are deterministic, and none of them looks at the rendered pixels. Publishing fails when any of these fails:
+
+- The storyboard is complete and valid, and has at least one scene.
+- Every cited receipt exists and belongs to your org.
+- Every binding resolves against its receipt or frozen dataset, and every dataset binding has been materialized.
+- Derived values (ratios, differences, counts, percent changes) are computed by Cardinal from the approved set of operations.
+- Causal claims (`causes`, `contributes_to`) cite at least one supporting receipt.
+- No evidence value is written inline into the scene or the Canvas source.
+- The Canvas source passes static checks and uses only approved libraries.
+
+Cardinal also returns **warnings** that don't block publishing, and Claude treats them as problems to fix or explain. For example, a number in a scene's statement that doesn't match its bound evidence, numbers from different populations composed on one scale, or a frozen dataset that disagrees with what Claude saw.
+
+**Published storyboards are immutable.** Edits and a second publish are refused with a conflict. To change a published storyboard, ask Claude for a new one. Publishing is also what keeps the storyboard's receipts past the 14-day window.
+
+## View storyboards
+
+| Page | What it shows |
+| --- | --- |
+| `/storyboards` | Your org's storyboards, drafts included, newest first. |
+| `/storyboards/<id>?scene=N` | One storyboard, opened at scene *N* (1-based). `&step=K` opens a reveal step within the scene. |
+
+There is no sidebar entry. You reach storyboards through:
+
+- the **`view_url`** Claude returns when it creates, previews, or publishes a storyboard; or
+- the **Storyboards** button in the header of the **Dashboards** page.
+
+The viewer is available to org members with the **Member** or **Owner** role. Drafts are visible at the same link while Claude works on them, and refresh as it writes.
+
+### Reading a storyboard
+
+- The **scene list** shows the thread of the argument, with each scene's state. Use the arrow keys (← →) to move between scenes.
+- Each scene shows its **statement**, **state**, **claims**, and any **open questions**, beside its Canvas. When a scene reveals its argument in steps, use the step controls.
+- Numbers in the Canvas are linked to their evidence. Hover one to see where it came from, and select it to open the **evidence drawer** on that value.
+- The **evidence drawer** lists the scene's bound values and cited receipts: tool, time window, arguments, the result the investigation saw, completeness, and any dataset drift. You can sort, filter, and inspect the rows of a frozen dataset.
+
+Exploration is scoped to the evidence the storyboard captured. Questions that need new telemetry queries go back to Claude.
+
+Each Canvas runs in a sandboxed frame with no network access, cookies, storage, or access to the rest of the page. It can only draw the evidence Cardinal resolved for it.
+
+## Limits
+
+| Limit | Value |
+| --- | --- |
+| Scenes per storyboard | 50 |
+| Shared Canvas surfaces per storyboard | 16 |
+| Evidence bindings per storyboard | 1,500 |
+| Receipts bound as datasets per storyboard | 16 |
+| Frozen dataset size | 100,000 rows and 16 MiB of JSON. A larger result fails to materialize; Claude narrows the query or binds an aggregate instead. |
+| Canvas source per surface | 64 KB |
+| Local preview page per scene | 32 MiB, including inlined evidence |
+| Receipt retention | 14 days, unless cited by a published storyboard |
+
+- **Datasets** can be frozen from Cardinal Data Lake metrics, logs, and spans queries. Receipts from other tools, such as Kubernetes reads, can be cited and bound as the result Claude saw, but not re-run as datasets.
+- **Preview and publish** are rate-limited per org. When Cardinal is busy, Claude waits and retries.
+- **Authoring** is supported in Claude Code. The other agent plugins don't ship the storyboard skills yet.
+- **Local previews** run on macOS and Linux only. On Linux, Chromium needs unprivileged user namespaces to start with its sandbox on.
+- **Sharing** is limited to members of your org. There are no public links or exports yet.
