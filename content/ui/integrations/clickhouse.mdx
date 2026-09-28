@@ -34,14 +34,62 @@ With the ClickHouse integration, the AI agent can:
 
 | Field | Required | Description |
 | ----- | -------- | ----------- |
-| **Username** | Yes | ClickHouse user (e.g., `readonly`) |
+| **Username** | Yes | The dedicated least-privilege user Cardinal connects as (e.g., `cardinal_ro`). See [Database user](#database-user-required) |
 | **Password** | No | User password. Leave empty if no password is required |
 
 ## Prerequisites
 
 - Network access from Cardinal to your ClickHouse instance
-- A database user with **read-only** access (recommended for security)
+- A **dedicated least-privilege ClickHouse user** with a read-only settings profile and `SELECT` on the databases you want to explore. This is **required**, not a recommendation. See [Database user](#database-user-required)
 - TLS configured if connecting over the public internet
+
+## How Cardinal keeps queries read-only
+
+> **Version:** the enforcement described in this section needs Cardinal UI **v1.97.16** or later. Earlier versions check statements less strictly, so the least-privilege role below matters even more on them.
+
+Cardinal only runs read queries against ClickHouse. Every query the agent runs goes through two checks:
+
+1. **Statement check.** Cardinal accepts a single `SELECT` or `WITH` statement. It refuses multiple statements, write and DDL keywords, `INTO`, and table functions that reach outside the database, such as `url`, `s3`, `remote`, `file`, `mysql` and `postgresql`.
+2. **Database enforcement.** The query runs with ClickHouse's `readonly = 2` setting, so the server refuses writes, DDL, `OPTIMIZE`, `SYSTEM` commands and any attempt to lower `readonly`. The native protocol also refuses more than one statement per query. If the user's settings profile pins `readonly = 1`, ClickHouse refuses the extra setting, and Cardinal runs the query under the profile's own read-only mode instead.
+
+These checks don't replace a least-privilege user. `readonly` treats table functions like `url()` and `s3()` as reads and doesn't stop them, and a name list can't cover every table function a future ClickHouse version adds. What the connecting user is allowed to do is the final boundary, which is why the next section is required.
+
+## Database user (required)
+
+Cardinal must connect as a **dedicated user that can only read** the databases you want it to see. Don't use `default` or an admin user. Any Cardinal member or admin, or an agent acting for one, can run queries through this integration, and those queries run with this user's privileges.
+
+This applies the same way whether you run Cardinal UI self-hosted in your own VPC or use Cardinal SaaS: in both cases every query runs as the user you enter under **Credentials**.
+
+### The user must not have
+
+- A settings profile without `readonly`. Assign a profile with `readonly = 2`. Avoid `readonly = 1`: it also refuses the `max_execution_time` setting the client sends with every query that has a deadline, so those queries fail
+- Any **source** grant: `SOURCES`, or any of `URL`, `S3`, `REMOTE`, `FILE`, `MYSQL`, `POSTGRES`, `HDFS` and the rest. Recent ClickHouse versions show these as `READ ON URL`, `READ ON S3` and so on. Without them, ClickHouse refuses table functions such as `url()`, `s3()`, `remote()` and `file()` for this user, a second line of defense behind the statement check
+- `INSERT`, `ALTER`, `CREATE`, `DROP`, `TRUNCATE`, `OPTIMIZE`, `SYSTEM`, `KILL QUERY`, `ACCESS MANAGEMENT` or `ALL`
+- Any role that carries the grants above
+
+### Example
+
+Run as an administrator, replacing `analytics` with your database:
+
+```sql
+CREATE SETTINGS PROFILE cardinal_ro_profile SETTINGS readonly = 2;
+
+CREATE USER cardinal_ro IDENTIFIED WITH sha256_password BY 'use-a-strong-password'
+  SETTINGS PROFILE 'cardinal_ro_profile';
+
+GRANT SELECT ON analytics.* TO cardinal_ro;
+```
+
+Grant `SELECT` on each database you enter under **Database** and nothing else.
+
+### Check the user
+
+```sql
+-- Should list only SELECT grants on your databases
+SHOW GRANTS FOR cardinal_ro;
+```
+
+Signed in as `cardinal_ro`, `SELECT getSetting('readonly')` should return `2`, and `SELECT * FROM url('http://127.0.0.1:1/', CSV, 'a String')` should fail with `Not enough privileges`.
 
 ## Setup
 

@@ -26,7 +26,7 @@ With the Athena integration, the AI agent can:
 | Field | Required | Default | Description |
 | ----- | -------- | ------- | ----------- |
 | **AWS Region** | Yes | — | AWS region where Athena runs (e.g., `us-east-1`) |
-| **Workgroup** | No | `primary` | Athena workgroup to use for queries |
+| **Workgroup** | No | `primary` | Athena workgroup to use for queries. Use a dedicated, restricted workgroup (see [IAM policy and workgroup](#iam-policy-and-workgroup-required)) |
 | **Database (Glue Catalog)** | Yes | — | AWS Glue catalog database name (e.g., `my_database`) |
 | **Output S3 Location** | Yes | — | S3 path where Athena writes query results (e.g., `s3://my-bucket/athena-results/`) |
 
@@ -34,7 +34,7 @@ With the Athena integration, the AI agent can:
 
 | Field | Required | Description |
 | ----- | -------- | ----------- |
-| **AWS Access Key ID** | Yes | IAM access key ID with Athena and S3 permissions |
+| **AWS Access Key ID** | Yes | Access key ID of the dedicated read-only IAM user |
 | **AWS Secret Access Key** | Yes | Corresponding secret access key |
 
 ## Prerequisites
@@ -42,10 +42,106 @@ With the Athena integration, the AI agent can:
 - An AWS account with Amazon Athena enabled
 - An AWS Glue Data Catalog with at least one database and table
 - An S3 bucket for Athena query results
-- An IAM user or role with the following permissions:
-  - `athena:StartQueryExecution`, `athena:GetQueryExecution`, `athena:GetQueryResults`
-  - `s3:GetObject`, `s3:PutObject` on the results bucket
-  - `glue:GetDatabase`, `glue:GetTable`, `glue:GetPartitions`
+- A **dedicated IAM user with a read-only policy** and a **restricted Athena workgroup**. This is **required**, not a recommendation. See [IAM policy and workgroup](#iam-policy-and-workgroup-required)
+
+## How Cardinal keeps queries read-only
+
+> **Version:** the enforcement described in this section needs Cardinal UI **v1.97.16** or later. Earlier versions check statements less strictly, so the least-privilege role below matters even more on them.
+
+Cardinal only runs read queries against Athena. Every query the agent runs goes through a **statement check**: Cardinal accepts a single `SELECT` or `WITH` statement and refuses multiple statements, write and DDL keywords, and `INTO`. Athena also runs exactly one statement per query execution.
+
+Athena has no read-only session mode and no dry run, and it only reports a statement's type after running it. The statement check is the only thing Cardinal can do before a query runs. The IAM policy and workgroup of the credentials you enter are what keep Cardinal read-only, which is why the next section is required.
+
+## IAM policy and workgroup (required)
+
+Cardinal must connect with a **dedicated IAM user whose policy can only read** your data, write query results to one S3 prefix, and use one workgroup. Don't reuse credentials that other systems use. Any Cardinal member or admin, or an agent acting for one, can run queries through this integration, and those queries run with these credentials.
+
+This applies the same way whether you run Cardinal UI self-hosted in your own VPC or use Cardinal SaaS: in both cases every query runs with the access key you enter under **Credentials**.
+
+### The credentials must not have
+
+- Any Glue write action (`glue:Create*`, `glue:Update*`, `glue:Delete*`, `glue:BatchCreate*`, `glue:BatchDelete*`), which `CREATE TABLE`, `CREATE TABLE AS`, `ALTER` and `DROP` need
+- `s3:PutObject` or `s3:DeleteObject` anywhere except the query-results prefix, which `INSERT INTO`, `CREATE TABLE AS` and `UNLOAD` need
+- Access to workgroups other than Cardinal's, or permission to change workgroups (`athena:UpdateWorkGroup`, `athena:CreateWorkGroup`)
+- Lake Formation permissions beyond `SELECT` and `DESCRIBE`, if you use Lake Formation
+
+### Restricted workgroup
+
+Create a workgroup for Cardinal that **enforces its own settings**, so a query can't redirect its results elsewhere, and caps how much data one query can scan:
+
+```bash
+aws athena create-work-group \
+  --name cardinal-readonly \
+  --configuration 'ResultConfiguration={OutputLocation=s3://my-results-bucket/cardinal/},EnforceWorkGroupConfiguration=true,BytesScannedCutoffPerQuery=10737418240'
+```
+
+Enter `cardinal-readonly` as the **Workgroup** and `s3://my-results-bucket/cardinal/` as the **Output S3 Location**.
+
+### Example IAM policy
+
+Replace the region, account ID, database, and bucket names with your own:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AthenaQueriesInCardinalWorkgroupOnly",
+      "Effect": "Allow",
+      "Action": [
+        "athena:StartQueryExecution",
+        "athena:GetQueryExecution",
+        "athena:GetQueryResults",
+        "athena:StopQueryExecution",
+        "athena:GetWorkGroup"
+      ],
+      "Resource": "arn:aws:athena:us-east-1:123456789012:workgroup/cardinal-readonly"
+    },
+    {
+      "Sid": "GlueCatalogReadOnly",
+      "Effect": "Allow",
+      "Action": [
+        "glue:GetDatabase",
+        "glue:GetDatabases",
+        "glue:GetTable",
+        "glue:GetTables",
+        "glue:GetPartition",
+        "glue:GetPartitions"
+      ],
+      "Resource": [
+        "arn:aws:glue:us-east-1:123456789012:catalog",
+        "arn:aws:glue:us-east-1:123456789012:database/my_database",
+        "arn:aws:glue:us-east-1:123456789012:table/my_database/*"
+      ]
+    },
+    {
+      "Sid": "ReadSourceData",
+      "Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:ListBucket", "s3:GetBucketLocation"],
+      "Resource": ["arn:aws:s3:::my-data-bucket", "arn:aws:s3:::my-data-bucket/*"]
+    },
+    {
+      "Sid": "WriteQueryResultsPrefixOnly",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:AbortMultipartUpload",
+        "s3:ListMultipartUploadParts"
+      ],
+      "Resource": "arn:aws:s3:::my-results-bucket/cardinal/*"
+    },
+    {
+      "Sid": "ListQueryResultsBucket",
+      "Effect": "Allow",
+      "Action": ["s3:ListBucket", "s3:GetBucketLocation"],
+      "Resource": "arn:aws:s3:::my-results-bucket"
+    }
+  ]
+}
+```
+
+Add one `glue` database and table ARN pair, and one data-bucket entry, per database and bucket Cardinal should read.
 
 ## Setup
 
