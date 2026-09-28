@@ -46,6 +46,8 @@ With the Athena integration, the AI agent can:
 
 ## How Cardinal keeps queries read-only
 
+> **Version:** the enforcement described in this section needs Cardinal UI **v1.97.16** or later. Earlier versions check statements less strictly, so the least-privilege role below matters even more on them.
+
 Cardinal only runs read queries against Athena. Every query the agent runs goes through a **statement check**: Cardinal accepts a single `SELECT` or `WITH` statement and refuses multiple statements, write and DDL keywords, and `INTO`. Athena also runs exactly one statement per query execution.
 
 Athena has no read-only session mode and no dry run, and it only reports a statement's type after running it. The statement check is the only thing Cardinal can do before a query runs. The IAM policy and workgroup of the credentials you enter are what keep Cardinal read-only, which is why the next section is required.

@@ -46,6 +46,8 @@ With the PostgreSQL integration, the AI agent can:
 
 ## How Cardinal keeps queries read-only
 
+> **Version:** the enforcement described in this section needs Cardinal UI **v1.97.16** or later. Earlier versions check statements less strictly, so the least-privilege role below matters even more on them.
+
 Cardinal only runs read queries against PostgreSQL. Every query the agent runs goes through two checks:
 
 1. **Statement check.** Cardinal accepts a single `SELECT` or `WITH` statement. It refuses multiple statements, write and DDL keywords, `SELECT … INTO`, `COPY`, `CALL`, `DO`, row locks (`FOR UPDATE` / `FOR SHARE`), `EXPLAIN ANALYZE`, and a list of known side-effecting functions (for example `pg_terminate_backend`, `set_config`, `setval`, advisory locks, `dblink*`, `pg_background*` and server-file functions).
