@@ -35,14 +35,75 @@ With the PostgreSQL integration, the AI agent can:
 
 | Field | Required | Description |
 | ----- | -------- | ----------- |
-| **Username** | Yes | Database user (e.g., `readonly_user`) |
+| **Username** | Yes | The dedicated least-privilege role Cardinal connects as (e.g., `cardinal_ro`). See [Database role](#database-role-required) |
 | **Password** | Yes | Database user password |
 
 ## Prerequisites
 
 - Network access from Cardinal to your PostgreSQL instance (ensure firewall rules allow the connection)
-- A database user with **read-only** access to the schemas you want to explore (recommended for security)
+- A **dedicated least-privilege database role** with `SELECT` on the schemas you want to explore. This is **required**, not a recommendation. See [Database role](#database-role-required)
 - SSL configured if connecting over the public internet
+
+## How Cardinal keeps queries read-only
+
+Cardinal only runs read queries against PostgreSQL. Every query the agent runs goes through two checks:
+
+1. **Statement check.** Cardinal accepts a single `SELECT` or `WITH` statement. It refuses multiple statements, write and DDL keywords, `SELECT … INTO`, `COPY`, `CALL`, `DO`, row locks (`FOR UPDATE` / `FOR SHARE`), `EXPLAIN ANALYZE`, and a list of known side-effecting functions (for example `pg_terminate_backend`, `set_config`, `setval`, advisory locks, `dblink*`, `pg_background*` and server-file functions).
+2. **Database enforcement.** The query then runs as a single prepared statement inside a `READ ONLY` transaction that is always rolled back. PostgreSQL itself refuses any write, DDL, `nextval` / `setval`, row lock, or write made by a function the query calls. The transaction also sets `statement_timeout` (30 seconds by default), so the server cancels a runaway query.
+
+These checks don't replace a least-privilege role. A `READ ONLY` transaction doesn't stop a query from signalling other sessions, taking advisory locks, calling `dblink`, or reading server files. The function list can't cover every function an extension or your own schema defines. What the connecting role is allowed to do is the final boundary, which is why the next section is required.
+
+## Database role (required)
+
+Cardinal must connect as a **dedicated role that can only read** the schemas you want it to see. Don't reuse an application user, an admin user, or `postgres`. Any Cardinal member or admin, or an agent acting for one, can run queries through this integration, and those queries run with this role's privileges.
+
+This applies the same way whether you run Cardinal UI self-hosted in your own VPC or use Cardinal SaaS: in both cases every query runs as the user you enter under **Credentials**.
+
+### The role must not have
+
+- `SUPERUSER`, `CREATEROLE`, `CREATEDB`, `REPLICATION` or `BYPASSRLS`
+- Membership in `pg_signal_backend`, `pg_read_server_files`, `pg_write_server_files` or `pg_execute_server_program` (or any role that includes them)
+- `INSERT`, `UPDATE`, `DELETE`, `TRUNCATE` or ownership of any table
+- Access to `dblink`, `pg_background`, `postgres_fdw` or any other foreign-data-wrapper or background-worker extension. Don't install these extensions in the database Cardinal connects to. Once `dblink` is installed, every role can call its functions by default, so if you need it there, revoke `EXECUTE` on its functions from `PUBLIC`. Don't grant the role `USAGE` on a foreign server or `SELECT` on foreign tables
+
+### Example
+
+Run as a superuser or the database owner, replacing `mydb`, `public` and `app_owner` (the role that creates your tables) with your own names:
+
+```sql
+CREATE ROLE cardinal_ro LOGIN PASSWORD 'use-a-strong-password'
+  NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+
+GRANT CONNECT ON DATABASE mydb TO cardinal_ro;
+GRANT USAGE ON SCHEMA public TO cardinal_ro;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO cardinal_ro;
+
+-- Tables app_owner creates later are readable too
+ALTER DEFAULT PRIVILEGES FOR ROLE app_owner IN SCHEMA public
+  GRANT SELECT ON TABLES TO cardinal_ro;
+
+-- A second guard if the role is ever used outside Cardinal
+ALTER ROLE cardinal_ro SET default_transaction_read_only = on;
+```
+
+Repeat the `USAGE`, `SELECT` and `ALTER DEFAULT PRIVILEGES` lines for each schema you list in **Schema**. `GRANT SELECT ON ALL TABLES` also covers views and foreign tables. If a schema contains foreign tables, grant `SELECT` table by table instead.
+
+### Check the role
+
+```sql
+-- Every column should be false
+SELECT rolsuper, rolcreaterole, rolcreatedb, rolreplication, rolbypassrls
+FROM pg_roles WHERE rolname = 'cardinal_ro';
+
+-- Every row should be false
+SELECT r AS predefined_role, pg_has_role('cardinal_ro', r, 'MEMBER') AS granted
+FROM unnest(ARRAY['pg_signal_backend', 'pg_read_server_files',
+                  'pg_write_server_files', 'pg_execute_server_program']) AS r;
+
+-- Should return no rows
+SELECT extname FROM pg_extension
+WHERE extname IN ('dblink', 'pg_background', 'postgres_fdw');
+```
 
 ## Setup
 

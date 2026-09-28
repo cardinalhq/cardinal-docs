@@ -34,18 +34,79 @@ With the Snowflake integration, the AI agent can:
 
 | Field | Required | Description |
 | ----- | -------- | ----------- |
-| **Username** | Yes | Snowflake username (e.g., `SVC_CARDINAL`) |
+| **Username** | Yes | Snowflake username (e.g., `SVC_CARDINAL`). Its only role must be the read-only role described in [Database role](#database-role-required) |
 | **Password** | Yes | Password or programmatic access token |
 
 ## Prerequisites
 
 - A Snowflake account with an active warehouse
-- A user with **read-only** access to the databases and schemas you want to explore (recommended)
+- A **dedicated user whose only role is read-only**: `USAGE` on the warehouse, database and schemas, plus `SELECT` on their tables and views. This is **required**, not a recommendation. See [Database role](#database-role-required)
 - Network policies configured to allow connections from Cardinal (if applicable)
 
 ## Finding Your Account Identifier
 
 Your Snowflake account identifier can be found in the URL you use to access Snowflake. For example, if your URL is `https://xy12345.us-east-1.snowflakecomputing.com`, your account identifier is `xy12345.us-east-1`.
+
+## How Cardinal keeps queries read-only
+
+Cardinal only runs read queries against Snowflake. Every query the agent runs goes through two checks:
+
+1. **Statement check.** Cardinal accepts a single `SELECT` or `WITH` statement. It refuses multiple statements, write and DDL keywords, `INTO`, `CALL`, every `SYSTEM$` function, and `IDENTIFIER(…)(…)` calls, where the function name is computed.
+2. **Single statement per request.** Cardinal sets `MULTI_STATEMENT_COUNT = 1` on each request, so Snowflake refuses a request that holds more than one statement, even if your account allows multi-statement requests.
+
+Snowflake has no read-only session or transaction mode, so Cardinal can't make the database itself refuse writes. The grants on the role Cardinal uses are what keep it read-only, which is why the next section is required.
+
+## Database role (required)
+
+Cardinal must connect as a **dedicated user whose only role can read, and nothing else**. Don't reuse a user that holds `ACCOUNTADMIN`, `SYSADMIN`, `SECURITYADMIN` or any role that can write. Any Cardinal member or admin, or an agent acting for one, can run queries through this integration, and those queries run with this user's privileges.
+
+This applies the same way whether you run Cardinal UI self-hosted in your own VPC or use Cardinal SaaS: in both cases every query runs as the user you enter under **Credentials**.
+
+### The role must have only
+
+- `USAGE` on the warehouse, the database and each schema
+- `SELECT` on the tables and views in those schemas (current and future)
+
+### The user must not have
+
+- Any other role. Snowflake can activate every role granted to a user as a secondary role, so a second role's write grants would apply to Cardinal's queries
+- `INSERT`, `UPDATE`, `DELETE`, `TRUNCATE`, `OWNERSHIP` or any `CREATE …` privilege, directly or through `PUBLIC`. Check that the `PUBLIC` role in your account has no write grants
+- `OPERATE`, `MODIFY` or any other warehouse privilege beyond `USAGE`, or any account-level privilege
+
+### Example
+
+Run as `SECURITYADMIN` (or a role with `MANAGE GRANTS`), replacing `COMPUTE_WH`, `ANALYTICS` and `PUBLIC` with your warehouse, database and schema:
+
+```sql
+USE ROLE SECURITYADMIN;
+
+CREATE ROLE CARDINAL_RO;
+GRANT USAGE ON WAREHOUSE COMPUTE_WH TO ROLE CARDINAL_RO;
+GRANT USAGE ON DATABASE ANALYTICS TO ROLE CARDINAL_RO;
+GRANT USAGE ON SCHEMA ANALYTICS.PUBLIC TO ROLE CARDINAL_RO;
+GRANT SELECT ON ALL TABLES IN SCHEMA ANALYTICS.PUBLIC TO ROLE CARDINAL_RO;
+GRANT SELECT ON ALL VIEWS IN SCHEMA ANALYTICS.PUBLIC TO ROLE CARDINAL_RO;
+GRANT SELECT ON FUTURE TABLES IN SCHEMA ANALYTICS.PUBLIC TO ROLE CARDINAL_RO;
+GRANT SELECT ON FUTURE VIEWS IN SCHEMA ANALYTICS.PUBLIC TO ROLE CARDINAL_RO;
+
+CREATE USER SVC_CARDINAL
+  PASSWORD = 'use-a-strong-password'
+  DEFAULT_ROLE = CARDINAL_RO
+  DEFAULT_WAREHOUSE = COMPUTE_WH;
+GRANT ROLE CARDINAL_RO TO USER SVC_CARDINAL;
+```
+
+Repeat the schema grants for each schema you list in **Schema**.
+
+### Check the role
+
+```sql
+-- Should list only USAGE and SELECT
+SHOW GRANTS TO ROLE CARDINAL_RO;
+
+-- Should list CARDINAL_RO and no other role
+SHOW GRANTS TO USER SVC_CARDINAL;
+```
 
 ## Setup
 

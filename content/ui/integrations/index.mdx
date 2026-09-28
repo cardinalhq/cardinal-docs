@@ -26,6 +26,8 @@ Each integration enables one or more capabilities:
 | [Amazon Athena](/ui/integrations/athena) | Explore, Agent | Query S3 data lakes via Athena using natural language |
 | [ClickHouse](/ui/integrations/clickhouse) | Explore, Agent | Query ClickHouse databases using natural language |
 
+Cardinal runs only read queries against SQL data sources, but each one **requires** a dedicated least-privilege database user or role. Cardinal's own checks can't cover every function or extension a database offers, so the connecting user's grants are the final boundary. Each integration page lists what that user must and must not have.
+
 ## Service Integrations
 
 | Integration | Capabilities | Description |

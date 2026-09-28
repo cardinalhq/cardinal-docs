@@ -37,16 +37,65 @@ With the BigQuery integration, the AI agent can:
 ## Prerequisites
 
 - A Google Cloud project with BigQuery enabled
-- A service account with the following roles:
-  - **BigQuery Data Viewer** — read access to tables and datasets
-  - **BigQuery Job User** — permission to run query jobs
+- A **dedicated service account** with only these two roles. This is **required**, not a recommendation. See [Service account roles](#service-account-roles-required):
+  - **BigQuery Data Viewer** (`roles/bigquery.dataViewer`) — read access to tables and datasets
+  - **BigQuery Job User** (`roles/bigquery.jobUser`) — permission to run query jobs
+
+## How Cardinal keeps queries read-only
+
+Cardinal only runs read queries against BigQuery. Every query the agent runs goes through these checks:
+
+1. **Statement check.** Cardinal accepts a single `SELECT` or `WITH` statement. It refuses multiple statements, write and DDL keywords, and `INTO`.
+2. **Dry-run type check.** Cardinal first dry-runs the query, which is free and runs nothing. It refuses the query unless BigQuery itself classifies it as a `SELECT`. That rejects DML, DDL, `EXPORT DATA`, `CALL` and multi-statement scripts however they're written.
+3. **Bytes-billed cap.** The real query runs with a maximum-bytes-billed limit, 10 GiB by default. A query that would scan more fails at BigQuery instead of being billed. Narrow the time range or partitions if you hit it.
+
+These checks don't replace least-privilege roles. The service account's roles are the final boundary, which is why the next section is required.
+
+## Service account roles (required)
+
+Cardinal must connect with a **dedicated service account that can only read** the datasets you want it to see and run query jobs. Don't reuse a service account that other systems use. Any Cardinal member or admin, or an agent acting for one, can run queries through this integration, and those queries run with this service account's permissions.
+
+This applies the same way whether you run Cardinal UI self-hosted in your own VPC or use Cardinal SaaS: in both cases every query runs as the service account whose key you enter under **Credentials**.
+
+### Grant only
+
+- `roles/bigquery.dataViewer`, preferably on each dataset rather than the whole project
+- `roles/bigquery.jobUser` on the project that runs the queries
+
+### The service account must not have
+
+- `roles/bigquery.dataEditor`, `roles/bigquery.dataOwner`, `roles/bigquery.user` or `roles/bigquery.admin`
+- Project-level `roles/owner` or `roles/editor`
+- Any Cloud Storage write role, which `EXPORT DATA` would need
+
+### Example (gcloud)
+
+To use the console instead, see [Creating a Service Account](#creating-a-service-account) below. Replace `my-gcp-project` and `analytics` with your project and dataset:
+
+```bash
+gcloud iam service-accounts create cardinal-bigquery-reader \
+  --project=my-gcp-project \
+  --display-name="Cardinal (read-only)"
+
+gcloud projects add-iam-policy-binding my-gcp-project \
+  --member="serviceAccount:cardinal-bigquery-reader@my-gcp-project.iam.gserviceaccount.com" \
+  --role="roles/bigquery.jobUser"
+```
+
+Then grant read access on each dataset, in BigQuery SQL:
+
+```sql
+GRANT `roles/bigquery.dataViewer`
+ON SCHEMA `my-gcp-project.analytics`
+TO "serviceAccount:cardinal-bigquery-reader@my-gcp-project.iam.gserviceaccount.com";
+```
 
 ## Creating a Service Account
 
 1. Go to the [GCP Console > IAM & Admin > Service Accounts](https://console.cloud.google.com/iam-admin/serviceaccounts)
 2. Click **Create Service Account**
 3. Give it a descriptive name (e.g., `cardinal-bigquery-reader`)
-4. Grant the roles: **BigQuery Data Viewer** and **BigQuery Job User**
+4. Grant only the roles **BigQuery Data Viewer** and **BigQuery Job User**, and nothing else
 5. Click **Done**, then select the service account
 6. Go to the **Keys** tab and click **Add Key > Create new key > JSON**
 7. Download the JSON key file
