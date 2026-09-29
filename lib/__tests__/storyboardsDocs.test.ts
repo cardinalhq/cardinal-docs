@@ -22,6 +22,9 @@ const PAGES = [
   'ui/agent-outcomes/install-claude-plugin.mdx',
   'ui/agent-outcomes/install-cursor-plugin.mdx',
   'ui/agent-outcomes/install-gemini-plugin.mdx',
+  'ui/agent-outcomes/install-codex-plugin.mdx',
+  'ui/agent-outcomes/install-opencode-plugin.mdx',
+  'ui/agent-outcomes/install-pi-plugin.mdx',
   'ui/mcp-clients.mdx',
   'ui/install/environment.mdx',
 ];
@@ -138,6 +141,30 @@ describe('storyboards docs: statements that must stay correct', () => {
     for (const rel of ['ui/agent-outcomes/install-cursor-plugin.mdx', 'ui/agent-outcomes/install-gemini-plugin.mdx']) {
       const md = read(rel);
       expect(md).toContain('`~/.cardinal/evidence/`');
+      expect(md).toContain('`CARDINAL_EVIDENCE_CAPTURE=0`');
+    }
+  });
+
+  // Generic capture (plugin 0.35.0 / #130): every tool call, withheld stubs,
+  // and a promote command in every capturing client.
+  test('capture is documented as every tool call, with withheld stubs, in every capturing client', () => {
+    const evidence = read('ui/storyboards/evidence.mdx');
+    expect(evidence).toContain('a hook records the result of **every tool call**');
+    expect(evidence).toContain('**Withheld calls.**');
+    expect(evidence).toContain('Withheld is not the same as redacted');
+    expect(evidence).toContain('### Which clients capture');
+    expect(storyboards).not.toContain('ships only with the Claude Code plugin today');
+    expect(storyboards).not.toContain('every client except Claude Code with the `cardinal` plugin');
+    for (const rel of [
+      'ui/agent-outcomes/install-cursor-plugin.mdx',
+      'ui/agent-outcomes/install-gemini-plugin.mdx',
+      'ui/agent-outcomes/install-codex-plugin.mdx',
+      'ui/agent-outcomes/install-opencode-plugin.mdx',
+      'ui/agent-outcomes/install-pi-plugin.mdx',
+    ]) {
+      const md = read(rel);
+      expect(md).toContain('the result of **every** tool call');
+      expect(md).toContain('**withheld**');
       expect(md).toContain('`CARDINAL_EVIDENCE_CAPTURE=0`');
     }
   });

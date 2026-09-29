@@ -69,7 +69,7 @@ On a self-hosted Cardinal UI without `MAESTRO_INGEST_ENDPOINT` the reason is `in
 
 ## Other clients
 
-The Codex, Cursor, Gemini CLI, OpenCode and Pi plugins connect the same way, each with its own `connect` command, and give Claude the same `storyboard__*` tools and authoring guide from the server; see [Connect AI clients](/ui/mcp-clients). Without the Claude Code plugin's capture hook and `cardinal-evidence`, Claude cites your other tools' results as **reported** evidence, and a preview returns a `draft_url` to open yourself instead of local images. The Cursor and Gemini CLI plugins [capture](/ui/storyboards/evidence#captured) results locally, but `cardinal-evidence`, which uploads them, ships only with the Claude Code plugin today.
+The Codex, Cursor, Gemini CLI, OpenCode and Pi plugins connect the same way, each with its own `connect` command, and give Claude the same `storyboard__*` tools and authoring guide from the server; see [Connect AI clients](/ui/mcp-clients). Their current versions also [capture](/ui/storyboards/evidence#captured) every tool call locally and ship their own `cardinal-evidence` command, so results can be cited as **captured** evidence (see [Which clients capture](/ui/storyboards/evidence#which-clients-capture)). A call their hook didn't see is cited as **reported** evidence. There are no local previews: a preview returns a `draft_url` to open yourself.
 
 **claude.ai and Claude Desktop** can't author storyboards on Cardinal Cloud today. Their custom connectors sign in with OAuth, and Cardinal Cloud accepts only API keys for writes. Author in Claude Code, then share the result with its `view_url` inside your org or with a [public link](/ui/storyboards/public-links) outside it.
 

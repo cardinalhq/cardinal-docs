@@ -102,7 +102,7 @@ Authoring needs the **Member** or **Owner** role in the org Claude works in.
 
 ### Evidence from your other tools
 
-In plugin versions newer than 0.34.1, a hook keeps your tool results on your machine, including each call to your **other** MCP servers (never Cardinal's own tools), under `~/.cardinal/evidence/`, so a storyboard can cite it as **captured** evidence. Credentials are scrubbed, each result is capped at 256 KiB, and entries are deleted after 14 days. Nothing is uploaded until a storyboard cites a result: Claude then runs `cardinal-evidence promote` for exactly those results. Turn capture off with `cardinal-evidence off`. See [Captured evidence](/ui/storyboards/evidence#captured).
+From version **0.35.0**, a hook keeps the result of **every** tool call on your machine, under `~/.cardinal/evidence/`, so a storyboard can cite it as **captured** evidence. That includes shell commands, file reads and edits, web fetches and your **other** MCP servers, but never Cardinal's own tools, which are already witnessed. Credentials are scrubbed, each result is capped at 256 KiB, and entries are deleted after 14 days. A call that touches something sensitive, such as a `.env` file, a private key or `gh auth token`, is **withheld**: only a stub saying why is kept, and it can't be cited. Nothing is uploaded until a storyboard cites a result: Claude then runs `cardinal-evidence promote` for exactly those results. Turn capture off with `cardinal-evidence off`. See [Captured evidence](/ui/storyboards/evidence#captured).
 
 ### Local previews
 
@@ -135,7 +135,7 @@ Until you run `/cardinal:connect`, the plugin sends no session telemetry at all.
 
 Tool results are handled separately, as storyboard evidence. Capture works the same way whether or not the plugin is connected:
 
-- **Results of your other tools** are kept **locally** as evidence, in `~/.cardinal/evidence/` on your machine, with credentials scrubbed, and deleted after 14 days. They are uploaded only when you cite them in a storyboard, and then only to that storyboard's draft. To opt out, run `cardinal-evidence off` (or set `CARDINAL_EVIDENCE_CAPTURE=0`); `cardinal-evidence on` turns it back on. See [Captured evidence](/ui/storyboards/evidence#captured).
+- **Results of every other tool call** (shell commands, file reads and edits, other MCP servers, …) are kept **locally** as evidence, in `~/.cardinal/evidence/` on your machine, with credentials scrubbed, and deleted after 14 days. A call that touches something sensitive, such as a `.env` file, a key or a secret-printing command, keeps no arguments or result, only a stub saying it was withheld. They are uploaded only when you cite them in a storyboard, and then only to that storyboard's draft. To opt out, run `cardinal-evidence off` (or set `CARDINAL_EVIDENCE_CAPTURE=0`); `cardinal-evidence on` turns it back on. See [Captured evidence](/ui/storyboards/evidence#captured).
 - **Results of Cardinal's own tools** already run on Cardinal. Cardinal keeps a receipt of each read-only call, with credentials redacted, for 14 days, or for as long as a published storyboard cites it. See [Evidence and receipts](/ui/storyboards/evidence).
 
 ## Disconnect

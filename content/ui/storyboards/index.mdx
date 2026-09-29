@@ -18,8 +18,8 @@ The data doesn't have to be in Cardinal: results of your other tools (Datadog, G
 
 | Client | How to connect | Evidence from your other tools | Scene previews |
 | --- | --- | --- | --- |
-| **Claude Code** with the `cardinal` plugin | Install the plugin and run `/cardinal:connect`. | **Captured**: the plugin records tool results on your machine; only the ones a storyboard cites are uploaded. | Rendered on your machine, and Claude critiques the images. |
-| **Codex, Cursor, Gemini CLI, OpenCode, Pi** with their Cardinal plugin | The plugin's `connect` command. | **Reported**: Claude uploads the results it saw. | Open the draft link Claude gives you. |
+| **Claude Code** with the `cardinal` plugin | Install the plugin and run `/cardinal:connect`. | **Captured**: the plugin records every tool call's result on your machine; only the ones a storyboard cites are uploaded. | Rendered on your machine, and Claude critiques the images. |
+| **Codex, Cursor, Gemini CLI, OpenCode, Pi** with their Cardinal plugin | The plugin's `connect` command. | **Captured** the same way by current plugin versions; **reported** (Claude uploads the result it saw) for a call the hook didn't see. | Open the draft link Claude gives you. |
 
 Results of Cardinal's own tools are always **witnessed**: Cardinal ran the call and recorded the result itself. See [Use with Claude](/ui/storyboards/claude) for setup, and [Evidence and receipts](/ui/storyboards/evidence) for what each evidence tier means. claude.ai and Claude Desktop can't author storyboards on Cardinal Cloud today: their connectors sign in with OAuth, which Cardinal Cloud doesn't accept for writes.
 
