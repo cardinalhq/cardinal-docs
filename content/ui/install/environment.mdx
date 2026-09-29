@@ -77,7 +77,7 @@ All optional. See [Storyboards: self-hosted setup](/ui/storyboards/self-hosted) 
 
 | Variable | Default | Notes |
 | -------- | ------- | ----- |
-| `SHARE_HOST` | — | Bare `host[:port]` (e.g. `share.example.com`) that serves [public storyboard links](/ui/storyboards/public-links) at `https://<SHARE_HOST>/s/<token>`. On that host Cardinal UI serves only the public viewer, its read API and static assets, and never reads or sets a cookie. Unset: links use `MAESTRO_BASE_URL`'s origin, or can't be created without it. An invalid value stops Cardinal UI at startup |
+| `SHARE_HOST` | — | Bare `host[:port]` (e.g. `share.example.com`) that serves [public storyboard links](/ui/storyboards/public-links) at `https://<SHARE_HOST>/s/<token>`. On that host Cardinal UI serves only the public viewer, its read API, the abuse-report POST and static assets, and never reads or sets a cookie. Unset: links use `MAESTRO_BASE_URL`'s origin, or can't be created without it. An invalid value stops Cardinal UI at startup |
 | `STORYBOARD_SIGNUP_URL` | `https://app.cardinalhq.io` | Where the public viewer's **Make your own with Claude** link goes. Must be an absolute http(s) URL |
 | `MCP_OAUTH_ENABLED` | `false` | `true` mounts the org-less `/mcp` endpoint and its OAuth discovery documents. Needs `MAESTRO_BASE_URL`, `OIDC_ISSUER_URL`, and an IdP with dynamic client registration or a pre-registered client |
 | `MCP_OAUTH_AUDIENCE` | `<MAESTRO_BASE_URL origin>/mcp` | Token `aud` accepted on `/mcp` only |

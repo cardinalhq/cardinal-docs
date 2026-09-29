@@ -11,7 +11,7 @@ A public link opens one **published** storyboard, read-only, for anyone who has 
 - **Published storyboards only.** A draft can never be shared publicly. Published storyboards are immutable, so a link always shows exactly what passed publish.
 - **Your org must allow it.** The org setting **Public storyboard links** decides whether members can create links. See [Org policy](#org-policy).
 - **The URL is the credential.** Cardinal stores only a hash of it, so the URL is shown once, when the link is created. A lost URL can't be recovered: revoke the link and create another.
-- **Revocable.** Revoking a link stops it working on the next request. Deleting the storyboard ends its links too.
+- **Revocable.** Revoking a link stops it working within a minute (a reader's browser may keep showing a cached copy for up to 60 seconds). Deleting the storyboard ends its links too.
 - **Optional expiry.** An expired link behaves like a revoked one.
 - **Raw evidence is chosen once.** Whether readers can open raw results is fixed when the link is created. To change it, revoke the link and create a new one, so a URL you already sent never starts showing more.
 
@@ -43,11 +43,13 @@ What the evidence drawer shows depends on **Include raw evidence**:
 
 | | Raw evidence off (default) | Raw evidence on |
 | --- | --- | --- |
-| Receipt summary: tool, source server, evidence tier, arguments (credentials redacted), time range, row count, whether the result was truncated | Yes | Yes |
-| The full result the investigation saw (credentials redacted), and the query text | No | Yes |
+| Receipt summary: tool, source server, evidence tier, arguments including the query text (credentials redacted), time range, row count, whether the result was truncated | Yes | Yes |
+| The full result the investigation saw (credentials redacted), including a failed call's error text | No | Yes |
 | Rows of frozen datasets | No | Yes |
 | Receipts the storyboard doesn't cite | Never | Never |
 | Who wrote it: session id, API key, client, uploader | Never | Never |
+
+The query and its arguments are always visible on a public link, raw evidence or not. Only credentials are redacted: literals in a SQL, LogQL or PromQL query, such as customer ids, emails or hostnames, are shown to anyone with the link, so check every cited query before you share.
 
 The Canvas always receives the values its scenes bind, because it can't draw without them, and the page shows what the Canvas draws. **Include raw evidence** controls what the evidence drawer opens, not what the scenes themselves show. If a scene binds a whole result or every row of a dataset, readers can see that data whatever you choose, so read through a storyboard before you share it.
 

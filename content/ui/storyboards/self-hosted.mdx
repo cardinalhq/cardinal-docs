@@ -73,7 +73,7 @@ curl -i https://ui.example.com/mcp
 curl https://ui.example.com/.well-known/oauth-protected-resource/mcp
 ```
 
-A connector token is accepted only on `/mcp`; it can't call the rest of Cardinal UI's API. The API-key and plugin paths keep working.
+A connector token issued for the MCP audience is accepted only on `/mcp`; it can't call the rest of Cardinal UI's API. (A token issued with `OIDC_AUDIENCE`, which `/mcp` also accepts, is a normal app token.) The API-key and plugin paths keep working.
 
 ### Add the connector with a pre-registered client
 
@@ -105,7 +105,7 @@ Public links are [off by default for team orgs](/ui/storyboards/public-links#org
 
 Only people who can reach that host can open a link. With an in-VPC Cardinal UI, links on `MAESTRO_BASE_URL` open only inside your network.
 
-**Use `SHARE_HOST`.** It is a bare `host[:port]`: no scheme, no path. Point its DNS and a TLS certificate at the Cardinal UI Service, like your main hostname. On that host Cardinal UI serves only the public viewer (`/s/*`), its read API (`/api/public/*`) and static assets; everything else, including sign-in and the rest of the API, answers 404, and no cookie is ever read or set. That is what makes it safe to publish:
+**Use `SHARE_HOST`.** It is a bare `host[:port]`: no scheme, no path. Point its DNS and a TLS certificate at the Cardinal UI Service, like your main hostname. On that host Cardinal UI serves only the public viewer (`/s/*`), its read API (`/api/public/*`), the **Report this page** abuse-report POST, and static assets; everything else, including sign-in and the rest of the API, answers 404, and no cookie is ever read or set. That is what makes it safe to publish:
 
 - A Canvas that escapes its sandbox lands on an origin that holds none of your users' sessions.
 - For an in-VPC install, you can route only `SHARE_HOST` through an internet-facing ingress, so outside readers reach shared storyboards while the app stays private. Pass the original `Host` header through, and keep `MAESTRO_TRUSTED_PROXY_HOPS` right for your proxies so per-reader rate limits see real client addresses.

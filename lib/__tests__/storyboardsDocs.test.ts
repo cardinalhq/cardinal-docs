@@ -173,6 +173,12 @@ describe('storyboards docs: statements that must stay correct', () => {
     expect(links).toMatch(/Personal workspaces[^\n]*\| \*\*On\*\*/);
     expect(links).toContain('**Include raw evidence**');
     expect(links).toContain('Who wrote it: session id, API key, client, uploader | Never | Never');
+    // The public summary always carries the query and its redacted args
+    // (publicReceiptSummary in maestro); the docs must not promise otherwise.
+    expect(links).toMatch(/\| Receipt summary: [^\n]*arguments including the query text \(credentials redacted\)[^\n]*\| Yes \| Yes \|/);
+    expect(links).toContain("| The full result the investigation saw (credentials redacted), including a failed call's error text | No | Yes |");
+    expect(links).not.toContain('and the query text');
+    expect(links).toContain('The query and its arguments are always visible on a public link, raw evidence or not.');
     for (const err of ['`public_links_disabled`', '`storyboard_not_published`', '`share_host_not_configured`']) {
       expect(links).toContain(err);
     }
