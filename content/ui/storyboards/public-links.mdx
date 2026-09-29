@@ -4,6 +4,8 @@ import SupportCallout from '../../../components/SupportCallout';
 
 A public link opens one **published** storyboard, read-only, for anyone who has the link. Readers need no Cardinal account. Use it to share a write-up with a vendor, a customer, or a team that isn't in your Cardinal org. Members of your org don't need one: they can open the storyboard's `view_url`.
 
+> **Public links are not yet available on Cardinal Cloud** (`app.cardinalhq.io`). Share a storyboard inside your org with its `view_url` in the meantime. This page describes how public links work once they are on, and how they work on a [self-hosted Cardinal UI](/ui/storyboards/self-hosted#public-links) today.
+
 <SupportCallout />
 
 ## Rules
@@ -51,7 +53,7 @@ What the evidence drawer shows depends on **Include raw evidence**:
 
 The query and its arguments are always visible on a public link, raw evidence or not. Only credentials are redacted: literals in a SQL, LogQL or PromQL query, such as customer ids, emails or hostnames, are shown to anyone with the link, so check every cited query before you share.
 
-The Canvas always receives the values its scenes bind, because it can't draw without them, and the page shows what the Canvas draws. **Include raw evidence** controls what the evidence drawer opens, not what the scenes themselves show. If a scene binds a whole result or every row of a dataset, readers can see that data whatever you choose, so read through a storyboard before you share it.
+The Canvas always receives the values its scenes bind, because it can't draw without them, and the page shows what the Canvas draws. So a link **without** raw evidence can't be created for a storyboard with a scene that binds a whole result or every row of a dataset: Cardinal refuses with `raw_evidence_required` and lists those scenes. Either create the link with **Include raw evidence** on, or publish a version whose scenes bind only what they draw (a selected field, a reduced value, a series). Scenes that bind narrower values still show those values to every reader, so read through a storyboard before you share it.
 
 Below the storyboard, a footer line reads *Made with Cardinal Storyboards.*, with a **Make your own with Claude** link, and **Report this page**.
 
@@ -75,6 +77,8 @@ The **Public storyboard links** card in **Settings → About** shows whether mem
 | --- | --- | --- |
 | `public_links_disabled` | The org's **Public storyboard links** setting is off. | Ask an organization owner to turn it on in **Settings → About**. |
 | `storyboard_not_published` | The storyboard is a draft. | Publish it first. |
+| `raw_evidence_required` | The link has raw evidence off, but a scene binds a whole result or every row of a dataset. The error lists those scenes. | Turn on **Include raw evidence**, or publish a narrower version. |
+| `storyboard_changed` | The storyboard changed while the link was being created. | Try again. |
 | `share_host_not_configured` | This Cardinal has no public address for links. | Self-hosted only: your operator sets `SHARE_HOST` or `MAESTRO_BASE_URL`. See [Self-hosted setup](/ui/storyboards/self-hosted#public-links). |
 | `quota_exceeded` | A personal workspace's links used up today's views. | Readers see a plain message; views resume at 00:00 UTC. |
 

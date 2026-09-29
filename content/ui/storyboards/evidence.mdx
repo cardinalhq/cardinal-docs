@@ -55,6 +55,8 @@ With the `cardinal` plugin in Claude Code, connected or not, a hook records the 
 ```
 
 - **Stored locally.** Each result is written to `~/.cardinal/evidence/<session id>/`, readable only by you, with credentials scrubbed and the result capped at 256 KiB. Entries older than 14 days are deleted.
+- **Failed calls are captured too.** When another server's tool returns an error, the hook keeps its error text, with credentials redacted. Promoted, it becomes a failed-call receipt that Claude can bind at `/error/message`, as with a [witnessed](#witnessed) failure.
+- **JSON results stay bindable.** A result that is a single JSON object or array is kept as structured data, so scenes can select and extract from it rather than only quote it. Private keys (PEM blocks) are scrubbed wherever they appear, and local file paths are replaced with `[local file]`.
 - **Nothing is sent** while a result sits in the spool. Calls to Cardinal's own tools are not captured: they are already witnessed.
 - **Uploaded only when cited.** When a draft storyboard will bind a result, Claude runs `cardinal-evidence promote` with that result's id. The upload goes to that draft only, and Cardinal stores it as a captured receipt (`ev_… -> rcpt_…`) that Claude binds like any other. Claude promotes only the results its scenes cite, never the whole spool.
 - **A promoted result that is never bound** is an unreferenced receipt: it expires after 14 days, and no published storyboard or public link can reach it.

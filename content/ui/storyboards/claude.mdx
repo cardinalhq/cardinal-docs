@@ -26,7 +26,7 @@ Claude Desktop uses the connectors of the claude.ai account you are signed in wi
 ### Your first sign-in
 
 - **You were invited to an org.** Signing in accepts your pending invitations and connects you to that org.
-- **You have no Cardinal account yet.** Cardinal creates a [personal workspace](/ui/storyboards#personal-workspaces) for you, named after you, with public links turned on. It has daily quotas; inviting someone into it converts it into a team org.
+- **You have no Cardinal account yet.** Cardinal creates a [personal workspace](/ui/storyboards#personal-workspaces) for you, named after you. It has daily quotas; inviting someone into it converts it into a team org.
 - **Your email domain is managed by an existing org**, or your email address isn't verified: Cardinal refuses to create a workspace and asks you to get an invitation from an organization owner.
 
 ### Which org Claude works in
@@ -113,7 +113,7 @@ Any client that speaks streamable-HTTP MCP with OAuth can connect to `https://ap
 | `email_not_verified` | Verify your email address with Cardinal's sign-in provider, then connect again. |
 | `org_not_accessible` | The `?org=` in the connector URL names an org you don't belong to. Remove it, or name one of your orgs. |
 | `quota_exceeded` | A [personal workspace](/ui/storyboards#personal-workspaces) quota is used up for today. The message says when it resets. |
-| `public_links_disabled` | Your org doesn't allow public links. See [Org policy](/ui/storyboards/public-links#org-policy). |
+| `public_links_disabled` | Your org doesn't allow public links. They are not yet available on Cardinal Cloud; see [Public links](/ui/storyboards/public-links). |
 | The `storyboard__*` tools are missing | Reconnect the server with `/mcp` in Claude Code, or disconnect and reconnect the connector in claude.ai. |
 
 <SupportCallout />
