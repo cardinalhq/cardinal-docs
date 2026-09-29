@@ -12,15 +12,16 @@ A storyboard is neither a dashboard nor a transcript. An investigation of 70 que
 
 ## Where you can use them
 
-Storyboards work from any Claude surface that can connect to Cardinal's MCP server, over any MCP data Claude can reach. The data doesn't have to be in Cardinal: results from your other MCP servers (Datadog, GitHub, a database, …) can be cited as evidence too.
+Writing a storyboard needs an API key; reading one doesn't. Sign up at [app.cardinalhq.io](https://app.cardinalhq.io), then connect your agent with its Cardinal plugin: the plugin's connect command stores an API key for your org. Anyone can read a published storyboard through a [public link](/ui/storyboards/public-links), without a Cardinal account.
 
-| Client | How to connect | Evidence from other MCP servers | Scene previews |
+The data doesn't have to be in Cardinal: results of your other tools (Datadog, GitHub, a database, …) can be cited as evidence too.
+
+| Client | How to connect | Evidence from your other tools | Scene previews |
 | --- | --- | --- | --- |
-| **claude.ai** and **Claude Desktop** | Add Cardinal as a custom connector at `https://app.cardinalhq.io/mcp` and sign in. | **Reported**: Claude uploads the results it saw. | Open the draft link Claude gives you. |
-| **Claude Code** with the `cardinal` plugin | Install the plugin and sign in with OAuth; `/cardinal:connect` is optional. | **Captured**: a hook records each result on your machine; only the ones a storyboard cites are uploaded. | Rendered on your machine, and Claude critiques the images. |
-| **Claude Code** without a plugin | `claude mcp add --transport http cardinal https://app.cardinalhq.io/mcp` | **Reported**. | Open the draft link. |
+| **Claude Code** with the `cardinal` plugin | Install the plugin and run `/cardinal:connect`. | **Captured**: the plugin records tool results on your machine; only the ones a storyboard cites are uploaded. | Rendered on your machine, and Claude critiques the images. |
+| **Codex, Cursor, Gemini CLI, OpenCode, Pi** with their Cardinal plugin | The plugin's `connect` command. | **Reported**: Claude uploads the results it saw. | Open the draft link Claude gives you. |
 
-Results of Cardinal's own tools are always **witnessed**: Cardinal ran the call and recorded the result itself. See [Use with Claude](/ui/storyboards/claude) for setup, and [Evidence and receipts](/ui/storyboards/evidence) for what each evidence tier means.
+Results of Cardinal's own tools are always **witnessed**: Cardinal ran the call and recorded the result itself. See [Use with Claude](/ui/storyboards/claude) for setup, and [Evidence and receipts](/ui/storyboards/evidence) for what each evidence tier means. claude.ai and Claude Desktop can't author storyboards on Cardinal Cloud today: their connectors sign in with OAuth, which Cardinal Cloud doesn't accept for writes.
 
 You don't need Cardinal Data Lake, or any integration, to use storyboards. An org with no integrations still gets the `storyboard__*` tools and Cardinal's built-in `common__*` helpers.
 
@@ -61,9 +62,9 @@ The first preview of a draft that binds datasets can take a while, because Cardi
 
 ### Previews
 
-Cardinal renders nothing on its servers. Where Claude can render locally, in Claude Code with the `cardinal` plugin, connected or not, each scene is rendered **on your machine** in your own Chrome or Chromium, and the images go back to Claude so it can judge the scene as a reader would. The preview browser runs headless, with its OS sandbox on, networking locked off, and a throwaway profile. Setup details are on the [Claude Code plugin page](/ui/agent-outcomes/install-claude-plugin#local-previews).
+Cardinal renders nothing on its servers. Where Claude can render locally, in Claude Code with the `cardinal` plugin, each scene is rendered **on your machine** in your own Chrome or Chromium, and the images go back to Claude so it can judge the scene as a reader would. The preview browser runs headless, with its OS sandbox on, networking locked off, and a throwaway profile. Setup details are on the [Claude Code plugin page](/ui/agent-outcomes/install-claude-plugin#local-previews).
 
-Everywhere else, including claude.ai and Claude Desktop, the preview result says that no image was rendered and includes a `draft_url`: the draft in Cardinal's viewer, which you open while signed in to review the visuals yourself. Drafts are visible to members of your org only.
+Everywhere else, the preview result says that no image was rendered and includes a `draft_url`: the draft in Cardinal's viewer, which you open while signed in to review the visuals yourself. Drafts are visible to members of your org only.
 
 Previews are optional. Skipping them can lower the quality of the visuals, but it doesn't affect whether a storyboard can be published, or what publishing checks.
 
@@ -97,7 +98,7 @@ There is no sidebar entry. You reach storyboards through:
 
 The viewer is available to org members with the **Member** or **Owner** role. Drafts are visible at the same link while Claude works on them, and refresh as it writes.
 
-To show a **published** storyboard to someone outside your org, create a [public link](/ui/storyboards/public-links): the **Share** button in the viewer's header, or ask Claude to share it. Public links are not yet available on Cardinal Cloud; there, share storyboards inside your org with their `view_url`.
+To show a **published** storyboard to someone outside your org, create a [public link](/ui/storyboards/public-links): the **Share** button in the viewer's header, or ask Claude to share it. Readers need no account. On Cardinal Cloud links open on `share.cardinalhq.io`. Whether members can create them is an org setting that an owner controls; it is on by default in personal workspaces.
 
 ### Reading a storyboard
 
@@ -132,7 +133,7 @@ Each Canvas runs in a sandboxed frame with no network access, cookies, storage, 
 
 ### Personal workspaces
 
-A **personal workspace** is the one-person org Cardinal creates the first time you sign in without an invitation, named after you (for example *Ada's workspace*). It has these daily limits, which reset at 00:00 UTC. Team orgs have none of them.
+A **personal workspace** is the one-person org Cardinal creates when you sign up without an invitation, named after you (for example *Ada's workspace*). It has these daily limits, which reset at 00:00 UTC. Team orgs have none of them.
 
 | Quota | Default per day |
 | --- | --- |

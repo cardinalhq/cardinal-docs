@@ -11,10 +11,10 @@ The plugin also delivers **session context and spend limits**: every session in 
 
 The plugin works in two modes:
 
-- **Installed, not connected.** Its `cardinal` MCP server points at Cardinal Cloud, `https://app.cardinalhq.io/mcp`, and Claude Code signs you in with OAuth in your browser. [Investigation Storyboards](/ui/storyboards) work fully: the [storyboard skills](#storyboard-skills), [local previews](#local-previews), and [captured evidence](#evidence-from-your-other-mcp-servers) with `cardinal-evidence promote`. There is no session telemetry, no spend limits, and no session-context hooks.
-- **Connected** with `/cardinal:connect`. Everything above, plus the session telemetry, session context and spend limits described on this page. The `cardinal` server then uses your org's URL and an API key instead of OAuth.
+- **Installed, not connected: local-only.** The `cardinal` MCP server has no URL yet, so it contacts nothing; `/mcp` lists it as failed with *Missing environment variables: CARDINAL_MCP_URL*, which is expected. The plugin [captures tool results](#evidence-from-your-other-tools) on your machine and sends nothing. There are no Cardinal tools, no session telemetry, no spend limits, and no session-context hooks. The first session tells you once how to connect.
+- **Connected** with `/cardinal:connect`. The `cardinal` server uses your org's URL and an API key the connect flow created. You get the Cardinal tools, [Investigation Storyboards](/ui/storyboards) with the [storyboard skills](#storyboard-skills), [local previews](#local-previews) and cited evidence uploads, plus the session telemetry, session context and spend limits described on this page.
 
-On a self-hosted or in-VPC Cardinal UI, run `/cardinal:connect --host …`: the not-connected mode always uses Cardinal Cloud.
+Writing to Cardinal, storyboards included, needs that API key; there is no OAuth sign-in. On a self-hosted or in-VPC Cardinal UI, run `/cardinal:connect --host …`.
 
 <SupportCallout />
 
@@ -22,7 +22,7 @@ On a self-hosted or in-VPC Cardinal UI, run `/cardinal:connect --host …`: the 
 
 - Claude Code with plugin support (any recent stable release).
 - Python 3.9+ on your `PATH` (the plugin's helpers run as Python scripts).
-- A Cardinal account on `app.cardinalhq.io`, or a self-hosted Cardinal UI your operator has prepared (see [Connect AI clients](/ui/mcp-clients)).
+- A Cardinal account: sign up at [app.cardinalhq.io](https://app.cardinalhq.io) (without an invitation you get a personal workspace), or use a self-hosted Cardinal UI your operator has prepared (see [Connect AI clients](/ui/mcp-clients)).
 
 ## 1. Install
 
@@ -33,7 +33,7 @@ claude plugin install cardinal@cardinalhq-claude-plugin
 
 ## 2. Connect
 
-If you only want storyboards on Cardinal Cloud, you can skip this step: run `/mcp` in Claude Code, authenticate the `cardinal` server, and sign in in your browser. Connect when you want session telemetry and spend limits, or to use a self-hosted Cardinal UI.
+Connecting is what gives Claude Code write access to Cardinal, storyboards included: the consent flow creates an API key for the org you pick and the plugin stores it. You don't create a key yourself.
 
 From inside Claude Code:
 
@@ -96,17 +96,17 @@ From version **0.32.0**, the plugin ships two skills for [Investigation Storyboa
 
 Once connected, the plugin also adds this session's Cardinal session id to Claude's context at session start, so each storyboard records which session wrote it.
 
-The skills, local previews and captured evidence work whether or not the plugin is connected. If you only want storyboards, without session telemetry, install the plugin and don't run `/cardinal:connect`: Claude Code signs you in to Cardinal Cloud with OAuth the first time you authenticate the `cardinal` server with `/mcp`. See [Use storyboards with Claude](/ui/storyboards/claude#claude-code).
+The skills and local previews need the plugin to be connected: before `/cardinal:connect` there are no `storyboard__*` tools. Evidence capture runs either way, so results captured before you connect can be cited afterwards. See [Use storyboards with Claude](/ui/storyboards/claude#claude-code).
 
 Authoring needs the **Member** or **Owner** role in the org Claude works in.
 
-### Evidence from your other MCP servers
+### Evidence from your other tools
 
-In plugin versions newer than 0.34.1, a hook keeps the result of each call to your **other** MCP servers (not Cardinal's) on your machine, under `~/.cardinal/evidence/`, so a storyboard can cite it as **captured** evidence. Credentials are scrubbed, each result is capped at 256 KiB, and entries are deleted after 14 days. Nothing is uploaded until a storyboard cites a result: Claude then runs `cardinal-evidence promote` for exactly those results. Turn capture off with `cardinal-evidence off`. See [Captured evidence](/ui/storyboards/evidence#captured).
+In plugin versions newer than 0.34.1, a hook keeps your tool results on your machine, including each call to your **other** MCP servers (never Cardinal's own tools), under `~/.cardinal/evidence/`, so a storyboard can cite it as **captured** evidence. Credentials are scrubbed, each result is capped at 256 KiB, and entries are deleted after 14 days. Nothing is uploaded until a storyboard cites a result: Claude then runs `cardinal-evidence promote` for exactly those results. Turn capture off with `cardinal-evidence off`. See [Captured evidence](/ui/storyboards/evidence#captured).
 
 ### Local previews
 
-The `/cardinal:canvas` skill renders previews with a script bundled in the plugin, `render_preview.py`. The script runs on your machine and needs no extra Python packages. It downloads each scene's self-contained preview page from the Cardinal the plugin uses (Cardinal Cloud until you connect), checks its size and SHA-256, and opens it in a local headless Chrome or Chromium. That browser runs with its OS sandbox on, networking locked off, and a throwaway profile. The script writes one PNG per scene and reveal step to `~/.claude/cardinal/storyboards/<storyboard id>/r<revision>/` for Claude to read. Your Cardinal key, or the short-lived preview token from the preview result, is only ever sent to that Cardinal.
+The `/cardinal:canvas` skill renders previews with a script bundled in the plugin, `render_preview.py`. The script runs on your machine and needs no extra Python packages. It downloads each scene's self-contained preview page from the Cardinal the plugin is connected to, checks its size and SHA-256, and opens it in a local headless Chrome or Chromium. That browser runs with its OS sandbox on, networking locked off, and a throwaway profile. The script writes one PNG per scene and reveal step to `~/.claude/cardinal/storyboards/<storyboard id>/r<revision>/` for Claude to read. Your Cardinal key is only ever sent to that Cardinal.
 
 Requirements:
 
@@ -120,7 +120,7 @@ Previews are optional. Publishing never depends on them, because Cardinal's publ
 | Exit code | Meaning |
 | --- | --- |
 | `0` | The script ran. Individual scenes may still report errors, which Claude fixes. |
-| `2` | Nothing was rendered because of a connection, authentication, or fetch problem: not signed in, a different org, a role without access, a draft edited since the last preview, or a Cardinal too old to serve previews. Claude reports the reason and, for a stale preview, previews again. |
+| `2` | Nothing was rendered because of a connection, authentication, or fetch problem: not connected, a different org, a role without access, a draft edited since the last preview, or a Cardinal too old to serve previews. Claude reports the reason and, for a stale preview, previews again. |
 | `3` | No usable local Chrome or Chromium, Windows, or Chromium could not start with its sandbox on. **This is not an error.** Claude tells you once that previews were skipped and keeps authoring. |
 
 A preview page is fetched by its path on the Cardinal the plugin uses. On a self-hosted Cardinal UI, previews work whether or not your operator has set `MAESTRO_BASE_URL`; that setting only decides whether the `view_url` Claude hands you is an absolute link or a path to open on your Cardinal UI host. On Cardinal Cloud, both are already set up.
@@ -133,9 +133,9 @@ Claude Code reads the `cardinal` server's tool list when a session connects. A s
 
 Until you run `/cardinal:connect`, the plugin sends no session telemetry at all. Once connected, by default it captures bash command lines and file paths so Cardinal can tell which repo and service a session worked on. The contents of your prompts are never captured, and session telemetry carries no tool outputs and no tool inputs beyond those command lines and paths. If your org's policy forbids command lines and paths too, connect with `--no-tool-details` — sessions still appear, but as `repo=unknown`.
 
-Tool results are handled separately, as storyboard evidence, in the same way whether or not the plugin is connected:
+Tool results are handled separately, as storyboard evidence. Capture works the same way whether or not the plugin is connected:
 
-- **Results from your other MCP servers** are kept **locally** as evidence, in `~/.cardinal/evidence/` on your machine, with credentials scrubbed, and deleted after 14 days. They are uploaded only when you cite them in a storyboard, and then only to that storyboard's draft. To opt out, run `cardinal-evidence off` (or set `CARDINAL_EVIDENCE_CAPTURE=0`); `cardinal-evidence on` turns it back on. See [Captured evidence](/ui/storyboards/evidence#captured).
+- **Results of your other tools** are kept **locally** as evidence, in `~/.cardinal/evidence/` on your machine, with credentials scrubbed, and deleted after 14 days. They are uploaded only when you cite them in a storyboard, and then only to that storyboard's draft. To opt out, run `cardinal-evidence off` (or set `CARDINAL_EVIDENCE_CAPTURE=0`); `cardinal-evidence on` turns it back on. See [Captured evidence](/ui/storyboards/evidence#captured).
 - **Results of Cardinal's own tools** already run on Cardinal. Cardinal keeps a receipt of each read-only call, with credentials redacted, for 14 days, or for as long as a published storyboard cites it. See [Evidence and receipts](/ui/storyboards/evidence).
 
 ## Disconnect
@@ -145,4 +145,4 @@ Tool results are handled separately, as storyboard evidence, in the same way whe
 /cardinal:disconnect --keep-telemetry   # Keep the dashboard side, remove the MCP tools
 ```
 
-Disconnect revokes the keys with Cardinal and removes only the plugin-owned settings; everything else in your Claude Code config is left as it was.
+Disconnect revokes the keys with Cardinal and removes only the plugin-owned settings; everything else in your Claude Code config is left as it was. After a full disconnect the plugin is local-only again: the `cardinal` server has no URL, and evidence capture stays on your machine.

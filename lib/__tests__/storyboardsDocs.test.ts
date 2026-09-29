@@ -145,8 +145,25 @@ describe('storyboards docs: statements that must stay correct', () => {
   test('authoring is not described as Claude Code only', () => {
     expect(storyboards).not.toMatch(/Authoring\*\* is supported in Claude Code/);
     expect(storyboards).not.toMatch(/other agent plugins don't ship the storyboard skills/);
-    expect(storyboards).toContain('https://app.cardinalhq.io/mcp');
-    expect(storyboards).toContain('claude mcp add --transport http cardinal https://app.cardinalhq.io/mcp');
+    expect(storyboards).toContain('The Codex, Cursor, Gemini CLI, OpenCode and Pi plugins connect the same way');
+  });
+
+  // Decision 2026-09-29: writes need an API key (/cardinal:connect); Cardinal
+  // Cloud's MCP OAuth stays off, so no page may tell users to sign in with it.
+  test('connecting is the API-key model: no OAuth sign-in or connector instructions', () => {
+    const pages = PAGES.map(read).join('\n');
+    expect(pages).not.toContain('https://app.cardinalhq.io/mcp');
+    expect(pages).not.toContain('Add custom connector');
+    expect(pages).not.toMatch(/signs you in[^.\n]*with OAuth/i);
+    expect(pages).not.toMatch(/Connect with OAuth/);
+    expect(pages).not.toMatch(/authenticate the `cardinal` server/);
+    expect(pages).not.toContain('preview token');
+    expect(pages).not.toContain('MCP_OAUTH_');
+    const claude = read('ui/storyboards/claude.mdx');
+    expect(claude).toContain('**Writing needs an API key.**');
+    expect(claude).toContain('Run `/cardinal:connect`');
+    expect(claude).toContain('Missing environment variables: CARDINAL_MCP_URL');
+    expect(plugin).toContain('local-only');
   });
 
   test('failed read-only calls are documented as getting a receipt', () => {
@@ -157,6 +174,8 @@ describe('storyboards docs: statements that must stay correct', () => {
 
   test('sharing is no longer described as org-only', () => {
     expect(storyboards).not.toContain('There are no public links or exports yet');
+    expect(storyboards).not.toContain('not yet available on Cardinal Cloud');
+    expect(read('ui/storyboards/public-links.mdx')).toContain('`share.cardinalhq.io`');
   });
 
   test('the three evidence tiers and the reported-only warning are documented', () => {
@@ -184,18 +203,12 @@ describe('storyboards docs: statements that must stay correct', () => {
     }
   });
 
-  test('self-hosted: in-VPC path first, OAuth needs DCR or a pre-registered client', () => {
+  test('self-hosted: in-VPC connect with the plugin or an API key, no OAuth connector', () => {
     const selfHosted = read('ui/storyboards/self-hosted.mdx');
     expect(selfHosted.indexOf('## Connect Claude inside your VPC')).toBeGreaterThan(-1);
-    expect(selfHosted.indexOf('## Connect Claude inside your VPC')).toBeLessThan(
-      selfHosted.indexOf('## The OAuth connector (optional)'),
-    );
-    expect(selfHosted).toContain('**Dynamic client registration (DCR).**');
-    expect(selfHosted).toContain('**A pre-registered client.**');
-    expect(selfHosted).toContain('**The Dex bundled with the chart has no DCR.**');
-    for (const env of ['`MCP_OAUTH_ENABLED`', '`MCP_OAUTH_SELF_SIGNUP=true`', '`SHARE_HOST`']) {
-      expect(selfHosted).toContain(env);
-    }
+    expect(selfHosted).not.toContain('OAuth connector');
+    expect(selfHosted).toContain('/cardinal:connect --host');
+    expect(selfHosted).toContain('`SHARE_HOST`');
   });
 
   test('every storyboards env var documented on the self-hosted page is in the environment reference', () => {
@@ -203,11 +216,6 @@ describe('storyboards docs: statements that must stay correct', () => {
     for (const name of [
       'SHARE_HOST',
       'STORYBOARD_SIGNUP_URL',
-      'MCP_OAUTH_ENABLED',
-      'MCP_OAUTH_AUDIENCE',
-      'MCP_OAUTH_AS_METADATA_PROXY',
-      'MCP_OAUTH_SCOPES',
-      'MCP_OAUTH_SELF_SIGNUP',
       'PERSONAL_WORKSPACE_MAX_PUBLISHES_PER_DAY',
       'PERSONAL_WORKSPACE_MAX_EVIDENCE_BYTES_PER_DAY',
       'PERSONAL_WORKSPACE_MAX_PUBLIC_VIEWS_PER_DAY',
