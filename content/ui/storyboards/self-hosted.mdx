@@ -1,0 +1,74 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# Self-hosted setup
+
+Storyboards need no feature flag and no extra services. Storyboards, receipts and datasets are stored in Cardinal UI's existing Postgres, and nothing is rendered in the Cardinal UI pod. This page covers what your operator configures, starting with the usual self-hosted topology: Cardinal UI inside your VPC, reachable only from your network.
+
+On Cardinal Cloud (`app.cardinalhq.io`) all of this is already set up; see [Use with Claude](/ui/storyboards/claude).
+
+<SupportCallout />
+
+## Requirements
+
+- **A Cardinal UI image that includes Open Storyboards (v1.97.18 or later)** for evidence tiers, public links and personal workspaces. Storyboards themselves need v1.97.10 or later.
+- **`MAESTRO_MCP_API_KEY` on the MCP gateway sidecar as well as the Cardinal UI container.** The sidecar uses it to call back into Cardinal UI when Claude creates, previews, publishes and shares a storyboard. The `maestro` Helm chart **0.10.28 or later** sets it on both containers from one Secret. Chart **0.10.29** also adds typed, install-time-validated values for the settings on this page: `maestro.trustedProxyHops` (`MAESTRO_TRUSTED_PROXY_HOPS`), and `share.host` and `share.ingress.enabled` (`SHARE_HOST`). Setting the variables in `maestro.env` still works; don't set both. On an older chart, add the same `MAESTRO_MCP_API_KEY` entry (the same Secret and key) to both `maestro.env` and `mcpGateway.env`; see [Connect AI clients](/ui/mcp-clients#self-hosted-prepare-your-cardinal-ui-instance).
+- **`GATEWAY_AGGREGATOR_ENABLED=true` on the sidecar.** Receipts are minted on the gateway's aggregated MCP endpoint, which the plugins use. With it unset, tool calls return no `[receipt:…]` trailer and there is nothing to cite:
+
+  ```yaml
+  mcpGateway:
+    env:
+      - name: GATEWAY_AGGREGATOR_ENABLED
+        value: "true"
+  ```
+
+- **`MAESTRO_BASE_URL`** (recommended, and required for public links without `SHARE_HOST`). With it set, the `view_url` Claude hands you is an absolute link. Without it, Claude returns an app-relative path such as `/storyboards/sb_…?org=…`; open it on your Cardinal UI host. See [Environment variables](/ui/install/environment#public-url).
+
+Cardinal Data Lake is optional. An org with no integrations still gets the `storyboard__*` tools.
+
+## Connect Claude inside your VPC
+
+Writes go through Cardinal's MCP server with an API key; there is no OAuth sign-in. Inside a private network, connect Claude Code with one of these. Neither needs anything from your identity provider beyond what Cardinal UI already uses.
+
+- **The Cardinal plugin**, `/cardinal:connect --host https://ui.example.internal`. Each user approves in the browser and gets their own key. Until a user connects, the plugin is local-only: its `cardinal` server has no URL and contacts nothing. See [Install: Claude Code plugin](/ui/agent-outcomes/install-claude-plugin). If your org has no Cardinal Data Lake, or `MAESTRO_INGEST_ENDPOINT` is unset, connect still sets up the MCP tools and says telemetry is unavailable.
+- **The shared API key**, registered on Cardinal's aggregated endpoint. Name the server `cardinal`, so the plugins' capture hooks recognize its results as already witnessed:
+
+  ```bash
+  claude mcp add --transport http --scope user cardinal \
+    "$CARDINAL_MCP_HOST/api/orgs/$CARDINAL_ORG_ID/mcp" \
+    --header "X-CardinalHQ-API-Key: $CARDINAL_MCP_API_KEY"
+  ```
+
+  The key gates every org on the installation; treat it like an admin token (see [Lock it down](/ui/mcp-clients#3-lock-it-down)).
+
+## Public links
+
+Public links are [off by default for team orgs](/ui/storyboards/public-links#org-policy); an organization owner turns them on in **Settings → About**. Where the links point:
+
+| Setting | Public link URL |
+| --- | --- |
+| `SHARE_HOST` set, for example `share.example.com` | `https://share.example.com/s/<token>` |
+| Only `MAESTRO_BASE_URL` set | `<MAESTRO_BASE_URL origin>/s/<token>` |
+| Neither | Links can't be created (`share_host_not_configured`). Share storyboards inside the org with their `view_url`. |
+
+Only people who can reach that host can open a link. With an in-VPC Cardinal UI, links on `MAESTRO_BASE_URL` open only inside your network.
+
+**Use `SHARE_HOST`.** It is a bare `host[:port]`: no scheme, no path. Point its DNS and a TLS certificate at the Cardinal UI Service, like your main hostname. On that host Cardinal UI serves only the public viewer (`/s/*`), its read API (`/api/public/*`), the **Report this page** abuse-report POST, and static assets; everything else, including sign-in and the rest of the API, answers 404, and no cookie is ever read or set. That is what makes it safe to publish:
+
+- A Canvas that escapes its sandbox lands on an origin that holds none of your users' sessions.
+- For an in-VPC install, you can route only `SHARE_HOST` through an internet-facing ingress, so outside readers reach shared storyboards while the app stays private. Pass the original `Host` header through, and keep `MAESTRO_TRUSTED_PROXY_HOPS` right for your proxies so per-reader rate limits see real client addresses.
+
+An invalid `SHARE_HOST` stops Cardinal UI at startup rather than serving shared pages from the app's origin. With `SHARE_HOST` set, a request for `/s/<token>` on the main host is redirected to it.
+
+`STORYBOARD_SIGNUP_URL` sets where the viewer's **Make your own with Claude** link goes (default `https://app.cardinalhq.io`).
+
+## Personal-workspace quotas
+
+Personal workspaces have [daily quotas](/ui/storyboards#personal-workspaces). Team orgs are never metered. Override the defaults with positive integers:
+
+| Variable | Default |
+| --- | --- |
+| `PERSONAL_WORKSPACE_MAX_PUBLISHES_PER_DAY` | `20` |
+| `PERSONAL_WORKSPACE_MAX_EVIDENCE_BYTES_PER_DAY` | `52428800` (50 MiB) |
+| `PERSONAL_WORKSPACE_MAX_PUBLIC_VIEWS_PER_DAY` | `5000` |
+
+<SupportCallout />

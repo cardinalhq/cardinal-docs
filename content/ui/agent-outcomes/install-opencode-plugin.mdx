@@ -59,6 +59,10 @@ The default is `https://app.cardinalhq.io`. Pass `--telemetry-only` to skip the 
 
 Status probes the telemetry and MCP endpoints. In a fresh OpenCode session, verify that the `cardinal` MCP server and its tools are available.
 
+## Evidence capture
+
+From version **0.3.0**, the result of **every** tool call (built-in and plugin tools, failed calls included) is kept **locally** as storyboard evidence, in `~/.cardinal/evidence/` on your machine, with credentials scrubbed, and deleted after 14 days. Cardinal's own tools are skipped: their results are already witnessed. A call that touches something sensitive, such as a `.env` file, a private key or a secret-printing command, is **withheld**: only a stub saying why is kept. The plugin never uploads the spool; a result leaves your machine only when you cite it in an [Investigation Storyboard](/ui/storyboards/evidence#captured) and `cardinal-opencode evidence` promotes it. To opt out, set `CARDINAL_EVIDENCE_CAPTURE=0` in the environment OpenCode starts with, or create the file `~/.cardinal/evidence/disabled`.
+
 ## Disconnect
 
 ```bash

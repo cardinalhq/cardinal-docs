@@ -1,0 +1,140 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# Evidence and receipts
+
+Every number in a storyboard resolves to a **receipt**: a record of one tool call, with the tool, its arguments, the resolved absolute time window, and the result Claude saw. Claude binds scene values to receipts, and Cardinal resolves the bindings. Claude can't type a number into a scene: an inline value is rejected at publish.
+
+<SupportCallout />
+
+## Evidence tiers
+
+A receipt's **tier** says how its result reached Cardinal. Readers see the tier of every receipt, so they can decide how much weight each number carries.
+
+| Tier | Who recorded the result | How | Can the model alter it? |
+| --- | --- | --- | --- |
+| **witnessed** | Cardinal, in the call's path | A Cardinal tool call through Cardinal's MCP server. | No. |
+| **captured** | A hook in your client, from the real tool response | Recorded on your machine by a Cardinal plugin, for any tool call, and uploaded only when a storyboard cites it. | No, but it is attested by your machine, which Cardinal can't verify. |
+| **reported** | The model | Claude re-sends a result it says it saw, with `storyboard__record_evidence`. | Yes. It may be paraphrased, trimmed or wrong. |
+
+Claude prefers witnessed, then captured, then reported evidence. A value computed from several receipts carries the weakest tier among them.
+
+### In the viewer
+
+- Each receipt in the evidence drawer, and each number chip, carries a **witnessed**, **captured** or **reported** badge. Hover it for what it means:
+  - *Witnessed — Cardinal ran this call itself and recorded exactly what it returned.*
+  - *Captured — a hook on the author's machine recorded the real tool response and uploaded it. Cardinal did not run the call.*
+  - *Reported — the AI model uploaded a result it says it saw. Nothing independent recorded the call; weigh it accordingly.*
+- The storyboard's header tallies its receipts by tier, for example **4 witnessed · 2 captured · 1 reported**.
+- Public links show the same badges.
+
+Nothing is labeled witnessed unless Cardinal's gateway ran the call.
+
+### The `claim_reported_only` warning
+
+When every piece of supporting evidence for a claim is reported, preview and publish return the warning `claim_reported_only`. It applies to `causes`, `contributes_to`, `supports`, `contradicts` and `rules_out` claims, and to a `supported` or `ruled_out` scene whose cited receipts are all reported. It doesn't block publishing. Claude backs the claim with witnessed or captured evidence where it can, or says in the scene that the evidence is reported.
+
+## Witnessed
+
+Every **read-only** call to a Cardinal tool mints a receipt: a Cardinal Data Lake query, a Kubernetes read, a SQL query, a lookup. The receipt id comes back with the result as a trailer:
+
+```
+[receipt:rcpt_3f9c2a71b0e84d5c96a1f2e7]
+```
+
+The trailer is the last text block of the result. For tools that return structured output, the same text is also in the `_receipt` field, so Claude sees it whichever form your client displays.
+
+- **A failed call still gets a receipt.** When a read-only call returns an error (permission denied, not found, a tool error), its receipt records the error text, with credentials redacted. Claude can cite the failure itself, for example to show a check that could not run, by binding `/error/message`. A failed call has no population, so it can't be bound as a dataset.
+- **What gets no receipt:** write actions (creating an incident, sending a Slack message), transport failures where the tool never answered, and Kubernetes reads of Secrets, successful or not.
+
+## Captured
+
+With a Cardinal plugin installed, a hook records the result of **every tool call** on your machine and gives it an id beside the result. That covers the agent's built-in tools (shell commands such as tests, `git` or `make`, file reads and edits, searches, web fetches, subagents), every call to your **other** MCP servers, and any tool your client adds later. Capture runs whether or not the plugin is connected. Uploading a cited result needs a connection (`/cardinal:connect`).
+
+The first captured result of a session carries a line explaining how to cite it; every later one gets only its id:
+
+```
+[evidence:ev_3c1f0a9b7d22]
+```
+
+- **Stored locally.** Each result is written to `~/.cardinal/evidence/<session id>/`, readable only by you, with credentials scrubbed. Arguments are capped at 64 KiB and the result at 256 KiB. Entries older than 14 days are deleted, and when the spool passes 256 MiB the oldest entries go first (`CARDINAL_EVIDENCE_MAX_MB` changes the cap).
+- **Scrubbed before it is written.** Credentials in JSON fields and in `KEY=value` text, bearer tokens, private keys (PEM blocks) and long base64 blobs are redacted wherever they appear. Local paths are shortened: your working directory becomes `.`, your home directory `~`, and spilled output files `[local file]`. A scrubbed result is still captured and can be cited: it shows `[redacted]` where a value was removed.
+- **Withheld calls.** A call that touches something sensitive keeps **nothing** but a stub: the tool, whether it failed, and which rule fired, with no arguments and no result. Examples are reading a `.env`, a private key, `~/.ssh`, `~/.aws` or a kubeconfig; commands that print secrets, such as `printenv`, `gh auth token` or `kubectl get secret`; and a URL or request that carries a credential. Claude sees `[evidence:ev_… withheld: sensitive path (.env*)]`. It can't cite that call and says so instead of paraphrasing it. Withheld is not the same as redacted: a redacted result was kept and can be cited.
+- **Failed calls are captured too.** When a tool returns an error, the hook keeps its error text, with credentials redacted. Promoted, it becomes a failed-call receipt that Claude can bind at `/error/message`, as with a [witnessed](#witnessed) failure.
+- **JSON results stay bindable.** A result that is a single JSON object or array is kept as structured data, so scenes can select and extract from it rather than only quote it.
+- **Nothing is sent** while a result sits in the spool. Calls to Cardinal's own tools are not captured: they are already witnessed.
+- **Uploaded only when cited.** When a draft storyboard will bind a result, Claude runs `cardinal-evidence promote` with that result's id. The upload goes to that draft only, and Cardinal stores it as a captured receipt (`ev_… -> rcpt_…`) that Claude binds like any other. Claude promotes only the results its scenes cite, never the whole spool. A withheld entry is refused on your machine, before anything is sent.
+- **A promoted result that is never bound** is an unreferenced receipt: it expires after 14 days, and no published storyboard or public link can reach it.
+
+In the viewer, a captured receipt's source line names the MCP server, or the agent's own tools (for example *claude-code built-in tool*), and the client that reported it.
+
+### Which clients capture
+
+| Client | Captures | Command to promote |
+| --- | --- | --- |
+| **Claude Code** (`cardinal` plugin 0.35.0 or later) | Every tool call, including failed ones | `cardinal-evidence` |
+| **Cursor** (0.19.0 or later) | Every tool call. Re-run `cardinal-connect --rotate` after upgrading to capture failed calls. | the plugin's `scripts/cardinal-evidence` |
+| **Gemini CLI** (0.18.0 or later) | Every tool call, including failed ones | the plugin's `scripts/cardinal-evidence` |
+| **Codex** (0.23.0 or later) | Every tool call Codex reports to its `PostToolUse` hook; shell commands are verified. Run `cardinal-connect --repair-hooks` and restart Codex after upgrading. | the plugin's `scripts/cardinal-evidence` |
+| **OpenCode**, **Pi** (0.3.0 or later) | Every tool call, including failed ones | `cardinal-opencode evidence`, `cardinal-pi evidence` |
+
+In Cursor, Gemini CLI and Codex the command isn't on your `PATH`; the first `[evidence:…]` line of a session gives its full path. A call that no hook saw can still be cited as [reported](#reported) evidence.
+
+### The `cardinal-evidence` command
+
+Claude runs it for you. The commands are:
+
+| Command | What it does |
+| --- | --- |
+| `cardinal-evidence promote [--storyboard sb_…] ev_… [ev_…]` | Uploads the named entries to a draft storyboard. Prints `ev_… -> rcpt_…` for each, or that entry's error. Without `--storyboard`, it uses the one storyboard whose evidence token the entries' session holds. Promoting the same entry into the same storyboard again within 7 days prints the receipt it already has; `--force` uploads it again. |
+| `cardinal-evidence list` | This session's captured entries, and the storyboards it can upload to. `--tool GLOB`, `--grep TEXT`, `--last N` and `--withheld` narrow it; `--all` lists every session. |
+| `cardinal-evidence find TEXT` | Captured entries whose arguments, result or summary contain the text, to look up an id. |
+| `cardinal-evidence show ev_…` | Prints one entry exactly as `promote` would upload it. |
+| `cardinal-evidence status` | Whether capture is on, what the spool holds, and where `promote` uploads. |
+| `cardinal-evidence off` | Stops capturing. Entries already captured stay until they age out. |
+| `cardinal-evidence on` | Resumes capturing. |
+
+`promote` exits `0` when every entry was uploaded, `1` when some failed (each is listed), and `2` when nothing was uploaded, for example because the storyboard is already published or the connection failed.
+
+In Claude Code it authenticates with the storyboard's **evidence token**, which `storyboard__create` returns, a later preview of the draft refreshes, and the plugin stores. It is valid for 24 hours and can only upload evidence to that one draft. Your connection's Cardinal key is the fallback, and the only credential the other clients use.
+
+### Turn capture off or tune it
+
+- **Off:** ask Claude to run `cardinal-evidence off`, set `CARDINAL_EVIDENCE_CAPTURE=0` in your client's environment (for Claude Code, the `env` block of `~/.claude/settings.json`), or create the file `~/.cardinal/evidence/disabled`. Nothing is recorded while it is off. Claude can still cite other tools' results as reported evidence.
+- **Keep capturing, without the ids in context:** set `CARDINAL_EVIDENCE_CONTEXT=0`. Use `cardinal-evidence find` to look an id up.
+- **Your own rules:** `~/.cardinal/evidence-rules.json` can withhold more (`deny` with `tools`, `paths` or `commands` regexps) or allow a rule that is too strict for you (`allow` with `rules`, by rule id such as `path.dotenv`, or `paths`). A repository's `.cardinal/evidence-rules.json` can only add `deny` rules.
+
+```json
+{
+  "deny": { "paths": ["~/work/customer-exports/**"], "commands": ["^psql .*prod"] },
+  "allow": { "rules": ["path.dotenv"] }
+}
+```
+
+## Reported
+
+Where no hook captured a result (a client connected without a Cardinal plugin, or a call its hook never saw), Claude records the results it wants to cite with `storyboard__record_evidence`, after it creates the draft:
+
+- one item per original tool call, naming the server and tool, with the arguments and the **verbatim** result: the full structured JSON, or the full text;
+- at most 50 items per call; each returns a `receipt_id` that Claude cites like any other receipt;
+- an item naming Cardinal's own server is refused: that result already has a witnessed receipt, and Claude cites it instead.
+
+Claude is instructed never to summarize, trim or reformat a reported result, but Cardinal can't check it. That is why reported receipts are always labeled and trigger the `claim_reported_only` warning.
+
+## Credentials and pixels
+
+- **Credentials** are redacted before any receipt is stored, witnessed or uploaded, and a scene can never bind a credential field.
+- **Pixels are never evidence.** A picture can suggest a hypothesis, but any quantitative or population-level statement in a scene must resolve to a receipt or to a calculation over receipts. When Claude notices a pattern in a preview that it never measured, it measures it with another tool call and cites the new receipt.
+
+## Datasets
+
+A scene can draw a population far larger than Claude ever loaded, such as every trace in a window rather than the first 50. When a scene binds a receipt as a **dataset**, Cardinal re-runs the receipted query at the same absolute window with raised limits and freezes the full result alongside the receipt. If the original result was already complete, it is frozen as is. Cardinal warns when the frozen dataset disagrees with what Claude saw.
+
+Only witnessed Cardinal Data Lake metrics, logs and spans queries can be re-run as datasets. Captured and reported receipts are never re-run: they are bound as the result Claude saw.
+
+Datasets never re-query once frozen. A storyboard therefore looks the same after the underlying telemetry ages out of retention.
+
+## Retention
+
+Receipts are kept for **14 days**, whatever their tier. A receipt cited by a **published** storyboard is kept for as long as that storyboard exists, along with its dataset. Receipts cited only by a draft still expire at 14 days. If a draft cites an expired receipt, publishing fails with `receipt_not_found`; Claude re-runs the call and cites the new receipt.
+
+<SupportCallout />

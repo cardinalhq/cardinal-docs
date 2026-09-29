@@ -1,0 +1,89 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# Public links
+
+A public link opens one **published** storyboard, read-only, for anyone who has the link. Readers need no Cardinal account. Use it to share a write-up with a vendor, a customer, or a team that isn't in your Cardinal org. Members of your org don't need one: they can open the storyboard's `view_url`.
+
+On a self-hosted Cardinal UI, where links point depends on your operator's settings; see [Self-hosted setup](/ui/storyboards/self-hosted#public-links).
+
+<SupportCallout />
+
+## Rules
+
+- **Published storyboards only.** A draft can never be shared publicly. Published storyboards are immutable, so a link always shows exactly what passed publish.
+- **Your org must allow it.** The org setting **Public storyboard links** decides whether members can create links. See [Org policy](#org-policy).
+- **The URL is the credential.** Cardinal stores only a hash of it, so the URL is shown once, when the link is created. A lost URL can't be recovered: revoke the link and create another.
+- **Revocable.** Revoking a link stops it working within a minute (a reader's browser may keep showing a cached copy for up to 60 seconds). Deleting the storyboard ends its links too.
+- **Optional expiry.** An expired link behaves like a revoked one.
+- **Raw evidence is chosen once.** Whether readers can open raw results is fixed when the link is created. To change it, revoke the link and create a new one, so a URL you already sent never starts showing more.
+
+On Cardinal Cloud, public links are served from `share.cardinalhq.io`, a separate host that sets no cookies, sends no referrer, and asks search engines not to index its pages.
+
+## Create a link
+
+**In Cardinal:** open the published storyboard and choose **Share** in its header. In the **Share publicly** dialog:
+
+1. Leave **Include raw evidence** off unless readers need the raw results (see [What readers see](#what-readers-see)).
+2. Pick when the link **Expires**: never, or after 1, 7, 30 or 90 days.
+3. Choose **Create public link**, then **Copy**. The link is shown only once.
+
+**From Claude:** ask it to share the storyboard publicly. Claude calls `storyboard__share` with `action: "create"` and hands you the `public_url`. It can set `expires_in_days` (1 to 365), and turns on `include_raw_evidence` only if you ask. After publishing, Claude's publish result reminds it that `storyboard__share` exists.
+
+## List and revoke links
+
+The **Share publicly** dialog lists every link of the storyboard with its status (`active`, `revoked` or `expired`), whether it includes raw evidence, its expiry, and how many times it was viewed. Choose **Revoke**, then **Confirm revoke**, to end one.
+
+From Claude, `storyboard__share` with `action: "list"` returns the same metadata, and `action: "revoke"` with a `share_id` (`shr_…`) ends a link. Revoking is safe to repeat. Neither the list nor anything else ever returns a link's URL again.
+
+Creating, listing and revoking links needs the **Member** or **Owner** role.
+
+## What readers see
+
+A public link opens the same viewer your org uses: every scene, its statement, state, claims and open questions, its Canvas, and the storyboard's evidence tally with a tier badge on every receipt. It has no way into the rest of Cardinal and no **Open in Explore**. Nothing is re-queried when a reader opens it.
+
+What the evidence drawer shows depends on **Include raw evidence**:
+
+| | Raw evidence off (default) | Raw evidence on |
+| --- | --- | --- |
+| Receipt summary: tool, source server, evidence tier, arguments including the query text (credentials redacted), time range, row count, whether the result was truncated | Yes | Yes |
+| The full result the investigation saw (credentials redacted), including a failed call's error text | No | Yes |
+| Rows of frozen datasets | No | Yes |
+| Receipts the storyboard doesn't cite | Never | Never |
+| Who wrote it: session id, API key, client, uploader | Never | Never |
+
+The query and its arguments are always visible on a public link, raw evidence or not. Only credentials are redacted: literals in a SQL, LogQL or PromQL query, such as customer ids, emails or hostnames, are shown to anyone with the link, so check every cited query before you share.
+
+The Canvas always receives the values its scenes bind, because it can't draw without them, and the page shows what the Canvas draws. So a link **without** raw evidence can't be created for a storyboard with a scene that binds a whole result or every row of a dataset: Cardinal refuses with `raw_evidence_required` and lists those scenes. Either create the link with **Include raw evidence** on, or publish a version whose scenes bind only what they draw (a selected field, a reduced value, a series). Scenes that bind narrower values still show those values to every reader, so read through a storyboard before you share it.
+
+Below the storyboard, a footer line reads *Made with Cardinal Storyboards.*, with a **Make your own with Claude** link, and **Report this page**.
+
+A revoked, expired or unknown link, and a link whose org has turned public links off, all show the same "not found" page.
+
+## Org policy
+
+The **Public storyboard links** card in **Settings → About** shows whether members can create public links. Only an organization **owner** can change it, with **Allow public storyboard links**.
+
+| Org | Default |
+| --- | --- |
+| Team orgs, including every org that existed before public links shipped | **Off** |
+| [Personal workspaces](/ui/storyboards#personal-workspaces) | **On** |
+
+- **Turning it off revokes every public link in the org immediately.** Turning it back on later does not bring those links back.
+- While it's off, members can still list and revoke links, and share storyboards inside the org with their `view_url`.
+
+## When a link can't be created
+
+| Error | Why | What to do |
+| --- | --- | --- |
+| `public_links_disabled` | The org's **Public storyboard links** setting is off. | Ask an organization owner to turn it on in **Settings → About**. |
+| `storyboard_not_published` | The storyboard is a draft. | Publish it first. |
+| `raw_evidence_required` | The link has raw evidence off, but a scene binds a whole result or every row of a dataset. The error lists those scenes. | Turn on **Include raw evidence**, or publish a narrower version. |
+| `storyboard_changed` | The storyboard changed while the link was being created. | Try again. |
+| `share_host_not_configured` | This Cardinal has no public address for links. | Self-hosted only: your operator sets `SHARE_HOST` or `MAESTRO_BASE_URL`. See [Self-hosted setup](/ui/storyboards/self-hosted#public-links). |
+| `quota_exceeded` | A personal workspace's links used up today's views. | Readers see a plain message; views resume at 00:00 UTC. |
+
+## Report abuse
+
+Anyone viewing a public link can choose **Report this page** and pick a reason: it exposes private or confidential data, it is malicious, it is spam, or something else, with optional details. Reports are anonymous and go to Cardinal for review. Cardinal can revoke any public link.
+
+<SupportCallout />
