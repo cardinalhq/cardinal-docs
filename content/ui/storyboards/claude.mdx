@@ -1,0 +1,125 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# Use storyboards with Claude
+
+Cardinal's MCP server is the same for every client: the `storyboard__*` tools, Cardinal's other tools for whatever integrations your org has, and an authoring guide Claude reads from the server. What differs between clients is how you sign in, how results from your *other* MCP servers become evidence, and whether scenes can be previewed on your machine.
+
+This page covers Cardinal Cloud (`app.cardinalhq.io`). On a self-hosted Cardinal UI, use your own host and read [Self-hosted setup](/ui/storyboards/self-hosted) first: the OAuth connector described here is optional there, and in-VPC installs usually connect with the plugin or an API key instead.
+
+<SupportCallout />
+
+## claude.ai and Claude Desktop
+
+Add Cardinal as a **custom connector**:
+
+1. In claude.ai, open **Settings → Connectors** and choose **Add custom connector**. On a Team or Enterprise plan an owner may need to add it for the organization first.
+2. Name it `Cardinal` and enter the URL:
+
+   ```
+   https://app.cardinalhq.io/mcp
+   ```
+
+3. Choose **Connect** and sign in to Cardinal in the window that opens.
+
+Claude Desktop uses the connectors of the claude.ai account you are signed in with, so there is nothing to add there separately.
+
+### Your first sign-in
+
+- **You were invited to an org.** Signing in accepts your pending invitations and connects you to that org.
+- **You have no Cardinal account yet.** Cardinal creates a [personal workspace](/ui/storyboards#personal-workspaces) for you, named after you, with public links turned on. It has daily quotas; inviting someone into it converts it into a team org.
+- **Your email domain is managed by an existing org**, or your email address isn't verified: Cardinal refuses to create a workspace and asks you to get an invitation from an organization owner.
+
+### Which org Claude works in
+
+The connector URL carries no org, so Cardinal picks one on each call:
+
+1. `?org=<org slug or id>` on the connector URL, for example `https://app.cardinalhq.io/mcp?org=acme`. It must be an org you belong to.
+2. Otherwise, the org you last used in the Cardinal web app.
+3. Otherwise, your only org, or the first one you joined.
+
+Cardinal tells Claude which org it chose when the connector starts, so you can ask Claude which org it is connected to. To pin an org, add a second connector with `?org=` in its URL.
+
+### Evidence from claude.ai
+
+- **Cardinal's own tools** (Cardinal Data Lake queries, Kubernetes reads, SQL, …) are **witnessed**: every read-only result ends with a `[receipt:rcpt_…]` id that Claude cites directly.
+- **Your other connectors** (Datadog, GitHub, Sentry, a database, …): Cardinal never sees those calls, so Claude records each result it wants to cite with `storyboard__record_evidence` after creating the draft. Those receipts are **reported**: Claude re-sends the result it says it saw, verbatim, and every reader sees them labeled as reported. See [Evidence tiers](/ui/storyboards/evidence#evidence-tiers).
+
+### Previews from claude.ai
+
+claude.ai and Claude Desktop can't render scenes on your machine. When Claude previews a draft, Cardinal validates it and returns a `draft_url`. Open it (you're signed in to Cardinal from connecting) to look at the visuals and tell Claude what to change.
+
+## Claude Code
+
+Pick one of three ways to connect. All of them give Claude the same Cardinal tools.
+
+| | Sign-in | Evidence from other MCP servers | Local previews | Also installs |
+| --- | --- | --- | --- | --- |
+| **`cardinal-storyboards` plugin** | OAuth, in Claude Code | **Captured** on your machine | Yes | The storyboard and canvas skills, and the `cardinal-evidence` CLI. Nothing else. |
+| **`cardinal` plugin** | `/cardinal:connect` browser consent | **Captured** on your machine | Yes | Everything above, plus session telemetry for [Agent Outcomes](/ui/agent-outcomes) and spend limits. |
+| **No plugin** | OAuth, in Claude Code | **Reported** | No: open the draft link | Nothing. |
+
+### The `cardinal-storyboards` plugin
+
+The slim plugin for storyboards only. It sends no session telemetry and has no limits, initiative, decision or usage hooks.
+
+```bash
+claude plugin marketplace add cardinalhq/cardinal-claude-plugin
+claude plugin install cardinal-storyboards@cardinalhq-claude-plugin
+```
+
+It registers one MCP server, `cardinal`, at `https://app.cardinalhq.io/mcp`, with no API key in your settings. Run `/mcp` in Claude Code and authenticate the `cardinal` server the first time; Claude Code signs you in with OAuth.
+
+It installs:
+
+- the `storyboard` and `canvas` skills;
+- hooks that put the session id in context, keep the storyboard's evidence token, [capture](/ui/storyboards/evidence#captured) results from your other MCP servers locally, and render previews in your local Chrome or Chromium; and
+- the `cardinal-evidence` command, which uploads the captured results a storyboard cites.
+
+If you also have the full `cardinal` plugin, install one or the other. When both are installed only one plugin's storyboard hooks run, so evidence is never captured twice: the full plugin's once it is connected with `/cardinal:connect`, and the slim plugin's otherwise.
+
+### The full `cardinal` plugin
+
+If you already use the Cardinal plugin for [Agent Outcomes](/ui/agent-outcomes), it includes everything above. See [Install: Claude Code plugin](/ui/agent-outcomes/install-claude-plugin#storyboard-skills).
+
+### No plugin
+
+```bash
+claude mcp add --transport http cardinal https://app.cardinalhq.io/mcp
+```
+
+Then run `/mcp`, select `cardinal`, and authenticate. Claude gets the same tools and authoring guide. Without the plugin's hooks, results from your other MCP servers are cited as **reported** evidence, and previews come back as a `draft_url` to open yourself, as on claude.ai.
+
+### After upgrading: reconnect with `/mcp`
+
+Claude Code reads the `cardinal` server's tool list when a session connects. A session that was open before you upgraded a plugin, or before your Cardinal was upgraded, may not see new tools such as `storyboard__record_evidence` or `storyboard__share`. Run `/mcp` and reconnect the `cardinal` server, or start a new session.
+
+## Connecting without Cardinal Data Lake
+
+Storyboards don't need Cardinal Data Lake (Lakerunner). An org with no integrations at all still gets the `storyboard__*` tools and the built-in `common__*` helpers, and Claude cites your other MCP servers' results as captured or reported evidence.
+
+With the full `cardinal` plugin, `/cardinal:connect` finishes the MCP setup when your org has no Cardinal Data Lake to send session telemetry to. It prints a note instead of failing:
+
+```
+telemetry ingest unavailable: no_lakerunner_integration (this Cardinal org has no active Lakerunner integration); MCP tools connected
+```
+
+On a self-hosted Cardinal UI without `MAESTRO_INGEST_ENDPOINT` the reason is `ingest_endpoint_not_configured`. The MCP tools work either way. Once a Cardinal Data Lake is connected to the org, run `/cardinal:connect --rotate` to add telemetry.
+
+The Codex, Cursor and Gemini CLI plugins connect the same way.
+
+## Other MCP clients
+
+Any client that speaks streamable-HTTP MCP with OAuth can connect to `https://app.cardinalhq.io/mcp` and author storyboards: the tools and the authoring guide come from the server. The storyboard skills and local previews are Claude Code features. The Cursor and Gemini CLI plugins [capture](/ui/storyboards/evidence#captured) other MCP servers' results locally, but `cardinal-evidence`, which uploads them, ships only with the Claude Code plugins today.
+
+## Troubleshooting
+
+| What you see | What it means |
+| --- | --- |
+| `self_signup_not_allowed`, or "a new workspace cannot be created for it" | Cardinal couldn't create a personal workspace for your account (a managed email domain, or self-signup is off on this Cardinal). Ask an organization owner to invite you, then connect again. |
+| `email_not_verified` | Verify your email address with Cardinal's sign-in provider, then connect again. |
+| `org_not_accessible` | The `?org=` in the connector URL names an org you don't belong to. Remove it, or name one of your orgs. |
+| `quota_exceeded` | A [personal workspace](/ui/storyboards#personal-workspaces) quota is used up for today. The message says when it resets. |
+| `public_links_disabled` | Your org doesn't allow public links. See [Org policy](/ui/storyboards/public-links#org-policy). |
+| The `storyboard__*` tools are missing | Reconnect the server with `/mcp` in Claude Code, or disconnect and reconnect the connector in claude.ai. |
+
+<SupportCallout />

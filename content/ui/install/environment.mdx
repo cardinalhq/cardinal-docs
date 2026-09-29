@@ -71,6 +71,24 @@ In normal operation you configure LLMs through the superadmin UI; those credenti
 | `MCP_GATEWAY_URL` | — | `http://localhost:8080` | The chart sets this to the in-cluster service URL |
 | `MCP_GATEWAY_API_KEY` | — | — | If set, sent as `X-CardinalHQ-API-Key` to the gateway |
 
+### Investigation Storyboards and the MCP OAuth connector
+
+All optional. See [Storyboards: self-hosted setup](/ui/storyboards/self-hosted) for how they fit together.
+
+| Variable | Default | Notes |
+| -------- | ------- | ----- |
+| `SHARE_HOST` | — | Bare `host[:port]` (e.g. `share.example.com`) that serves [public storyboard links](/ui/storyboards/public-links) at `https://<SHARE_HOST>/s/<token>`. On that host Cardinal UI serves only the public viewer, its read API and static assets, and never reads or sets a cookie. Unset: links use `MAESTRO_BASE_URL`'s origin, or can't be created without it. An invalid value stops Cardinal UI at startup |
+| `STORYBOARD_SIGNUP_URL` | `https://app.cardinalhq.io` | Where the public viewer's **Make your own with Claude** link goes. Must be an absolute http(s) URL |
+| `MCP_OAUTH_ENABLED` | `false` | `true` mounts the org-less `/mcp` endpoint and its OAuth discovery documents. Needs `MAESTRO_BASE_URL`, `OIDC_ISSUER_URL`, and an IdP with dynamic client registration or a pre-registered client |
+| `MCP_OAUTH_AUDIENCE` | `<MAESTRO_BASE_URL origin>/mcp` | Token `aud` accepted on `/mcp` only |
+| `MCP_OAUTH_ISSUER` | `OIDC_ISSUER_URL` | Authorization server advertised to MCP clients. Tokens must still be issued by `OIDC_ISSUER_URL` |
+| `MCP_OAUTH_AS_METADATA_PROXY` | `false` | `true` makes Cardinal UI serve `/.well-known/oauth-authorization-server`, mirrored from the issuer's OpenID configuration |
+| `MCP_OAUTH_SCOPES` | `openid profile email` | Space- or comma-separated `scopes_supported` |
+| `MCP_OAUTH_SELF_SIGNUP` | `false` | `true` lets a verified user with no org create a personal workspace through `/mcp`, even when self-signup is off. Managed email domains still refuse |
+| `PERSONAL_WORKSPACE_MAX_PUBLISHES_PER_DAY` | `20` | Personal-workspace quota |
+| `PERSONAL_WORKSPACE_MAX_EVIDENCE_BYTES_PER_DAY` | `52428800` | Personal-workspace quota (50 MiB of captured and reported evidence) |
+| `PERSONAL_WORKSPACE_MAX_PUBLIC_VIEWS_PER_DAY` | `5000` | Personal-workspace quota |
+
 ### Default Cardinal Data Lake bucket
 
 Used by the Cardinal Data Lake provisioner when auto-configuring a new org's bucket. All four must be set together or all omitted.
@@ -113,6 +131,7 @@ The gateway runs alongside Cardinal UI and inherits most of its env from `global
 | `MCP_PORT` | `8080` | Chart sets this from `mcpGateway.port` |
 | `MCP_DEBUG_PORT` | `9090` | Chart sets this from `mcpGateway.debugPort` |
 | `MCP_API_KEY` | — | If set, requests must carry `X-CardinalHQ-API-Key` |
+| `GATEWAY_AGGREGATOR_ENABLED` | `false` | `true` mounts the aggregated MCP endpoint (`/api/orgs/<orgId>/mcp` and `/mcp` on Cardinal UI) that the plugins and OAuth connectors use. Required for [storyboard](/ui/storyboards/self-hosted) evidence receipts |
 | `MCP_TRANSPORT` | `stdio` | Chart runs the gateway in HTTP mode; set to `http` if you ever override the entrypoint |
 | `MAESTRO_DATABASE_URL` | — | Same connection string as Cardinal UI — required for per-org routing |
 | `DOCSTORE_DB_PATH` | auto-discovered | Path to `docstore.db` |

@@ -99,6 +99,8 @@ Upgrading to 0.18.0 from an earlier version? Re-run `cardinal-connect` so the `p
 
 The plugin captures tool names, command lines, and file paths so Cardinal can tell which repo and service a session worked on. The contents of your prompts are never captured. Per-model-call token counts are not currently emitted from Cursor sessions (Cursor's transcript format for that data is undocumented; see the [parity spec](https://github.com/cardinalhq/cardinal-cursor-plugin/blob/main/docs/specs/cursor-parity.md) for the open spike).
 
+Results of calls to your other MCP servers (not Cardinal's) are kept **locally** as storyboard evidence, in `~/.cardinal/evidence/` on your machine, with credentials scrubbed, and deleted after 14 days. The plugin never uploads them; they leave your machine only if you cite them in an [Investigation Storyboard](/ui/storyboards/evidence#captured). To opt out, set `CARDINAL_EVIDENCE_CAPTURE=0` in the environment Cursor starts with, or create the file `~/.cardinal/evidence/disabled`.
+
 ## Disconnect
 
 ```bash

@@ -76,9 +76,56 @@ Each prompt's branch state includes the branch's pull request when the GitHub CL
 
 If you use Claude Code's Bash sandbox, the record command needs to write `~/.claude/cardinal` and reach your Cardinal ingest host, so Claude Code asks before running it outside the sandbox. Add both to your sandbox allowlist to skip the prompt.
 
+## Storyboard skills
+
+From version **0.32.0**, the plugin ships two skills for [Investigation Storyboards](/ui/storyboards). Claude uses them on its own when you ask it to write up, explain, or storyboard an investigation, and you can also invoke them directly:
+
+| Skill | What it does |
+| --- | --- |
+| `/cardinal:storyboard` | Turns an investigation into a storyboard: picks the minimum sequence of scenes, cites the receipts behind every number, types each claim honestly, then validates, previews, and publishes. It hands you the storyboard's `view_url`. |
+| `/cardinal:canvas` | Draws each scene's visual, then renders every scene locally in your Chrome or Chromium and critiques the images before Claude publishes. |
+
+The plugin also adds this session's Cardinal session id to Claude's context at session start, so each storyboard records which session wrote it.
+
+Authoring needs the **Member** or **Owner** role in the connected org. If you only want storyboards, without session telemetry, install the slim `cardinal-storyboards` plugin instead; see [Use storyboards with Claude](/ui/storyboards/claude#claude-code).
+
+### Evidence from your other MCP servers
+
+In plugin versions newer than 0.34.1, a hook keeps the result of each call to your **other** MCP servers (not Cardinal's) on your machine, under `~/.cardinal/evidence/`, so a storyboard can cite it as **captured** evidence. Credentials are scrubbed, each result is capped at 256 KiB, and entries are deleted after 14 days. Nothing is uploaded until a storyboard cites a result: Claude then runs `cardinal-evidence promote` for exactly those results. Turn capture off with `cardinal-evidence off`. See [Captured evidence](/ui/storyboards/evidence#captured).
+
+### Local previews
+
+The `/cardinal:canvas` skill renders previews with a script bundled in the plugin, `render_preview.py`. The script runs on your machine and needs no extra Python packages. It downloads each scene's self-contained preview page from the Cardinal you are connected to, checks its size and SHA-256, and opens it in a local headless Chrome or Chromium. That browser runs with its OS sandbox on, networking locked off, and a throwaway profile. The script writes one PNG per scene and reveal step to `~/.claude/cardinal/storyboards/<storyboard id>/r<revision>/` for Claude to read. Your Cardinal key, or the short-lived preview token from the preview result, is only ever sent to the Cardinal you are connected to.
+
+Requirements:
+
+- **Google Chrome or Chromium 112 or later** on **macOS or Linux**. The script looks for Chrome, Chromium, Chrome Canary, Brave, and Edge in their usual install locations, then in the Playwright and Puppeteer download caches.
+- To use a specific browser, set **`CARDINAL_CHROMIUM`** to its binary path. When it's set, that is the only browser the script tries.
+- On **Linux**, Chromium needs unprivileged user namespaces to start with its sandbox on. Many containers and locked-down images don't allow them. The script never turns the sandbox off, so previews are skipped there.
+- **Windows is not supported.** Claude authors and publishes without previews.
+
+Previews are optional. Publishing never depends on them, because Cardinal's publish checks are deterministic and don't look at pixels. The script's exit code tells Claude what to do:
+
+| Exit code | Meaning |
+| --- | --- |
+| `0` | The script ran. Individual scenes may still report errors, which Claude fixes. |
+| `2` | Nothing was rendered because of a connection, authentication, or fetch problem: not connected, a different org, a role without access, a draft edited since the last preview, or a Cardinal too old to serve previews. Claude reports the reason and, for a stale preview, previews again. |
+| `3` | No usable local Chrome or Chromium, Windows, or Chromium could not start with its sandbox on. **This is not an error.** Claude tells you once that previews were skipped and keeps authoring. |
+
+A preview page is fetched by its path on the Cardinal you are connected to. On a self-hosted Cardinal UI, previews work whether or not your operator has set `MAESTRO_BASE_URL`; that setting only decides whether the `view_url` Claude hands you is an absolute link or a path to open on your Cardinal UI host. On Cardinal Cloud, both are already set up.
+
+### After upgrading: reconnect with `/mcp`
+
+Claude Code reads the `cardinal` server's tool list when a session connects. A session that was open before you upgraded the plugin, or before your Cardinal was upgraded, may not see the newest `storyboard__*` tools, and may reject tool results that carry a receipt. Run `/mcp` and reconnect the `cardinal` server, or start a new session.
+
 ## Privacy
 
-By default the plugin captures bash command lines and file paths so Cardinal can tell which repo and service a session worked on. The contents of your prompts and tool inputs/outputs are never captured. If your org's policy forbids command lines and paths too, connect with `--no-tool-details` — sessions still appear, but as `repo=unknown`.
+By default the plugin captures bash command lines and file paths so Cardinal can tell which repo and service a session worked on. The contents of your prompts are never captured, and session telemetry carries no tool outputs and no tool inputs beyond those command lines and paths. If your org's policy forbids command lines and paths too, connect with `--no-tool-details` — sessions still appear, but as `repo=unknown`.
+
+Tool results are handled separately, as storyboard evidence:
+
+- **Results from your other MCP servers** are kept **locally** as evidence, in `~/.cardinal/evidence/` on your machine, with credentials scrubbed, and deleted after 14 days. They are uploaded only when you cite them in a storyboard, and then only to that storyboard's draft. To opt out, run `cardinal-evidence off` (or set `CARDINAL_EVIDENCE_CAPTURE=0`); `cardinal-evidence on` turns it back on. See [Captured evidence](/ui/storyboards/evidence#captured).
+- **Results of Cardinal's own tools** already run on Cardinal. Cardinal keeps a receipt of each read-only call, with credentials redacted, for 14 days, or for as long as a published storyboard cites it. See [Evidence and receipts](/ui/storyboards/evidence).
 
 ## Disconnect
 
