@@ -17,7 +17,7 @@ Storyboards work from any Claude surface that can connect to Cardinal's MCP serv
 | Client | How to connect | Evidence from other MCP servers | Scene previews |
 | --- | --- | --- | --- |
 | **claude.ai** and **Claude Desktop** | Add Cardinal as a custom connector at `https://app.cardinalhq.io/mcp` and sign in. | **Reported**: Claude uploads the results it saw. | Open the draft link Claude gives you. |
-| **Claude Code** with the `cardinal-storyboards` or `cardinal` plugin | Install the plugin. | **Captured**: a hook records each result on your machine; only the ones a storyboard cites are uploaded. | Rendered on your machine, and Claude critiques the images. |
+| **Claude Code** with the `cardinal` plugin | Install the plugin and sign in with OAuth; `/cardinal:connect` is optional. | **Captured**: a hook records each result on your machine; only the ones a storyboard cites are uploaded. | Rendered on your machine, and Claude critiques the images. |
 | **Claude Code** without a plugin | `claude mcp add --transport http cardinal https://app.cardinalhq.io/mcp` | **Reported**. | Open the draft link. |
 
 Results of Cardinal's own tools are always **witnessed**: Cardinal ran the call and recorded the result itself. See [Use with Claude](/ui/storyboards/claude) for setup, and [Evidence and receipts](/ui/storyboards/evidence) for what each evidence tier means.
@@ -61,7 +61,7 @@ The first preview of a draft that binds datasets can take a while, because Cardi
 
 ### Previews
 
-Cardinal renders nothing on its servers. Where Claude can render locally, in Claude Code with the `cardinal-storyboards` or `cardinal` plugin, each scene is rendered **on your machine** in your own Chrome or Chromium, and the images go back to Claude so it can judge the scene as a reader would. The preview browser runs headless, with its OS sandbox on, networking locked off, and a throwaway profile. Setup details are on the [Claude Code plugin page](/ui/agent-outcomes/install-claude-plugin#local-previews).
+Cardinal renders nothing on its servers. Where Claude can render locally, in Claude Code with the `cardinal` plugin, connected or not, each scene is rendered **on your machine** in your own Chrome or Chromium, and the images go back to Claude so it can judge the scene as a reader would. The preview browser runs headless, with its OS sandbox on, networking locked off, and a throwaway profile. Setup details are on the [Claude Code plugin page](/ui/agent-outcomes/install-claude-plugin#local-previews).
 
 Everywhere else, including claude.ai and Claude Desktop, the preview result says that no image was rendered and includes a `draft_url`: the draft in Cardinal's viewer, which you open while signed in to review the visuals yourself. Drafts are visible to members of your org only.
 
@@ -128,7 +128,7 @@ Each Canvas runs in a sandboxed frame with no network access, cookies, storage, 
 - **Datasets** can be frozen only from witnessed Cardinal Data Lake metrics, logs, and spans queries. Other receipts, including every captured and reported one, can be cited and bound as the result Claude saw, but are never re-run.
 - **Preview, publish and evidence uploads** are rate-limited per org. When Cardinal is busy, Claude waits and retries.
 - **Local previews** run on macOS and Linux only. On Linux, Chromium needs unprivileged user namespaces to start with its sandbox on.
-- **The storyboard skills** ship in the Claude Code plugins. Other clients connected to Cardinal's MCP server get the same tools and the authoring guide from `storyboard__describe_grammar`, without local previews.
+- **The storyboard skills** ship in the Claude Code plugin. Other clients connected to Cardinal's MCP server get the same tools and the authoring guide from `storyboard__describe_grammar`, without local previews.
 
 ### Personal workspaces
 

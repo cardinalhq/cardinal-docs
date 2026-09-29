@@ -29,7 +29,7 @@ Cardinal Data Lake is optional. An org with no integrations still gets the `stor
 
 Inside a private network, connect Claude Code with one of these. Neither needs anything from your identity provider beyond what Cardinal UI already uses.
 
-- **The Cardinal plugin**, `/cardinal:connect --host https://ui.example.internal`. Each user approves in the browser and gets their own key. See [Install: Claude Code plugin](/ui/agent-outcomes/install-claude-plugin). If your org has no Cardinal Data Lake, or `MAESTRO_INGEST_ENDPOINT` is unset, connect still sets up the MCP tools and says telemetry is unavailable.
+- **The Cardinal plugin**, `/cardinal:connect --host https://ui.example.internal`. Each user approves in the browser and gets their own key. Users must connect: until they do, the plugin's `cardinal` server points at Cardinal Cloud. See [Install: Claude Code plugin](/ui/agent-outcomes/install-claude-plugin). If your org has no Cardinal Data Lake, or `MAESTRO_INGEST_ENDPOINT` is unset, connect still sets up the MCP tools and says telemetry is unavailable.
 - **The shared API key**, registered on Cardinal's aggregated endpoint. Name the server `cardinal`, so the plugins' capture hooks recognize its results as already witnessed:
 
   ```bash

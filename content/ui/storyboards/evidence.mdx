@@ -48,7 +48,7 @@ The trailer is the last text block of the result. For tools that return structur
 
 ## Captured
 
-With the `cardinal-storyboards` or `cardinal` plugin in Claude Code, a hook records the result of every call to your **other** MCP servers on your machine, and tells Claude its id beside the result:
+With the `cardinal` plugin in Claude Code, connected or not, a hook records the result of every call to your **other** MCP servers on your machine, and tells Claude its id beside the result:
 
 ```
 [evidence:ev_…] captured locally from datadog/query_metrics; to cite it in a storyboard run cardinal-evidence promote ev_…
@@ -73,7 +73,7 @@ Claude runs it for you. The commands are:
 
 `promote` exits `0` when every entry was uploaded, `1` when some failed (each is listed), and `2` when nothing was uploaded, for example because the storyboard is already published or the connection failed.
 
-It authenticates with the storyboard's **evidence token**, which `storyboard__create` returns, a later preview of the draft refreshes, and the plugin stores. It is valid for 24 hours. The token can only upload evidence to that one draft. With the full `cardinal` plugin connected, your Cardinal key is the fallback.
+It authenticates with the storyboard's **evidence token**, which `storyboard__create` returns, a later preview of the draft refreshes, and the plugin stores. It is valid for 24 hours. The token can only upload evidence to that one draft. Once the plugin is connected with `/cardinal:connect`, your Cardinal key is the fallback.
 
 ### Turn capture off
 

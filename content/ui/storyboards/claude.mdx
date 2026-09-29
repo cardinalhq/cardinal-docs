@@ -50,36 +50,30 @@ claude.ai and Claude Desktop can't render scenes on your machine. When Claude pr
 
 ## Claude Code
 
-Pick one of three ways to connect. All of them give Claude the same Cardinal tools.
+Install the `cardinal` plugin, or connect without a plugin. The plugin works in two modes: right after you install it, it signs in with OAuth and gives you everything storyboards need; `/cardinal:connect` adds session telemetry and spend limits on top. Every option gives Claude the same Cardinal tools.
 
-| | Sign-in | Evidence from other MCP servers | Local previews | Also installs |
+| | Sign-in | Evidence from other MCP servers | Local previews | What you get |
 | --- | --- | --- | --- | --- |
-| **`cardinal-storyboards` plugin** | OAuth, in Claude Code | **Captured** on your machine | Yes | The storyboard and canvas skills, and the `cardinal-evidence` CLI. Nothing else. |
-| **`cardinal` plugin** | `/cardinal:connect` browser consent | **Captured** on your machine | Yes | Everything above, plus session telemetry for [Agent Outcomes](/ui/agent-outcomes) and spend limits. |
+| **`cardinal` plugin, not connected** | OAuth, in Claude Code | **Captured** on your machine | Yes | The storyboard and canvas skills, and the `cardinal-evidence` CLI. No session telemetry, spend limits or session-context hooks. |
+| **`cardinal` plugin, connected** | `/cardinal:connect` browser consent | **Captured** on your machine | Yes | Everything above, plus session telemetry for [Agent Outcomes](/ui/agent-outcomes) and spend limits. |
 | **No plugin** | OAuth, in Claude Code | **Reported** | No: open the draft link | Nothing. |
 
-### The `cardinal-storyboards` plugin
-
-The slim plugin for storyboards only. It sends no session telemetry and has no limits, initiative, decision or usage hooks.
+### The `cardinal` plugin
 
 ```bash
 claude plugin marketplace add cardinalhq/cardinal-claude-plugin
-claude plugin install cardinal-storyboards@cardinalhq-claude-plugin
+claude plugin install cardinal@cardinalhq-claude-plugin
 ```
 
-It registers one MCP server, `cardinal`, at `https://app.cardinalhq.io/mcp`, with no API key in your settings. Run `/mcp` in Claude Code and authenticate the `cardinal` server the first time; Claude Code signs you in with OAuth.
-
-It installs:
+**Not connected.** Until you run `/cardinal:connect`, the plugin's `cardinal` MCP server points at `https://app.cardinalhq.io/mcp`, with no API key in your settings. Run `/mcp` in Claude Code and authenticate the `cardinal` server the first time; Claude Code signs you in with OAuth in your browser. The [first sign-in](#your-first-sign-in) and [org selection](#which-org-claude-works-in) rules are the same as for claude.ai. In this mode the plugin sends no session telemetry and has no limits, initiative, decision or usage hooks. It installs:
 
 - the `storyboard` and `canvas` skills;
-- hooks that put the session id in context, keep the storyboard's evidence token, [capture](/ui/storyboards/evidence#captured) results from your other MCP servers locally, and render previews in your local Chrome or Chromium; and
+- hooks that keep the storyboard's evidence token, [capture](/ui/storyboards/evidence#captured) results from your other MCP servers locally, and render previews in your local Chrome or Chromium; and
 - the `cardinal-evidence` command, which uploads the captured results a storyboard cites.
 
-If you also have the full `cardinal` plugin, install one or the other. When both are installed only one plugin's storyboard hooks run, so evidence is never captured twice: the full plugin's once it is connected with `/cardinal:connect`, and the slim plugin's otherwise.
+**Connected.** `/cardinal:connect` points the same `cardinal` server at your org with an API key, and adds session telemetry for [Agent Outcomes](/ui/agent-outcomes), spend limits, and the session context the plugin puts in each session, including the session id each storyboard records. Storyboards work the same way in both modes. See [Install: Claude Code plugin](/ui/agent-outcomes/install-claude-plugin).
 
-### The full `cardinal` plugin
-
-If you already use the Cardinal plugin for [Agent Outcomes](/ui/agent-outcomes), it includes everything above. See [Install: Claude Code plugin](/ui/agent-outcomes/install-claude-plugin#storyboard-skills).
+**Self-hosted or in-VPC Cardinal.** The not-connected mode always uses Cardinal Cloud. To use your own Cardinal UI, run `/cardinal:connect --host https://ui.example.internal`; see [Self-hosted setup](/ui/storyboards/self-hosted#connect-claude-inside-your-vpc).
 
 ### No plugin
 
@@ -91,13 +85,13 @@ Then run `/mcp`, select `cardinal`, and authenticate. Claude gets the same tools
 
 ### After upgrading: reconnect with `/mcp`
 
-Claude Code reads the `cardinal` server's tool list when a session connects. A session that was open before you upgraded a plugin, or before your Cardinal was upgraded, may not see new tools such as `storyboard__record_evidence` or `storyboard__share`. Run `/mcp` and reconnect the `cardinal` server, or start a new session.
+Claude Code reads the `cardinal` server's tool list when a session connects. A session that was open before you upgraded the plugin, or before your Cardinal was upgraded, may not see new tools such as `storyboard__record_evidence` or `storyboard__share`. Run `/mcp` and reconnect the `cardinal` server, or start a new session.
 
 ## Connecting without Cardinal Data Lake
 
 Storyboards don't need Cardinal Data Lake (Lakerunner). An org with no integrations at all still gets the `storyboard__*` tools and the built-in `common__*` helpers, and Claude cites your other MCP servers' results as captured or reported evidence.
 
-With the full `cardinal` plugin, `/cardinal:connect` finishes the MCP setup when your org has no Cardinal Data Lake to send session telemetry to. It prints a note instead of failing:
+The `cardinal` plugin sends no telemetry until you connect it, so it never needs Cardinal Data Lake to author storyboards. If you run `/cardinal:connect` and your org has no Cardinal Data Lake to send session telemetry to, it still finishes the MCP setup and prints a note instead of failing:
 
 ```
 telemetry ingest unavailable: no_lakerunner_integration (this Cardinal org has no active Lakerunner integration); MCP tools connected
@@ -109,7 +103,7 @@ The Codex, Cursor and Gemini CLI plugins connect the same way.
 
 ## Other MCP clients
 
-Any client that speaks streamable-HTTP MCP with OAuth can connect to `https://app.cardinalhq.io/mcp` and author storyboards: the tools and the authoring guide come from the server. The storyboard skills and local previews are Claude Code features. The Cursor and Gemini CLI plugins [capture](/ui/storyboards/evidence#captured) other MCP servers' results locally, but `cardinal-evidence`, which uploads them, ships only with the Claude Code plugins today.
+Any client that speaks streamable-HTTP MCP with OAuth can connect to `https://app.cardinalhq.io/mcp` and author storyboards: the tools and the authoring guide come from the server. The storyboard skills and local previews are Claude Code features. The Cursor and Gemini CLI plugins [capture](/ui/storyboards/evidence#captured) other MCP servers' results locally, but `cardinal-evidence`, which uploads them, ships only with the Claude Code plugin today.
 
 ## Troubleshooting
 

@@ -6,7 +6,7 @@ Cardinal exposes every connected integration (Cardinal Data Lake, GitHub, Jira, 
 
 Both deployment modes work the same way:
 
-- **Cardinal Cloud (SaaS)** — `app.cardinalhq.io`. The endpoint is already live; sign in with your Cardinal account and each plugin's `connect` flow does the rest. Clients that sign in with OAuth, such as claude.ai, Claude Desktop, and Claude Code without a plugin, connect to `https://app.cardinalhq.io/mcp` (see [Connect with OAuth](#connect-with-oauth-claudeai-claude-desktop-claude-code)).
+- **Cardinal Cloud (SaaS)** — `app.cardinalhq.io`. The endpoint is already live; sign in with your Cardinal account and each plugin's `connect` flow does the rest. Clients that sign in with OAuth, such as claude.ai, Claude Desktop, Claude Code without a plugin, and the Claude Code plugin before you run `/cardinal:connect`, connect to `https://app.cardinalhq.io/mcp` (see [Connect with OAuth](#connect-with-oauth-claudeai-claude-desktop-claude-code)).
 - **Self-hosted Cardinal UI** — your operator exposes Cardinal UI on your cluster's Ingress. The plugins sign in through your browser like the rest of Cardinal UI; the manual configuration path uses a shared API key that your operator provisions (see [Self-hosted setup](#self-hosted-prepare-your-cardinal-ui-instance) below).
 
 <SupportCallout />
@@ -17,14 +17,14 @@ Each per-session plugin registers a single `cardinal` MCP server (or, for Pi, na
 
 | Client | Install guide | Notes |
 | --- | --- | --- |
-| **Claude Code** | [Install: Claude Code plugin](/ui/agent-outcomes/install-claude-plugin) | Managed via `claude plugin marketplace`; `/cardinal:connect` from inside Claude Code. |
+| **Claude Code** | [Install: Claude Code plugin](/ui/agent-outcomes/install-claude-plugin) | Managed via `claude plugin marketplace`; `/cardinal:connect` from inside Claude Code. Before you connect, the plugin signs in to Cardinal Cloud with OAuth for storyboards only, with no session telemetry. |
 | **OpenAI Codex CLI** | [Install: Codex CLI plugin](/ui/agent-outcomes/install-codex-plugin) | Managed via `codex plugin`. |
 | **Cursor** | [Install: Cursor plugin](/ui/agent-outcomes/install-cursor-plugin) | `git clone` + `python3 scripts/cardinal-connect`. Cloud agents need a `--project` install. |
 | **Google Gemini CLI** | [Install: Gemini CLI plugin](/ui/agent-outcomes/install-gemini-plugin) | `git clone` + `python3 scripts/cardinal-connect`. Uses Gemini CLI's native OTLP exporter for telemetry. |
 | **OpenCode** | [Install: OpenCode plugin](/ui/agent-outcomes/install-opencode-plugin) | `npm install` from a GitHub release + `cardinal-opencode connect`. OpenCode 1.x only (V2 not supported). |
 | **Pi** | [Install: Pi extension](/ui/agent-outcomes/install-pi-plugin) | `npm install` + `pi install` + `cardinal-pi connect`. Tools via `cardinal_list_tools` / `cardinal_call_tool`, no separate MCP extension. |
 | **claude.ai / Claude Desktop** | [Connect with OAuth](#connect-with-oauth-claudeai-claude-desktop-claude-code) | Custom connector at `https://app.cardinalhq.io/mcp`. Tools only; no session telemetry. |
-| **Claude Code, storyboards only** | [Use storyboards with Claude](/ui/storyboards/claude#claude-code) | The slim `cardinal-storyboards` plugin, or `claude mcp add` with OAuth. No session telemetry. |
+| **Claude Code, storyboards only** | [Use storyboards with Claude](/ui/storyboards/claude#claude-code) | The `cardinal` plugin without `/cardinal:connect`, or `claude mcp add` with OAuth. No session telemetry. |
 
 Connecting doesn't require Cardinal Data Lake. When your org has none, the plugins still set up the MCP tools and print `telemetry ingest unavailable: no_lakerunner_integration …; MCP tools connected`; run connect again with `--rotate` once a Cardinal Data Lake is added.
 
