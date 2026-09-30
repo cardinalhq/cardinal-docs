@@ -230,6 +230,60 @@ describe('storyboards docs: statements that must stay correct', () => {
     }
   });
 
+  // Acts (conductor #1998/#1999/#2000, plugin #133): an update appends an act
+  // to the same storyboard and link; nothing tells users to start over.
+  test('acts: published acts are immutable and an update appends an act', () => {
+    const index = read('ui/storyboards/index.mdx');
+    expect(storyboards).not.toContain('ask Claude for a new one');
+    expect(storyboards).not.toContain('Published storyboards are immutable');
+    expect(index).toContain('**Published acts are immutable.**');
+    expect(index).toContain('## Acts');
+    for (const term of ['`storyboard__add_act`', '`storyboard__discard_act`', '`open_act_exists`', '`act_empty`', '**Discard draft act**']) {
+      expect(index).toContain(term);
+    }
+    expect(index).toContain('An organization owner can discard any open act from the viewer');
+    expect(index).toMatch(/\| Acts per storyboard \| 20 \|/);
+  });
+
+  test('public links: a link shows the acts it covers; extending asks, raw evidence always needs a yes', () => {
+    const links = read('ui/storyboards/public-links.mdx');
+    expect(links).toContain('A link shows the acts it covers');
+    expect(links).toContain('## Links and new acts');
+    for (const term of ['`public_links_decision_required`', '`raw_evidence_confirmation_required`', '`share_permission_required`', '`raw_scenes_hidden`', '`through_act`']) {
+      expect(links).toContain(term);
+    }
+    expect(links).toContain('The plugin always asks you before confirming raw evidence on an extended link, even when you asked it to update what you shared');
+    expect(links).toContain('nothing says that later acts exist');
+    expect(links).toContain('| Where each act was written: repository, branch, pull request, commit, directory id, email | Never | Never |');
+  });
+
+  test('claude: find then ask before adding, raw-evidence consent, recorded context', () => {
+    const claude = read('ui/storyboards/claude.mdx');
+    expect(claude).toContain('## Update an existing storyboard');
+    expect(claude).toContain('### Ask before adding to an existing storyboard');
+    expect(claude).toContain('`cardinal-storyboard context`');
+    expect(claude).toContain('storyboard__find {session_id, context}');
+    // The prompt as merged in cardinal-agent-plugins #133.
+    for (const term of ['`Start a new storyboard`', '`Continue open act <n> of "<question>"`', 'AskUserQuestion', '`same PR <repo>#<number>`', '`same branch <branch>`', '`same directory <path>`', 'last 7 days', '`claude -p`']) {
+      expect(claude).toContain(term);
+    }
+    expect(claude).toContain('unless you already said to update what you shared');
+    expect(claude).toContain('The plugin always asks before confirming raw evidence on an extended link, even when you asked it to update what you shared');
+    expect(claude).toContain('### What each act records');
+    for (const field of ['`repo`', '`repo_path`', '`branch`', '`pr_number`', '`head_sha`', '`workdir_hash`', '`client`', '`actor_email`']) {
+      expect(claude).toContain(`| ${field}`);
+    }
+    expect(claude).toContain('**Members only, never on public links.**');
+    expect(claude).not.toMatch(/\| `cwd`/);
+  });
+
+  test('self-hosted: the upgrade-through-v1.97.21 note for acts', () => {
+    const selfHosted = read('ui/storyboards/self-hosted.mdx');
+    expect(selfHosted).toContain('## Upgrading to acts');
+    expect(selfHosted).toContain('**Upgrade through v1.97.21.**');
+    expect(selfHosted).toContain('pause storyboard authoring until every pod runs the new release');
+  });
+
   test('self-hosted: in-VPC connect with the plugin or an API key, no OAuth connector', () => {
     const selfHosted = read('ui/storyboards/self-hosted.mdx');
     expect(selfHosted.indexOf('## Connect Claude inside your VPC')).toBeGreaterThan(-1);

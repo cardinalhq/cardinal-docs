@@ -10,7 +10,7 @@ On Cardinal Cloud (`app.cardinalhq.io`) all of this is already set up; see [Use 
 
 ## Requirements
 
-- **A Cardinal UI image that includes Open Storyboards (v1.97.18 or later)** for evidence tiers, public links and personal workspaces. Storyboards themselves need v1.97.10 or later.
+- **A Cardinal UI image that includes Open Storyboards (v1.97.18 or later)** for evidence tiers, public links and personal workspaces. Storyboards themselves need v1.97.10 or later. `storyboard__find` needs v1.97.21 or later, and [acts](/ui/storyboards#acts) (`storyboard__add_act`, `storyboard__discard_act`) need a release after v1.97.21; see [Upgrading to acts](#upgrading-to-acts).
 - **`MAESTRO_MCP_API_KEY` on the MCP gateway sidecar as well as the Cardinal UI container.** The sidecar uses it to call back into Cardinal UI when Claude creates, previews, publishes and shares a storyboard. The `maestro` Helm chart **0.10.28 or later** sets it on both containers from one Secret. Chart **0.10.29** also adds typed, install-time-validated values for the settings on this page: `maestro.trustedProxyHops` (`MAESTRO_TRUSTED_PROXY_HOPS`), and `share.host` and `share.ingress.enabled` (`SHARE_HOST`). Setting the variables in `maestro.env` still works; don't set both. On an older chart, add the same `MAESTRO_MCP_API_KEY` entry (the same Secret and key) to both `maestro.env` and `mcpGateway.env`; see [Connect AI clients](/ui/mcp-clients#self-hosted-prepare-your-cardinal-ui-instance).
 - **`GATEWAY_AGGREGATOR_ENABLED=true` on the sidecar.** Receipts are minted on the gateway's aggregated MCP endpoint, which the plugins use. With it unset, tool calls return no `[receipt:…]` trailer and there is nothing to cite:
 
@@ -60,6 +60,17 @@ Only people who can reach that host can open a link. With an in-VPC Cardinal UI,
 An invalid `SHARE_HOST` stops Cardinal UI at startup rather than serving shared pages from the app's origin. With `SHARE_HOST` set, a request for `/s/<token>` on the main host is redirected to it.
 
 `STORYBOARD_SIGNUP_URL` sets where the viewer's **Make your own with Claude** link goes (default `https://app.cardinalhq.io`).
+
+## Upgrading to acts
+
+Acts change what a public link may show, so the database and the public read paths learned about acts one release before anything could add one. **v1.97.21** is that release: it can't create acts, but it already shows only the acts a link covers.
+
+**Upgrade through v1.97.21.** If you upgrade straight from a release older than v1.97.21 to one with `storyboard__add_act`, then during that rolling upgrade a pod still on the old release doesn't know about acts. If someone opens a new act on a published storyboard while old pods are still serving, those pods show the draft act's scenes on the storyboard's existing public links. Either:
+
+- upgrade to v1.97.21 first, let every pod roll, then upgrade to the release you want; or
+- pause storyboard authoring until every pod runs the new release.
+
+Nothing else changes for operators: acts need no new setting, environment variable or chart value, and storyboards created before the upgrade become single-act storyboards with no migration step of yours.
 
 ## Personal-workspace quotas
 

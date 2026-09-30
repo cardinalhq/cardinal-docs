@@ -93,9 +93,9 @@ Claude runs it for you. The commands are:
 | `cardinal-evidence off` | Stops capturing. Entries already captured stay until they age out. |
 | `cardinal-evidence on` | Resumes capturing. |
 
-`promote` exits `0` when every entry was uploaded, `1` when some failed (each is listed), and `2` when nothing was uploaded, for example because the storyboard is already published or the connection failed.
+`promote` exits `0` when every entry was uploaded, `1` when some failed (each is listed), and `2` when nothing was uploaded, for example because every act of the storyboard is published (Claude opens the next act with `storyboard__add_act` first) or the connection failed.
 
-In Claude Code it authenticates with the storyboard's **evidence token**, which `storyboard__create` returns, a later preview of the draft refreshes, and the plugin stores. It is valid for 24 hours and can only upload evidence to that one draft. Your connection's Cardinal key is the fallback, and the only credential the other clients use.
+In Claude Code it authenticates with the storyboard's **evidence token**, which `storyboard__create` and `storyboard__add_act` return, a later preview of the draft refreshes, and the plugin stores. It is valid for 24 hours and can only upload evidence to that one storyboard while it has an open [act](/ui/storyboards#acts). Your connection's Cardinal key is the fallback, and the only credential the other clients use.
 
 ### Turn capture off or tune it
 
@@ -135,6 +135,6 @@ Datasets never re-query once frozen. A storyboard therefore looks the same after
 
 ## Retention
 
-Receipts are kept for **14 days**, whatever their tier. A receipt cited by a **published** storyboard is kept for as long as that storyboard exists, along with its dataset. Receipts cited only by a draft still expire at 14 days. If a draft cites an expired receipt, publishing fails with `receipt_not_found`; Claude re-runs the call and cites the new receipt.
+Receipts are kept for **14 days**, whatever their tier. A receipt cited by a **published** act of a storyboard is kept for as long as that storyboard exists, along with its dataset. Receipts cited only by a draft, or only by a storyboard's open act, still expire at 14 days. If a draft cites an expired receipt, publishing fails with `receipt_not_found`; Claude re-runs the call and cites the new receipt.
 
 <SupportCallout />
