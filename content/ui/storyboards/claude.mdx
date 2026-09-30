@@ -53,7 +53,78 @@ See [Install: Claude Code plugin](/ui/agent-outcomes/install-claude-plugin). `/c
 
 ### After upgrading: reconnect with `/mcp`
 
-Claude Code reads the `cardinal` server's tool list when a session connects. A session that was open before you upgraded the plugin, or before your Cardinal was upgraded, may not see new tools such as `storyboard__record_evidence` or `storyboard__share`. Run `/mcp` and reconnect the `cardinal` server, or start a new session.
+Claude Code reads the `cardinal` server's tool list when a session connects. A session that was open before you upgraded the plugin, or before your Cardinal was upgraded, may not see new tools such as `storyboard__share`, `storyboard__find` or `storyboard__add_act`. Run `/mcp` and reconnect the `cardinal` server, or start a new session.
+
+## Update an existing storyboard
+
+When a storyboard already covers this work (the same session, pull request or branch), Claude adds an [act](/ui/storyboards#acts) to it instead of starting a duplicate: same storyboard, same `view_url`, same public links. From version **0.36.0**, the Claude Code plugin checks on every storyboard request, before it creates anything:
+
+```
+storyboard request
+  → cardinal-storyboard context             where this session is working (see below)
+  → storyboard__find {session_id, context}  matches, best first
+      an open act of this session that you opened  → continue it, without asking
+      matches worth offering                       → ask you (see below)
+      nothing worth offering                       → storyboard__create, without asking
+  → your answer
+      a storyboard whose acts are all published    → storyboard__add_act
+      a storyboard with an open act                → continue that act
+      Start a new storyboard                       → storyboard__create
+  → scenes → preview → storyboard__publish (publishes the open act)
+```
+
+`storyboard__find` ranks each storyboard by its best-matching act: the same session, then the same pull request, the same branch (`main` and `master` count only as the same repo), the same directory in the repo, the same repo, the same working directory, and the same person. Every client gets `storyboard__find`, `storyboard__add_act` and `storyboard__discard_act` from Cardinal's authoring guide; the plugin adds the `cardinal-storyboard context` command and the question below.
+
+`storyboard__find` needs Cardinal UI v1.97.21 or later, and adding acts needs a later release. Against an older Cardinal, Claude creates a new storyboard, as before.
+
+### Ask before adding to an existing storyboard
+
+Claude asks unless you already named the storyboard (an `sb_…` id, its link, or "add it to the storyboard for PR 123"), or this session has an open act you opened, which it continues without asking. It offers:
+
+- up to 3 **strong** matches (same session, pull request, branch or directory), in find's order; or
+- when there is no strong match, the one best **weak** match (same repo, same working directory, or your own storyboard), and only if it was updated in the last 7 days.
+
+With nothing to offer, it creates a new storyboard without asking. It asks with Claude Code's question prompt (AskUserQuestion), or with a numbered question when that isn't available, and waits for your answer:
+
+| Option | Shown for |
+| --- | --- |
+| `Add to "<question>"` | A matching storyboard (its question, cut to 40 characters). |
+| `Continue open act <n> of "<question>"` | A matching storyboard whose open act someone else is writing. |
+| `Start a new storyboard` | Always. |
+
+Each match's description reads *why · number of acts · when it was last updated*, where *why* is one of `same session`, `same PR <repo>#<number>`, `same branch <branch>`, `same directory <path>`, `same repo <repo>`, `same working directory` or `your storyboard`.
+
+In a non-interactive run (`claude -p`), Claude can't ask, so it creates a new storyboard and names the best match in its final message, with how to fold the new one into it ("say: add this to *storyboard*").
+
+To drop an act you opened by mistake, ask Claude to discard it (`storyboard__discard_act`). Only the connection that opened an act can discard it this way; an organization owner can discard any open act from the viewer. See [Acts](/ui/storyboards#acts).
+
+### Public links when an act is published
+
+Publishing an act onto a storyboard that has live public links needs a decision about those links, and Cardinal refuses the publish with `public_links_decision_required` until it gets one. Claude asks you whether readers of the links should see the new act, unless you already said to update what you shared (for example, "publish the update and update the public link too"). That instruction covers only this choice. It then publishes again with `public_links: "extend"` (links show the new act too) or `"keep"` (links keep showing what they show now).
+
+**Raw evidence always needs your answer.** When a link includes raw evidence and the acts it would newly show bind whole results or every row of a dataset, Cardinal refuses with `raw_evidence_confirmation_required` and lists those bindings. The plugin always asks before confirming raw evidence on an extended link, even when you asked it to update what you shared: Claude shows you the bindings, and only your yes sends `confirm_raw_evidence: true`. If you say no, it publishes with `public_links: "keep"`.
+
+See [Links and new acts](/ui/storyboards/public-links#links-and-new-acts).
+
+### What each act records
+
+Every act records the Cardinal session id that wrote it and, from plugin 0.36.0, where it was written. The plugin collects this with `cardinal-storyboard context` and passes it to `storyboard__create` (act 1), `storyboard__add_act` and `storyboard__find`:
+
+| Field | What it is |
+| --- | --- |
+| `repo` | The repository of the git remote `origin`, as `owner/name`. |
+| `repo_path` | The directory within the repository, relative to its top (`.` at the root). |
+| `branch` | The checked-out branch; none on a detached HEAD. |
+| `pr_number`, `pr_url` | The branch's pull request, when `gh` can find one. |
+| `head_sha` | The checked-out commit. |
+| `workdir_hash` | A hashed directory id: a one-way hash of your machine's hostname and the directory, so the same directory matches without its path leaving your machine. |
+| `client` | The client and plugin version, for example `claude-code/0.36.0`. |
+| `actor_email` | Your Cardinal account email: the one your connection tags session telemetry with. |
+
+- **No absolute paths.** Your working directory is never sent; only `repo_path` and `workdir_hash` describe it. A field the plugin can't determine is left out.
+- **Labels, not permissions.** The context is self-reported and used only to find matches. It never decides who may change a storyboard.
+- **Members only, never on public links.** Members of your org see each act's context through `storyboard__find` and Cardinal's storyboard API. A public link never shows it.
+- Storyboards created before context was recorded have none, and are matched only by session.
 
 ## Connecting without Cardinal Data Lake
 
@@ -81,6 +152,12 @@ The Codex, Cursor, Gemini CLI, OpenCode and Pi plugins connect the same way, eac
 | Sign-up says a workspace can't be created for you | Your email domain is managed by an existing org, so Cardinal doesn't create a personal workspace. Ask an organization owner to invite you. |
 | `quota_exceeded` | A [personal workspace](/ui/storyboards#personal-workspaces) quota is used up for today. The message says when it resets. |
 | `public_links_disabled` | Your org doesn't allow public links. An organization owner can turn them on; see [Public links](/ui/storyboards/public-links#org-policy). |
+| `open_act_exists` | The storyboard already has an open act. Claude continues it, or asks you whether to. |
+| `public_links_decision_required` | The storyboard has live public links, and publishing an act needs a decision about them. Claude asks you; see [Public links when an act is published](#public-links-when-an-act-is-published). |
+| `raw_evidence_confirmation_required` | Extending a link that includes raw evidence would show raw results of the new act. Claude shows you the bindings and asks. |
+| `share_permission_required` | Extending public links needs permission to share. Publish with `public_links: "keep"`, and ask someone who can share to extend the links. |
+| `not_act_author` | Only the connection that opened an act can discard it with Claude. An organization owner can discard it from the viewer. |
+| `published` | Every act is published. Claude opens the next one with `storyboard__add_act`. |
 | The `storyboard__*` tools are missing | Run `/cardinal:status`. If it says you're not connected, run `/cardinal:connect`. If you are, reconnect the server with `/mcp` or start a new session. |
 
 <SupportCallout />

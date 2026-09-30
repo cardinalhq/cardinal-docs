@@ -48,7 +48,8 @@ Claude reads Cardinal's authoring guide from the MCP server itself (`storyboard_
 
 ```
 investigation (collects receipt ids)
-  → storyboard__create a draft
+  → storyboard__find: is there a storyboard to update? (see Acts below)
+  → storyboard__create a draft, or storyboard__add_act to a published one
   → cite evidence: witnessed receipts as they are, other results captured or reported
   → draft scenes and Canvas visuals
   → storyboard__preview: Cardinal validates the draft deterministically
@@ -82,7 +83,25 @@ Publishing runs Cardinal's evidence checks. They are deterministic, and none of 
 
 Cardinal also returns **warnings** that don't block publishing, and Claude treats them as problems to fix or explain. For example: a number in a scene's statement that doesn't match its bound evidence, numbers from different populations composed on one scale, a frozen dataset that disagrees with what Claude saw, or `claim_reported_only`, a claim whose supporting evidence was all [reported](/ui/storyboards/evidence#reported) by the model.
 
-**Published storyboards are immutable.** Edits and a second publish are refused with a conflict. To change a published storyboard, ask Claude for a new one. Publishing is also what keeps the storyboard's receipts past the 14-day window.
+**Published acts are immutable.** A storyboard is published one [act](#acts) at a time, and once an act is published, edits to its scenes and a second publish of it are refused with a conflict. To update a published storyboard, ask Claude to add an act: the update is appended to the same storyboard, at the same `view_url` and public links. Publishing an act is also what keeps the receipts it cites past the 14-day window.
+
+## Acts
+
+A storyboard is a sequence of **acts**. The first act is the storyboard you create and publish. When the investigation moves on (a fix ships, a rollback is verified, a new symptom turns up), Claude adds the next act to the same storyboard instead of starting a new one, so the whole story stays at one `view_url` and one set of public links.
+
+```
+act 1 draft ─publish─► act 1 published ─add_act─► act 2 draft ─publish─► act 2 published ─add_act─► …
+```
+
+- **One open act at a time.** `storyboard__add_act` opens the next act, with a title and an optional summary. It needs every earlier act to be published; while an act is open it answers `open_act_exists`, and Claude continues that act instead.
+- **Append-only.** Scenes are added to the open act only. A published act's scenes can't be edited or removed (`scene_published`), and a new scene can't reuse a published scene's id. A new act can use a published act's Canvas surfaces as they are, or define new ones; it can't change a published surface (`surface_published`).
+- **Publishing publishes the open act.** `storyboard__publish` runs the checks above on that act's scenes. An act with no scenes is refused with `act_empty`. Once every act is published, writes are refused with `published`, and the message tells Claude to call `storyboard__add_act`.
+- **Public links don't follow new acts on their own.** A link keeps showing the acts it covered, and publishing an act onto a storyboard with live links asks whether to extend them. See [Public links and new acts](/ui/storyboards/public-links#links-and-new-acts).
+- **Discarding a draft act.** Only the open act can be discarded, never a published one. Its author can discard it: Claude calls `storyboard__discard_act`, and only from the connection that opened the act. An organization owner can discard any open act from the viewer with **Discard draft act**, then **Discard act *n***. Discarding removes the act's scenes, the surfaces it defined, and its citations; the published acts stay as they are. Discarding act 1 of a storyboard that was never published deletes the draft storyboard.
+- **The time window can only widen.** `storyboard__add_act` can pass a window that contains the storyboard's current one; a narrower one is refused with `window_must_widen`.
+- **Receipts.** A receipt cited by a published act is kept as long as the storyboard exists. Receipts cited only by the open act still expire at 14 days, so publishing an act that cites an expired one fails with `receipt_not_found`, and Claude re-runs the call.
+
+In Claude Code, the `cardinal` plugin checks for a storyboard to update before it creates one, and asks you first; see [Update an existing storyboard](/ui/storyboards/claude#update-an-existing-storyboard). Every act also records where it was written (repository, branch, pull request), which only members of your org can see.
 
 ## View storyboards
 
@@ -96,7 +115,7 @@ There is no sidebar entry. You reach storyboards through:
 - the **`view_url`** Claude returns when it creates, previews, or publishes a storyboard (and the `draft_url` a preview returns); or
 - the **Storyboards** button in the header of the **Dashboards** page.
 
-The viewer is available to org members with the **Member** or **Owner** role. Drafts are visible at the same link while Claude works on them, and refresh as it writes.
+The viewer is available to org members with the **Member** or **Owner** role. Drafts are visible at the same link while Claude works on them, and refresh as it writes. That includes a draft act of a published storyboard: its scenes follow the published ones under an **Act *n* · *title*** divider, with a **Draft act** badge, and the storyboards list marks the storyboard **Act *n* draft**.
 
 To show a **published** storyboard to someone outside your org, create a [public link](/ui/storyboards/public-links): the **Share** button in the viewer's header, or ask Claude to share it. Readers need no account. On Cardinal Cloud links open on `share.cardinalhq.io`. Whether members can create them is an org setting that an owner controls; it is on by default in personal workspaces.
 
@@ -116,15 +135,16 @@ Each Canvas runs in a sandboxed frame with no network access, cookies, storage, 
 
 | Limit | Value |
 | --- | --- |
-| Scenes per storyboard | 50 |
-| Shared Canvas surfaces per storyboard | 16 |
-| Evidence bindings per storyboard | 1,500 |
-| Receipts bound as datasets per storyboard | 16 |
+| Acts per storyboard | 20 |
+| Scenes per storyboard, across all its acts | 50 |
+| Shared Canvas surfaces per storyboard, across all its acts | 16 |
+| Evidence bindings per storyboard, across all its acts | 1,500 |
+| Receipts bound as datasets per storyboard, across all its acts | 16 |
 | Frozen dataset size | 100,000 rows and 16 MiB of JSON. A larger result fails to materialize; Claude narrows the query or binds an aggregate instead. |
 | Canvas source per surface | 64 KB |
 | Local preview page per scene | 32 MiB, including inlined evidence |
 | Uploaded (captured or reported) result | About 256 KB each; a larger result is stored truncated and marked as such |
-| Receipt retention | 14 days, unless cited by a published storyboard |
+| Receipt retention | 14 days, unless cited by a published act |
 
 - **Datasets** can be frozen only from witnessed Cardinal Data Lake metrics, logs, and spans queries. Other receipts, including every captured and reported one, can be cited and bound as the result Claude saw, but are never re-run.
 - **Preview, publish and evidence uploads** are rate-limited per org. When Cardinal is busy, Claude waits and retries.
@@ -137,9 +157,11 @@ A **personal workspace** is the one-person org Cardinal creates when you sign up
 
 | Quota | Default per day |
 | --- | --- |
-| Storyboards published | 20 |
+| Storyboards and acts published | 20 |
 | Captured and reported evidence uploaded | 50 MiB |
 | Views of its public links | 5,000 |
+
+Publishing each act counts as one publish; opening an act with `storyboard__add_act` doesn't count.
 
 Over a limit, Cardinal answers `quota_exceeded` with the time it resets, and Claude tells you. Inviting anyone into a personal workspace converts it into a team org as the invitation is sent. That can't be undone; the org keeps its settings, including its public-links setting, and has no quotas from then on.
 

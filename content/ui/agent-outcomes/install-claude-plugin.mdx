@@ -96,6 +96,8 @@ From version **0.32.0**, the plugin ships two skills for [Investigation Storyboa
 
 Once connected, the plugin also adds this session's Cardinal session id to Claude's context at session start, so each storyboard records which session wrote it.
 
+From version **0.36.0**, the storyboard skill looks for an existing storyboard to update before it creates one. It runs the plugin's `cardinal-storyboard context` command, which prints where you are working (repository, path within it, branch, pull request, commit, a hashed directory id, the plugin version and your Cardinal account email), passes that to `storyboard__find`, and asks you before it adds an act to a match. See [Update an existing storyboard](/ui/storyboards/claude#update-an-existing-storyboard).
+
 The skills and local previews need the plugin to be connected: before `/cardinal:connect` there are no `storyboard__*` tools. Evidence capture runs either way, so results captured before you connect can be cited afterwards. See [Use storyboards with Claude](/ui/storyboards/claude#claude-code).
 
 Authoring needs the **Member** or **Owner** role in the org Claude works in.
@@ -135,8 +137,9 @@ Until you run `/cardinal:connect`, the plugin sends no session telemetry at all.
 
 Tool results are handled separately, as storyboard evidence. Capture works the same way whether or not the plugin is connected:
 
-- **Results of every other tool call** (shell commands, file reads and edits, other MCP servers, …) are kept **locally** as evidence, in `~/.cardinal/evidence/` on your machine, with credentials scrubbed, and deleted after 14 days. A call that touches something sensitive, such as a `.env` file, a key or a secret-printing command, keeps no arguments or result, only a stub saying it was withheld. They are uploaded only when you cite them in a storyboard, and then only to that storyboard's draft. To opt out, run `cardinal-evidence off` (or set `CARDINAL_EVIDENCE_CAPTURE=0`); `cardinal-evidence on` turns it back on. See [Captured evidence](/ui/storyboards/evidence#captured).
+- **Results of every other tool call** (shell commands, file reads and edits, other MCP servers, …) are kept **locally** as evidence, in `~/.cardinal/evidence/` on your machine, with credentials scrubbed, and deleted after 14 days. A call that touches something sensitive, such as a `.env` file, a key or a secret-printing command, keeps no arguments or result, only a stub saying it was withheld. They are uploaded only when you cite them in a storyboard, and then only to that storyboard's open draft act. To opt out, run `cardinal-evidence off` (or set `CARDINAL_EVIDENCE_CAPTURE=0`); `cardinal-evidence on` turns it back on. See [Captured evidence](/ui/storyboards/evidence#captured).
 - **Results of Cardinal's own tools** already run on Cardinal. Cardinal keeps a receipt of each read-only call, with credentials redacted, for 14 days, or for as long as a published storyboard cites it. See [Evidence and receipts](/ui/storyboards/evidence).
+- **Where a storyboard was written.** From version 0.36.0, when Claude creates a storyboard, adds an act, or looks for one to update, the plugin sends the context `cardinal-storyboard context` prints: repository, path within it, branch, pull request, commit, a hashed directory id, the plugin version and your Cardinal account email. It never sends an absolute path. Only members of your org can see it, never readers of a public link. See [What each act records](/ui/storyboards/claude#what-each-act-records).
 
 ## Disconnect
 
