@@ -118,7 +118,7 @@ Where no hook captured a result (a client connected without a Cardinal plugin, o
 - at most 50 items per call; each returns a `receipt_id` that Claude cites like any other receipt;
 - an item naming Cardinal's own server is refused: that result already has a witnessed receipt, and Claude cites it instead.
 
-**Local paths in reported results.** Before it stores a reported result, Cardinal shortens the paths in its arguments and result by their shape, wherever they appear:
+**Local paths in reported results.** Before it stores a reported result, Cardinal shortens the paths in its arguments and result by their shape, where a path starts a word: at the start of the text, after whitespace or a quote, or after `=`, `(`, `:`, `,`, `[`, `{` or `file://`:
 
 | In the upload | Stored as |
 | --- | --- |
@@ -127,7 +127,7 @@ Where no hook captured a result (a client connected without a Cardinal plugin, o
 | `/private/tmp/claude-501/-Users-ada-src-app/<session>/…` (Claude's per-session temp directory) | `/private/tmp/claude-501/[session tmp]/<session>/…` |
 | `/Users/ada/.claude/projects/-Users-ada-src-app/…` (Claude's project directory) | `/Users/[user]/.claude/projects/[project]/…` |
 
-The rule goes by shape only, so a path that isn't on your machine is rewritten too: `/home/app/config.yaml` from a pod's log is stored as `/home/[user]/config.yaml`. Paths inside a URL (`https://example.com/Users/ada`) are kept. Numbers are never changed. Captured results aren't rewritten again (the plugin already shortened their paths), and receipts stored before this change are left as they are.
+The rule goes by shape only, so a path that isn't on your machine is rewritten too: `/home/app/config.yaml` from a pod's log is stored as `/home/[user]/config.yaml`. Paths inside a URL (`https://example.com/Users/ada`) are kept. Numbers are never changed. A path glued to other characters, such as `>/Users/ada/out.txt` in a shell redirect or `a|/Users/ada/x`, is kept as is, account name included; check reported evidence before you share a public link with raw evidence. Captured results aren't rewritten again (the plugin already shortened their paths), and receipts stored before this change are left as they are.
 
 Claude is instructed never to summarize, trim or reformat a reported result, but Cardinal can't check it. That is why reported receipts are always labeled and trigger the `claim_reported_only` warning.
 

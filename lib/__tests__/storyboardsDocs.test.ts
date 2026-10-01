@@ -347,6 +347,18 @@ describe('storyboards docs: statements that must stay correct', () => {
     }
     const captured = evidence.slice(evidence.indexOf('## Captured'), evidence.indexOf('## Reported'));
     expect(captured).not.toContain('[user]');
+    // The reported-tier scrub only fires where a path starts a word (localpaths.go unixHomeRe left
+    // boundary); the docs must state that scope and the glued-path caveat, not "wherever they appear".
+    const reportedPaths = evidence.slice(
+      evidence.indexOf('**Local paths in reported results.**'),
+      evidence.indexOf('## Credentials and pixels'),
+    );
+    expect(reportedPaths).toContain('where a path starts a word: at the start of the text, after whitespace or a quote');
+    expect(reportedPaths).toContain('`>/Users/ada/out.txt` in a shell redirect');
+    expect(reportedPaths).toContain('is kept as is, account name included');
+    expect(reportedPaths).not.toContain('wherever they appear');
+    // The captured-tier credential sentence keeps its "wherever they appear".
+    expect(captured).toContain('long base64 blobs are redacted wherever they appear');
   });
 
   test('self-hosted: the upgrade-through-v1.97.21 note for acts', () => {
