@@ -134,7 +134,7 @@ Claude is instructed never to summarize, trim or reformat a reported result, but
 ## Credentials and pixels
 
 - **Credentials** are redacted before any receipt is stored, witnessed or uploaded, and a scene can never bind a credential field.
-- **Passing Go tests are kept.** `PASS` is a credential name, but a Go test status line such as `--- PASS: TestCheckout (0.01s)`, indented subtests and `go test -json` output included, is kept as it is, in every tier, so a receipt still names the tests that passed. Only that exact shape is exempt: `PASS: x`, `pass: x`, `PASS=x` and `DB_PASS: x` are still redacted.
+- **Passing Go tests are kept.** In a failed call's error text, and in the kept start of a result that was cut short, `KEY: value` and `KEY=value` pairs whose key names a credential are redacted, and `PASS` is a credential name. A Go test status line such as `--- PASS: TestCheckout (0.01s)`, indented subtests and `go test -json` output included, is the one exception there, so a failing run's receipt still names the tests that passed. Only that exact shape is exempt: `PASS: x`, `PASS=x` and `DB_PASS: x` are still redacted in those places. A successful result's text isn't scanned for `KEY: value` pairs, so don't rely on this rule to hide a secret in, say, the output of `env`.
 - **Pixels are never evidence.** A picture can suggest a hypothesis, but any quantitative or population-level statement in a scene must resolve to a receipt or to a calculation over receipts. When Claude notices a pattern in a preview that it never measured, it measures it with another tool call and cites the new receipt.
 
 ## Datasets
