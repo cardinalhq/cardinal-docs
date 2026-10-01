@@ -57,7 +57,7 @@ The first captured result of a session carries a line explaining how to cite it;
 ```
 
 - **Stored locally.** Each result is written to `~/.cardinal/evidence/<session id>/`, readable only by you, with credentials scrubbed. Arguments are capped at 64 KiB and the result at 256 KiB. Entries older than 14 days are deleted, and when the spool passes 256 MiB the oldest entries go first (`CARDINAL_EVIDENCE_MAX_MB` changes the cap).
-- **Scrubbed before it is written.** Credentials in JSON fields and in `KEY=value` text, bearer tokens, private keys (PEM blocks) and long base64 blobs are redacted wherever they appear. Local paths are shortened: your working directory becomes `.`, your home directory `~`, and spilled output files `[local file]`. A scrubbed result is still captured and can be cited: it shows `[redacted]` where a value was removed.
+- **Scrubbed before it is written.** Credentials in JSON fields and in `KEY=value` text, bearer tokens, private keys (PEM blocks) and long base64 blobs are redacted wherever they appear. Local paths are shortened: your working directory becomes `.`, your home directory `~`, and spilled output files `[local file]`. The dash-encoded forms of your working and home directories that Claude Code puts in its own directory names (`-Users-ada-src-app`) become `[cwd]` and `[home]`, and Claude's per-session temp directory becomes `[session tmp]`, as in `/private/tmp/claude-501/[session tmp]/<session>/scratchpad/out.txt`. A call's one-line summary is scrubbed before it is shortened, so a cut never leaves part of a path behind. A scrubbed result is still captured and can be cited: it shows `[redacted]` where a value was removed.
 - **Withheld calls.** A call that touches something sensitive keeps **nothing** but a stub: the tool, whether it failed, and which rule fired, with no arguments and no result. Examples are reading a `.env`, a private key, `~/.ssh`, `~/.aws` or a kubeconfig; commands that print secrets, such as `printenv`, `gh auth token` or `kubectl get secret`; and a URL or request that carries a credential. Claude sees `[evidence:ev_… withheld: sensitive path (.env*)]`. It can't cite that call and says so instead of paraphrasing it. Withheld is not the same as redacted: a redacted result was kept and can be cited.
 - **Failed calls are captured too.** When a tool returns an error, the hook keeps its error text, with credentials redacted. Promoted, it becomes a failed-call receipt that Claude can bind at `/error/message`, as with a [witnessed](#witnessed) failure.
 - **JSON results stay bindable.** A result that is a single JSON object or array is kept as structured data, so scenes can select and extract from it rather than only quote it.
@@ -118,11 +118,23 @@ Where no hook captured a result (a client connected without a Cardinal plugin, o
 - at most 50 items per call; each returns a `receipt_id` that Claude cites like any other receipt;
 - an item naming Cardinal's own server is refused: that result already has a witnessed receipt, and Claude cites it instead.
 
+**Local paths in reported results.** Before it stores a reported result, Cardinal shortens the paths in its arguments and result by their shape, wherever they appear:
+
+| In the upload | Stored as |
+| --- | --- |
+| `/Users/ada/src/app`, `/home/ada/src/app`, `file:///Users/ada/x` | `/Users/[user]/src/app`, `/home/[user]/src/app`, `file:///Users/[user]/x` |
+| `C:\Users\ada\src` | `C:\Users\[user]\src` |
+| `/private/tmp/claude-501/-Users-ada-src-app/<session>/…` (Claude's per-session temp directory) | `/private/tmp/claude-501/[session tmp]/<session>/…` |
+| `/Users/ada/.claude/projects/-Users-ada-src-app/…` (Claude's project directory) | `/Users/[user]/.claude/projects/[project]/…` |
+
+The rule goes by shape only, so a path that isn't on your machine is rewritten too: `/home/app/config.yaml` from a pod's log is stored as `/home/[user]/config.yaml`. Paths inside a URL (`https://example.com/Users/ada`) are kept. Numbers are never changed. Captured results aren't rewritten again (the plugin already shortened their paths), and receipts stored before this change are left as they are.
+
 Claude is instructed never to summarize, trim or reformat a reported result, but Cardinal can't check it. That is why reported receipts are always labeled and trigger the `claim_reported_only` warning.
 
 ## Credentials and pixels
 
 - **Credentials** are redacted before any receipt is stored, witnessed or uploaded, and a scene can never bind a credential field.
+- **Passing Go tests are kept.** `PASS` is a credential name, but a Go test status line such as `--- PASS: TestCheckout (0.01s)`, indented subtests and `go test -json` output included, is kept as it is, in every tier, so a receipt still names the tests that passed. Only that exact shape is exempt: `PASS: x`, `pass: x`, `PASS=x` and `DB_PASS: x` are still redacted.
 - **Pixels are never evidence.** A picture can suggest a hypothesis, but any quantitative or population-level statement in a scene must resolve to a receipt or to a calculation over receipts. When Claude notices a pattern in a preview that it never measured, it measures it with another tool call and cites the new receipt.
 
 ## Datasets

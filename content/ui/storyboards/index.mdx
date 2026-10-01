@@ -107,7 +107,8 @@ In Claude Code, the `cardinal` plugin checks for a storyboard to update before i
 
 | Page | What it shows |
 | --- | --- |
-| `/storyboards` | Your org's storyboards, drafts included, newest first. |
+| `/storyboards` | Your org's storyboards and folders, drafts included, at the top level. |
+| `/storyboards?folder=<folder id>` | The storyboards and subfolders in one folder. |
 | `/storyboards/<id>?scene=N` | One storyboard, opened at scene *N* (1-based). `&step=K` opens a reveal step within the scene. |
 
 There is no sidebar entry. You reach storyboards through:
@@ -131,11 +132,71 @@ Exploration is scoped to the evidence the storyboard captured. Questions that ne
 
 Each Canvas runs in a sandboxed frame with no network access, cookies, storage, or access to the rest of the page. It can only draw the evidence Cardinal resolved for it.
 
+### Folders
+
+Storyboards can be organized into folders. Folders belong to the org, not to one person: every member sees the same tree.
+
+- **Nestable.** A folder can hold subfolders, up to 8 levels deep. Names are up to 120 characters, can't contain `/`, and are unique within their parent folder, ignoring case.
+- **One folder per storyboard.** A storyboard sits in at most one folder. One that isn't in a folder is at the top level, which is where every storyboard created before folders starts.
+- **Who can change them.** Any member who can write storyboards (**Member** or **Owner**) can create, rename and move folders, and move storyboards between them.
+- **Only empty folders can be deleted.** Move or delete what is inside first; otherwise Cardinal answers `folder_not_empty`. A folder can't be moved into itself or one of its subfolders (`folder_cycle`), or deeper than 8 levels (`folder_too_deep`).
+- **Moving isn't editing.** Moving a storyboard doesn't change its content, its **Modified** time or its public links.
+
+There are no MCP tools for folders: you organize them in the list. `storyboard__find` and `storyboard__get` tell Claude which folder a storyboard is in (`folder_path`, for example `Incidents/2026-Q3`).
+
+### The storyboards list
+
+`/storyboards` works like a file browser. A breadcrumb at the top (**Storyboards › Incidents › 2026-Q3**) shows where you are; select a segment to go back up. Subfolders are listed first, then storyboards:
+
+| Column | What it shows |
+| --- | --- |
+| **Name** | A folder or storyboard icon and the name or question. Under a storyboard, compact badges show its repository, branch and pull request. |
+| **Created by** | Who created the storyboard or folder (see [Badges](#badges)). |
+| **Modified** | When it last changed, as a relative time (`5m ago`). Hover it for the exact date and time. |
+| **Status** | **Draft**, **Published**, or **Act *n* draft**. Empty for folders. |
+| **Acts** | How many acts the storyboard has. Empty for folders. |
+
+- **Sort** by selecting a column header; select it again to reverse the order. Folders always stay above storyboards. The default is **Modified**, newest first, and your browser remembers your choice.
+- **Open** a folder or storyboard with a double-click, or with **Enter** on the focused row. **↑**/**↓**, **Home** and **End** move between rows.
+- **Select** with a click; Cmd-click (Ctrl-click) adds or removes a row, Shift-click selects a range.
+- **New folder** adds a folder in the current one and lets you type its name; **Enter** saves, **Esc** cancels. To rename a folder, press **F2** on it or choose **Rename** from its row menu (**…**).
+- **Move** the selected rows by dragging them onto a folder row or onto a breadcrumb segment (**Storyboards** is the top level), or with **Move to…** in the toolbar or a row menu. **Move to…** opens a folder tree you can use with the keyboard: **↑**/**↓** to move, **→** to expand, **←** to collapse, **Enter** to select, then **Move**. Folders you can't move into are greyed out and can't be selected.
+- **Delete folder** is in a folder's row menu.
+- The **All / Published / Drafts** switch filters the storyboards.
+
+A folder lists its 1,000 most recently modified storyboards; above that, the list says so.
+
+When you open a storyboard, the back link at the top of the viewer is the same breadcrumb, for example **Storyboards › Incidents › 2026-Q3**.
+
+### Badges
+
+Badges show where and how a storyboard was made. The viewer's header shows all of them, for the storyboard's latest act; the list shows repository, branch and pull request under each storyboard.
+
+| Badge | Example |
+| --- | --- |
+| **Repository** | `cardinalhq/conductor` |
+| **Branch** | `feat/cache` |
+| **Pull request** | `#1234`, linked to the pull request |
+| **Created by** | The member who created the storyboard |
+| **Commit** | `3f9c2a7` (short) |
+| **Client** | `claude-code/0.36.0` |
+| **Acts** | `2 acts`, when there is more than one |
+
+Status (**Draft**, **Published**, **Act *n* draft**) is shown beside them, as before. Repository, branch, pull request, commit and client come from the [context each act records](/ui/storyboards/claude#what-each-act-records); a storyboard created before context was recorded has none of them.
+
+- **Created by** is the Cardinal user who created the storyboard, by display name or email. When Cardinal doesn't know which user wrote it, as with the org API key `/cardinal:connect` stores, it is the email Claude's client reported for act 1, shown with a dotted underline: hover it for *Self-reported by the author's client; not verified*. Without either, it is the API key's name. A key's id is never shown.
+- **Context by act.** A storyboard with more than one act has a **Context by act** menu beside its badges, with one row per act (**Act *n* · *title***) and that act's own badges, so you can see where each act was written.
+
+**Folders and badges are visible only to org members.** A [public link](/ui/storyboards/public-links) never shows them.
+
 ## Limits
 
 | Limit | Value |
 | --- | --- |
 | Acts per storyboard | 20 |
+| Folders per org | 1,000 |
+| Folder nesting | 8 levels |
+| Storyboards listed per folder | 1,000, most recently modified first |
 | Scenes per storyboard, across all its acts | 50 |
 | Shared Canvas surfaces per storyboard, across all its acts | 16 |
 | Evidence bindings per storyboard, across all its acts | 1,500 |

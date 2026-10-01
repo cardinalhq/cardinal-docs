@@ -70,6 +70,9 @@ What the evidence drawer shows depends on **Include raw evidence**:
 | Receipts the storyboard doesn't cite | Never | Never |
 | Who wrote it: session id, API key, client, uploader | Never | Never |
 | Where each act was written: repository, branch, pull request, commit, directory id, email | Never | Never |
+| Which folder the storyboard is in, its metadata badges, and who created it | Never | Never |
+
+Public links never show folders, repository/branch/PR badges or who created the storyboard. Moving a storyboard between [folders](/ui/storyboards#folders) doesn't change its links.
 
 The query and its arguments are always visible on a public link, raw evidence or not. Only credentials are redacted: literals in a SQL, LogQL or PromQL query, such as customer ids, emails or hostnames, are shown to anyone with the link, so check every cited query before you share.
 
