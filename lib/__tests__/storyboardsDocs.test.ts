@@ -331,6 +331,11 @@ describe('storyboards docs: statements that must stay correct', () => {
     const evidence = read('ui/storyboards/evidence.mdx');
     expect(evidence).toContain('**Passing Go tests are kept.**');
     expect(evidence).toContain('`--- PASS: TestCheckout (0.01s)`');
+    // KEY: value redaction runs only on failed-call error text and truncated prefixes (RedactErrorText);
+    // the docs must not promise it for successful witnessed/reported text.
+    expect(evidence).toContain("In a failed call's error text, and in the kept start of a result that was cut short");
+    expect(evidence).toContain("A successful result's text isn't scanned for `KEY: value` pairs");
+    expect(evidence).not.toMatch(/PASS[^\n]*in every tier/);
     // Captured (plugin): `.`/`~` as before, plus the dash-encoded forms and the session temp dir.
     for (const term of ['your working directory becomes `.`', 'your home directory `~`', '`[cwd]`', '`[home]`', '`[session tmp]`']) {
       expect(evidence).toContain(term);
