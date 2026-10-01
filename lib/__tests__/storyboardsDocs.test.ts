@@ -333,8 +333,14 @@ describe('storyboards docs: statements that must stay correct', () => {
     expect(evidence).toContain('`--- PASS: TestCheckout (0.01s)`');
     // KEY: value redaction runs only on failed-call error text and truncated prefixes (RedactErrorText);
     // the docs must not promise it for successful witnessed/reported text.
-    expect(evidence).toContain("In a failed call's error text, and in the kept start of a result that was cut short");
-    expect(evidence).toContain("A successful result's text isn't scanned for `KEY: value` pairs");
+    expect(evidence).toContain("only a failed call's error text and the kept start of a result that was cut short");
+    expect(evidence).toContain("A successful witnessed or reported result's text isn't scanned for `KEY: value` pairs");
+    // Captured results are scanned everywhere: the page must not say successful captured text goes unscanned.
+    expect(evidence).toContain("**Captured:** every string in the result, successful or failed");
+    expect(evidence).not.toContain("A successful result's text isn't scanned");
+    // Reported arguments appear on every public link, not only raw-evidence ones.
+    expect(evidence).toContain("A reported call's arguments are shown on every public link, raw evidence or not");
+    expect(evidence).not.toContain("before you share a public link with raw evidence");
     expect(evidence).not.toMatch(/PASS[^\n]*in every tier/);
     // Captured (plugin): `.`/`~` as before, plus the dash-encoded forms and the session temp dir.
     for (const term of ['your working directory becomes `.`', 'your home directory `~`', '`[cwd]`', '`[home]`', '`[session tmp]`']) {
