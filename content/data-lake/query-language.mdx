@@ -196,19 +196,21 @@ histogram_fraction(-Inf, 0.3, sum by (service_name) (rate(http_server_request_du
   * histogram_count(sum by (service_name) (rate(http_server_request_duration[5m])))
 ```
 
-Use `sum` to combine histogram series before applying a histogram function. Do not read a histogram with `max`, `min` or `avg`: over a cumulative histogram, `max` and `min` return nothing, as in Prometheus. For the mean, use `histogram_avg`. For the slow end of the distribution, use a high quantile such as `histogram_quantile(0.99, ...)`.
+Use `sum` to combine histogram series before applying a histogram function. Do not use `max`, `min` or `avg` on a histogram, inside a histogram function or outside one. On their own over a cumulative histogram, `max` and `min` return nothing, as in Prometheus. For the mean, use `histogram_avg`. For the slow end of the distribution, use a high quantile such as `histogram_quantile(0.99, ...)`.
 
 ### What a histogram returns without a histogram function
 
 A bare selector, `sum` or `rate` over a histogram does not give a request count or rate. What it returns depends on the histogram's temporality:
 
-| Query | Cumulative histogram | Delta histogram |
-|-------|----------------------|-----------------|
+| Query | Cumulative explicit-bucket histogram | Delta histogram |
+|-------|--------------------------------------|-----------------|
 | `http_server_request_duration` | Each series' latest cumulative histogram: every observation since the series started | Each series' mean observed value (sum of observed values divided by their count) |
-| `sum(http_server_request_duration)` | The series' latest cumulative histograms, added together | The sum of the observed values (for a latency histogram, total latency) |
+| `sum(http_server_request_duration)` | The series' latest cumulative histograms, added together | The sum of the observed values in each step (for a latency histogram, total latency) |
 | `rate(http_server_request_duration[5m])` | A histogram of the per-second increase over the window | The sum of the observed values in the window divided by the window length in seconds |
 
-A histogram result is not a number. To chart it or compare it with a threshold, wrap it in a histogram function. An alert rule such as `sum(rate(http_server_request_duration[5m])) > 1` over a cumulative histogram goes into an error state. Write `histogram_count(sum(rate(http_server_request_duration[5m]))) > 1` instead.
+OpenTelemetry exponential histograms never return histogram samples: a bare selector, `sum` or `rate` over one returns a single number. Use the histogram functions for them too.
+
+A histogram result is not a number. To chart it or compare it with a threshold, wrap it in a histogram function. A comparison inside the query, such as `sum(rate(http_server_request_duration[5m])) > 1`, returns nothing over a cumulative histogram, because Prometheus drops histogram samples there. An alert rule whose query is `sum(rate(http_server_request_duration[5m]))`, with the threshold set in the rule, goes into an error state. Use `histogram_count(sum(rate(http_server_request_duration[5m])))` as the query instead, or `histogram_count(sum(rate(http_server_request_duration[5m]))) > 1` inside a query.
 
 ### Cumulative and delta histograms
 
