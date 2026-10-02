@@ -82,6 +82,11 @@ All optional. See [Storyboards: self-hosted setup](/ui/storyboards/self-hosted) 
 | `PERSONAL_WORKSPACE_MAX_PUBLISHES_PER_DAY` | `20` | Personal-workspace quota |
 | `PERSONAL_WORKSPACE_MAX_EVIDENCE_BYTES_PER_DAY` | `52428800` | Personal-workspace quota (50 MiB of captured and reported evidence) |
 | `PERSONAL_WORKSPACE_MAX_PUBLIC_VIEWS_PER_DAY` | `5000` | Personal-workspace quota |
+| `MAESTRO_STORYBOARD_SEARCH_MIN_SIMILARITY` | `0.25` | [Storyboard search](/ui/storyboards/self-hosted#storyboard-search): the lowest cosine similarity (0–1) at which a storyboard is a match by meaning |
+| `MAESTRO_STORYBOARD_SEARCH_EMBED_TIMEOUT_MS` | `1500` | Storyboard search: how long a query waits for its embedding before matching by words only |
+| `MAESTRO_STORYBOARD_SEARCH_SWEEP_MS` | `30000` | Storyboard search: how often the indexing sweep (and backfill) runs (≥ `1000`) |
+| `MAESTRO_STORYBOARD_SEARCH_SWEEP_BATCH` | `50` | Storyboard search: storyboards indexed per sweep (`1`–`1000`) |
+| `MAESTRO_EMBEDDING_RESOLVE_TTL_MS` | `60000` | How long the active embedding model is cached; a model switch or credential rotation is picked up within it |
 
 ### Default Cardinal Data Lake bucket
 
