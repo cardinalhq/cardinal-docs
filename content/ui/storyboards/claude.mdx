@@ -103,6 +103,81 @@ When Claude is only reading, to review, debug or resume work, it reads the match
 
 Every client gets `storyboard__get`, not only Claude Code. Cardinal's MCP server also tells every client, when it connects, to call `storyboard__find {context}` and then `storyboard__get` on the matches before reviewing or debugging work on a repository, branch or pull request.
 
+### Search storyboards by topic
+
+The context tiers find storyboards about *this work*: the same session, pull request, branch, directory or repository. To find storyboards about *the same problem*, written from any repository by anyone in your org, Claude passes `query`: what it is investigating, in plain words.
+
+```
+storyboard__find {query: "checkout p99 latency regression after cache change"}
+  → text:     storyboards that share the query's words (English stemming)
+  → semantic: storyboards close in meaning (only with an embedding model; see Self-hosted setup)
+  → each match: relevance strong | weak, signals, score, similarity, text_coverage
+  → search: {semantic, text}   how each half of the search went
+```
+
+**Start every investigation with it.** Before querying telemetry, Claude should run `storyboard__find {query}` with the symptom, service or error, so that it builds on what a teammate already established instead of rediscovering it. Cardinal's tool description tells every client to do this. Inside a repository, pass `context` as well; one call returns both kinds of match.
+
+- **`query`** is 2 to 500 characters after trimming. Outside that, find answers 400 with `query is 2-500 characters`. It works alone or together with `session_id` and `context`. With none of the three, find answers `find needs session_id, context or query`.
+- **What is searched.** Every act's authored narrative: the question, act titles and summaries, and scene titles, statements, claims, open questions and transition notes. Never evidence, receipt contents, canvas code, or the [context an act recorded](#what-each-act-records). Draft acts are searched too; discarded acts aren't. `status` filters the results as it does for context matches.
+- **Members only.** Results are the org's storyboards, with the same fields as a context match, for members with the **Member** or **Owner** role. Cardinal never logs or stores the query text; when your Cardinal has an embedding model, the query is sent to that model's provider to be embedded.
+
+#### What each match says
+
+A match found by the query has `match: "query"`, and `match_act` is its best-matching act. A storyboard that also matches a context tier keeps that tier's `match` and `match_act`. Either way, the query adds these fields:
+
+| Field | What it means |
+| --- | --- |
+| `relevance` | `strong`: the storyboard is about your query. `weak`: it shares some meaning or some words; treat it as a lead. |
+| `signals` | Which half of the search matched it: `["text"]`, `["semantic"]` or `["semantic", "text"]`. |
+| `similarity` | Cosine similarity of the query to the best act, 0 to 1 (3 decimals). Only when `semantic` matched. |
+| `text_coverage` | The share of the query's information the best act contains, 0 to 1 (2 decimals). Words are weighted by how rare they are among your org's storyboards, so a word most of them share counts for almost nothing. Only when `text` matched. |
+| `score` | Orders the matches (reciprocal-rank fusion of the two halves). It means nothing on its own and can't be compared across queries. |
+
+A match is **strong** when either:
+
+- the text matches strongly: it covers at least 60% of the query, matches more than half of the query's distinct words, and at least one matched word is in the storyboard's question or a title and isn't common in your org; or
+- both halves found it: it is a text match (at least 35% coverage) and a semantic match.
+
+Everything else is **weak**. A word is common when more than half of your org's storyboards, and at least 3 of them, contain it: a query made only of common words ("what caused the failure") returns weak matches. In an org with fewer than 3 storyboards, every word counts the same.
+
+**A match by meaning alone (`signals: ["semantic"]`) is always weak, whatever its similarity.** Embedding similarities are compressed: in Cardinal's own validation, true matches scored between 0.30 and 0.53, while unrelated storyboards on the same subject scored up to 0.36. No similarity value separates them, so a semantic-only match is a lead to check, and it may still be the answer: it is how find recalls a storyboard written in different words.
+
+How Claude treats the matches:
+
+- **Strong:** prior work on your question. Read it with `storyboard__get`.
+- **Weak:** read the most promising ones with `storyboard__get` (for semantic-only matches, the highest `similarity` first) before calling any of them prior work.
+- **Only weak matches, and `get` shows none is about the question:** nothing matched. Say so, and don't cite them.
+
+Strong matches come before weak ones, and among each, the best `score` first.
+
+#### How the search went
+
+A find with `query` also returns `search: {semantic, text}`. The search never fails find: when a half fails, find answers with the other half, and with the context matches.
+
+| Field | Value | Meaning |
+| --- | --- | --- |
+| `search.semantic` | `ok` | The query was compared by meaning. |
+| | `not_configured` | Your Cardinal has no embedding model, so the search is text only. See [Storyboard search](/ui/storyboards/self-hosted#storyboard-search). |
+| | `unavailable` | The query embedding failed or took longer than 1.5 seconds (the default), or the search itself failed. This call is text only. |
+| `search.text` | `ok` | The query was matched by its words. |
+| | `no_terms` | The query is only stop words (such as "what is the"), so it has nothing to match by text. |
+| | `unavailable` | The search failed. Only context matches are returned. |
+
+#### With context and query together
+
+One call returns both kinds of match, in this order, each storyboard once, up to `limit` (1 to 20, default 5):
+
+```
+1. same session, pull request, branch          context tiers, in find's order
+2. strong query matches                        best first
+3. same directory, repo, working dir, person   context tiers, in find's order
+4. weak query matches                          best first
+```
+
+The exact work comes first, then the topic, then storyboards that only share a repository or an author. When the weak context tiers would fill the limit, the best weak query match still gets the last place, taken from a context match the query didn't find, so a storyboard found only by meaning is never crowded out by your own unrelated storyboards. Tiers 1 and 2 are never displaced.
+
+`storyboard__find {query}` needs Cardinal UI **v1.98.10** or later. Earlier releases either reject `query` or return its matches without `relevance` and `text_coverage`.
+
 ### After upgrading: reconnect with `/mcp`
 
 Claude Code reads the `cardinal` server's tool list when a session connects. A session that was open before you upgraded the plugin, or before your Cardinal was upgraded, may not see new tools such as `storyboard__share`, `storyboard__find`, `storyboard__add_act` or `storyboard__get`. Run `/mcp` and reconnect the `cardinal` server, or start a new session.
@@ -125,7 +200,7 @@ storyboard request
   → scenes → preview → storyboard__publish (publishes the open act)
 ```
 
-`storyboard__find` ranks each storyboard by its best-matching act: the same session, then the same pull request, the same branch (`main` and `master` count only as the same repo), the same directory in the repo, the same repo, the same working directory, and the same person. Every client gets `storyboard__find`, `storyboard__add_act` and `storyboard__discard_act` from Cardinal's authoring guide; the plugin adds the `cardinal-storyboard context` command and the question below.
+`storyboard__find` ranks each storyboard by its best-matching act: the same session, then the same pull request, the same branch (`main` and `master` count only as the same repo), the same directory in the repo, the same repo, the same working directory, and the same person. With a `query` as well, storyboards about the same topic are merged into that order; see [Search storyboards by topic](#search-storyboards-by-topic). Every client gets `storyboard__find`, `storyboard__add_act` and `storyboard__discard_act` from Cardinal's authoring guide; the plugin adds the `cardinal-storyboard context` command and the question below.
 
 `storyboard__find` needs Cardinal UI v1.97.21 or later, and adding acts needs a later release. Against an older Cardinal, Claude creates a new storyboard, as before.
 
@@ -211,6 +286,8 @@ The Codex, Cursor, Gemini CLI, OpenCode and Pi plugins connect the same way, eac
 | `not_act_author` | Only the connection that opened an act can discard it with Claude. An organization owner can discard it from the viewer. |
 | `published` | Every act is published. Claude opens the next one with `storyboard__add_act`. |
 | Claude doesn't mention a storyboard you know covers this work | The discovery hook matches only the same pull request, branch (not `main` or `master`) or directory, and injects only published scenes. Check that the plugin is connected (`/cardinal:status`), that `CARDINAL_STORYBOARD_DISCOVERY` isn't `0`, and run `cardinal-storyboard discover` to see what it finds. You can always ask Claude to look with `storyboard__find`. |
+| `storyboard__find {query}` returns nothing, or only weak matches, for a storyboard you know exists | Look at `search` in the result. `search.semantic: "not_configured"` or `"unavailable"` means it matched by words only, so a storyboard written in other words isn't found; a self-hosted operator can [add an embedding model](/ui/storyboards/self-hosted#storyboard-search). `search.text: "no_terms"` means the query had no searchable words. A storyboard written in the last minute may not be indexed yet. Otherwise, rephrase the query with the service, symptom or error the storyboard names, and read weak matches with `storyboard__get` before ruling them out. |
+| `query is 2-500 characters` | `storyboard__find`'s `query` was empty, one character, or longer than 500 characters. Shorten it to the symptom, service or error. |
 | The `storyboard__*` tools are missing | Run `/cardinal:status`. If it says you're not connected, run `/cardinal:connect`. If you are, reconnect the server with `/mcp` or start a new session. |
 
 <SupportCallout />

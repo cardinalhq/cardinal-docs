@@ -10,7 +10,7 @@ On Cardinal Cloud (`app.cardinalhq.io`) all of this is already set up; see [Use 
 
 ## Requirements
 
-- **A Cardinal UI image that includes Open Storyboards (v1.97.18 or later)** for evidence tiers, public links and personal workspaces. Storyboards themselves need v1.97.10 or later. `storyboard__find` needs v1.97.21 or later, and [acts](/ui/storyboards#acts) (`storyboard__add_act`, `storyboard__discard_act`) need a release after v1.97.21; see [Upgrading to acts](#upgrading-to-acts).
+- **A Cardinal UI image that includes Open Storyboards (v1.97.18 or later)** for evidence tiers, public links and personal workspaces. Storyboards themselves need v1.97.10 or later. `storyboard__find` needs v1.97.21 or later, and [acts](/ui/storyboards#acts) (`storyboard__add_act`, `storyboard__discard_act`) need a release after v1.97.21; see [Upgrading to acts](#upgrading-to-acts). Searching storyboards by topic (`storyboard__find {query}`) needs **v1.98.10** or later; see [Storyboard search](#storyboard-search).
 - **`MAESTRO_MCP_API_KEY` on the MCP gateway sidecar as well as the Cardinal UI container.** The sidecar uses it to call back into Cardinal UI when Claude creates, previews, publishes and shares a storyboard. The `maestro` Helm chart **0.10.28 or later** sets it on both containers from one Secret. Chart **0.10.29** also adds typed, install-time-validated values for the settings on this page: `maestro.trustedProxyHops` (`MAESTRO_TRUSTED_PROXY_HOPS`), and `share.host` and `share.ingress.enabled` (`SHARE_HOST`). Setting the variables in `maestro.env` still works; don't set both. On an older chart, add the same `MAESTRO_MCP_API_KEY` entry (the same Secret and key) to both `maestro.env` and `mcpGateway.env`; see [Connect AI clients](/ui/mcp-clients#self-hosted-prepare-your-cardinal-ui-instance).
 - **`GATEWAY_AGGREGATOR_ENABLED=true` on the sidecar.** Receipts are minted on the gateway's aggregated MCP endpoint, which the plugins use. With it unset, tool calls return no `[receipt:…]` trailer and there is nothing to cite:
 
@@ -60,6 +60,52 @@ Only people who can reach that host can open a link. With an in-VPC Cardinal UI,
 An invalid `SHARE_HOST` stops Cardinal UI at startup rather than serving shared pages from the app's origin. With `SHARE_HOST` set, a request for `/s/<token>` on the main host is redirected to it.
 
 `STORYBOARD_SIGNUP_URL` sets where the viewer's **Make your own with Claude** link goes (default `https://app.cardinalhq.io`).
+
+## Storyboard search
+
+`storyboard__find {query}` finds the org's storyboards about a topic (see [Search storyboards by topic](/ui/storyboards/claude#search-storyboards-by-topic)). It matches by words on every install, and by meaning as well when Cardinal UI has an embedding model:
+
+| Your Cardinal UI | What `find {query}` does | `search.semantic` |
+| --- | --- | --- |
+| An active embedding model that Cardinal supports | Matches by words and by meaning | `ok` |
+| No active embedding model, or one whose LLM config is neither Bedrock nor OpenAI-compatible (Anthropic has no embeddings) | Matches by words only | `not_configured` |
+| An embedding model that fails to embed, such as an unsupported Bedrock model | Matches by words only | `unavailable` |
+
+Searching by words only still works, but it misses a storyboard written in other words than the query.
+
+### Add an embedding model
+
+In **Admin → LLM Model Catalog**, under **Embedding Models**, click **Add Embedding Model**, pick an LLM config and a model, then **Activate** it. One embedding model is active at a time, for the whole installation. Supported models:
+
+- **Amazon Bedrock:** Titan Text Embeddings V2 (`amazon.titan-embed-text-v2:0`), on a Bedrock LLM config; see [AWS Bedrock](/ui/install/bedrock). Other Bedrock embedding models are not supported yet: Cardinal sends them Titan V2's request, they fail to embed, and search falls back to words only.
+- **OpenAI-compatible:** any model served on the config's `/embeddings` endpoint, for example OpenAI's `text-embedding-3-small`.
+
+Cardinal UI picks up a newly activated model, or rotated credentials, within a minute (`MAESTRO_EMBEDDING_RESOLVE_TTL_MS`).
+
+### Indexing is automatic
+
+Storyboards are indexed in Cardinal UI's Postgres (the `maestro_storyboard_search` table, which uses the `vector` extension Cardinal UI already requires). There is nothing to run:
+
+- **New work.** A storyboard is indexed right after `storyboard__create`, `storyboard__add_act` and a successful `storyboard__publish`. Indexing runs after the write and never slows it down or fails it.
+- **Everything else, and the backfill.** A background sweep runs every 30 seconds (the first one about 5 seconds after start) and indexes up to 50 storyboards each time: storyboards written before the upgrade, edits such as new scenes in a draft act, and acts whose embedding is missing or out of date. Only one replica sweeps at a time. At the defaults, an install with 1,000 storyboards is indexed in roughly 10 minutes after the upgrade, depending on how fast the embedding provider answers.
+- **Changing the embedding model.** Activating another embedding model, or editing the active one to use another model or LLM config, makes every stored embedding out of date. The sweep re-embeds them; until it has, those storyboards are matched by words only.
+- **Failures back off.** An act that fails to embed is retried after 1 minute, then less and less often, up to every 6 hours; a storyboard that fails to index is retried up to every hour. Search works throughout, by words, for everything that is indexed.
+
+The search table is created by the MCP gateway's migration step. Until it exists (for example while a rolling upgrade is still starting the gateway), `find {query}` returns `search.text: "unavailable"` and only context matches; nothing else is affected.
+
+**What goes to the embedding provider.** Each act's authored narrative (its question, titles, summary, scene statements, claims, open questions and transition notes) and each query's text. Never evidence, receipts, canvas code, or the context an act recorded. Embedding calls are recorded as embedding usage in Cardinal UI's LLM spend, for indexing and for queries. Cardinal UI never logs or stores query text.
+
+### Search settings
+
+Every setting is optional; the defaults are what Cardinal ships and tunes. Set them on the Cardinal UI container (`maestro.env` in the Helm chart). An invalid value is ignored and the default used.
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `MAESTRO_STORYBOARD_SEARCH_MIN_SIMILARITY` | `0.25` | The lowest cosine similarity (0 to 1) at which a storyboard counts as a match by meaning at all. Raising it drops loose semantic leads; it never makes a match `strong`. |
+| `MAESTRO_STORYBOARD_SEARCH_EMBED_TIMEOUT_MS` | `1500` | How long a query waits for its embedding. Past it, that call matches by words only (`search.semantic: "unavailable"`). |
+| `MAESTRO_STORYBOARD_SEARCH_SWEEP_MS` | `30000` | How often the indexing sweep runs, in milliseconds (at least `1000`). |
+| `MAESTRO_STORYBOARD_SEARCH_SWEEP_BATCH` | `50` | Storyboards the sweep indexes per run (`1` to `1000`). Raise it to backfill a large install faster. |
+| `MAESTRO_EMBEDDING_RESOLVE_TTL_MS` | `60000` | How long Cardinal UI caches which embedding model is active. A model switch or credential rotation is picked up within it. |
 
 ## Upgrading to acts
 

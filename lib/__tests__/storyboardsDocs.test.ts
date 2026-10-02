@@ -374,6 +374,41 @@ describe('storyboards docs: statements that must stay correct', () => {
     expect(selfHosted).toContain('pause storyboard authoring until every pod runs the new release');
   });
 
+  // conductor #2037/#2038 (maestro v1.98.10): storyboard__find {query}.
+  test('claude: find {query}, relevance, search status and merge order', () => {
+    const claude = read('ui/storyboards/claude.mdx');
+    expect(claude).toContain('### Search storyboards by topic');
+    expect(claude).toContain('storyboard__find {query}');
+    // FIND_QUERY_LENGTH_MESSAGE and FIND_NEEDS_KEY_MESSAGE (storyboards-mcp-tools.ts).
+    expect(claude).toContain('`query is 2-500 characters`');
+    expect(claude).toContain('`find needs session_id, context or query`');
+    for (const field of ['`relevance`', '`signals`', '`similarity`', '`text_coverage`', '`score`']) {
+      expect(claude).toContain(`| ${field} |`);
+    }
+    // A semantic-only match is never strong (search-config.ts).
+    expect(claude).toContain('**A match by meaning alone (`signals: ["semantic"]`) is always weak, whatever its similarity.**');
+    for (const status of ['`not_configured`', '`unavailable`', '`no_terms`']) expect(claude).toContain(status);
+    // find-merge.ts order: strong tiers, strong query, weak tiers, weak query.
+    const order = ['1. same session, pull request, branch', '2. strong query matches', '3. same directory, repo, working dir, person', '4. weak query matches'];
+    const at = order.map((line) => claude.indexOf(line));
+    expect(at.every((i) => i > -1)).toBe(true);
+    expect([...at].sort((x, y) => x - y)).toEqual(at);
+    expect(claude).toContain('**Start every investigation with it.**');
+    expect(claude).toContain('needs Cardinal UI **v1.98.10** or later');
+  });
+
+  test('self-hosted: storyboard search needs an embedding model for meaning', () => {
+    const selfHosted = read('ui/storyboards/self-hosted.mdx');
+    expect(selfHosted).toContain('## Storyboard search');
+    expect(selfHosted).toContain('**v1.98.10**');
+    expect(selfHosted).toContain('`amazon.titan-embed-text-v2:0`');
+    expect(selfHosted).toContain('Other Bedrock embedding models are not supported yet');
+    expect(selfHosted).toContain('### Indexing is automatic');
+    for (const name of ['MAESTRO_STORYBOARD_SEARCH_MIN_SIMILARITY', 'MAESTRO_STORYBOARD_SEARCH_EMBED_TIMEOUT_MS', 'MAESTRO_STORYBOARD_SEARCH_SWEEP_MS', 'MAESTRO_STORYBOARD_SEARCH_SWEEP_BATCH', 'MAESTRO_EMBEDDING_RESOLVE_TTL_MS']) {
+      expect(selfHosted).toContain(`| \`${name}\` |`);
+    }
+  });
+
   test('self-hosted: in-VPC connect with the plugin or an API key, no OAuth connector', () => {
     const selfHosted = read('ui/storyboards/self-hosted.mdx');
     expect(selfHosted.indexOf('## Connect Claude inside your VPC')).toBeGreaterThan(-1);
@@ -391,6 +426,11 @@ describe('storyboards docs: statements that must stay correct', () => {
       'PERSONAL_WORKSPACE_MAX_EVIDENCE_BYTES_PER_DAY',
       'PERSONAL_WORKSPACE_MAX_PUBLIC_VIEWS_PER_DAY',
       'GATEWAY_AGGREGATOR_ENABLED',
+      'MAESTRO_STORYBOARD_SEARCH_MIN_SIMILARITY',
+      'MAESTRO_STORYBOARD_SEARCH_EMBED_TIMEOUT_MS',
+      'MAESTRO_STORYBOARD_SEARCH_SWEEP_MS',
+      'MAESTRO_STORYBOARD_SEARCH_SWEEP_BATCH',
+      'MAESTRO_EMBEDDING_RESOLVE_TTL_MS',
     ]) {
       expect(env).toContain(`| \`${name}\` |`);
     }
