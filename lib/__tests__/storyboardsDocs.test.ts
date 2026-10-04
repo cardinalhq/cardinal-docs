@@ -459,6 +459,11 @@ describe('storyboards docs: associations', () => {
     expect(assoc).toContain('| **Minimum plugin version** | 0.39.6 | 0.25.4 | 0.20.4 | 0.21.4 |');
     expect(assoc).toContain('Claude Code **2.1.0 or newer**');
     expect(assoc).toContain('`CARDINAL_STORYBOARD_CONTEXT=always`');
+    for (const doc of [assoc, read('ui/agent-outcomes/install-codex-plugin.mdx')]) {
+      expect(doc).toContain('**`always` may skip Codex\'s approval prompt for storyboard writes, including `storyboard__publish`**');
+      expect(doc).toContain('Set it only if you accept that.');
+    }
+    expect(assoc).toContain('(which may skip Codex\'s approval prompt for storyboard writes)');
     expect(assoc).toContain('`CARDINAL_STORYBOARD_SESSION_START=0`');
     expect(assoc).toContain('has not yet been checked against a live Cursor build');
     expect(assoc).toContain('**OpenCode and Pi** are not covered.');
@@ -539,7 +544,10 @@ describe('storyboards docs: link previews', () => {
     expect(links).toContain('**Independent of public links.**');
     expect(links).toContain('So a preview can\'t be used to tell an unknown storyboard from one that doesn\'t preview.');
     expect(links).not.toContain('find out whether a storyboard exists');
-    expect(links).toContain('A `?org=` in the URL is ignored.');
+    expect(links).toContain('A `?org=` in the URL is ignored');
+    expect(links).toContain('a storyboard that previews unfurls the same way whichever org or person posts the link.');
+    expect(links).toContain('A link to an unknown storyboard, a deleted one, a draft, one whose preview is off, one whose org is disabled, and one in an org that has previews off all look the same');
+    expect(links).not.toContain('one in another org');
     expect(links).toContain('Cardinal doesn\'t run a Slack app for this');
     expect(links).not.toMatch(/link_shared|chat\.unfurl|Events API/);
   });
