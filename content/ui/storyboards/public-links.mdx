@@ -82,6 +82,69 @@ Below the storyboard, a footer line reads *Made with Cardinal Storyboards.*, wit
 
 A revoked, expired or unknown link, and a link whose org has turned public links off, all show the same "not found" page.
 
+## Link previews
+
+When a storyboard's link is posted in Slack, Teams, a social network or another app that unfurls links, the app shows a small **preview card** instead of a bare URL. Cardinal serves that card for two kinds of link:
+
+| Link | Looks like | Preview |
+| --- | --- | --- |
+| A **public link** | `https://share.cardinalhq.io/s/<token>` | Always, while the link is live. |
+| A **member link** | `https://app.cardinalhq.io/storyboards/sb_…` (the `view_url`) | **On by default**, including storyboards published before previews existed. You can turn it off. |
+
+Previews use the standard Open Graph and Twitter card tags in the page, so they work in any app that reads them. Cardinal doesn't run a Slack app for this and asks for no Slack permissions.
+
+### What a preview shows
+
+- **The question** the storyboard asks, as the title.
+- **The finding.** The **headline** Claude wrote for the act (see [Link previews: headline and cover](/ui/storyboards/claude#link-previews-headline-and-cover)), or, without one, the statement of the scene that reaches a verdict, picked by Cardinal.
+- **The counts and verdict**, for example `3 established · 1 ruled out · 2 open`.
+- **An image**: the cover render (see [What the image is](#what-the-image-is)) or a summary card Cardinal draws from the text above.
+
+The description reads `<finding> · <counts>`, cut to 200 characters. When it is too long, the finding is shortened and the counts always stay.
+
+### What it never shows
+
+Scenes other than the one finding, evidence and receipts, drafts, the context the storyboard was written from, its [associations](/ui/storyboards/associations), who wrote it, and which folder it is in. A member link's preview uses only the latest **published** act, never a draft act.
+
+A **public link's** preview is pinned to the acts the link shows, up to its `through_act`. Publishing a later act changes nothing about it until the link is [extended](#links-and-new-acts), and then it describes the extended link.
+
+### What the image is
+
+| Audience | The image |
+| --- | --- |
+| **Member link** | The act's **designated cover** (the scene the author chose with `cover_scene`), and only when that scene binds no raw evidence. Otherwise a **summary card**. |
+| **Public link** | The act's cover (or, with none designated, its hero scene), when the link includes raw evidence or that scene binds none. Otherwise a **summary card**. |
+
+The cover is a render Claude Code made on the author's machine and uploaded after publishing, because Cardinal never renders a Canvas itself. A summary card is drawn by Cardinal from the question, the finding, the counts and the figure, with no scene content. A member preview therefore never shows more than a summary-only public link would.
+
+### Member links
+
+- **On by default.** Posting a member link unfurls it unless you turn that off, for the whole org or for one storyboard.
+- **Independent of public links.** A member link preview doesn't need the **Public storyboard links** setting, and turning that setting off doesn't remove it.
+- **The same card for everyone.** The app that fetches the link isn't signed in as anyone, so the preview contains only the items above, and everyone who sees the post sees the same card.
+- **No way to find out what exists.** A link to an unknown storyboard, one in another org, a draft, one whose preview is off, and one in an org that has previews off all look the same to the app that fetches the link: Cardinal's ordinary page with no storyboard details, and the same generic image. A `?org=` in the URL is ignored. An app that asks for many previews in a short time gets the generic one too. So a preview can't be used to find out whether a storyboard exists.
+- **The page itself is unchanged.** Opening a member link still needs you to sign in and be a member.
+
+### Turning previews off
+
+Three switches, from broad to narrow. The org switch and a storyboard's switch each turn off **member** previews only.
+
+| Where | Who | How |
+| --- | --- | --- |
+| **Org** | An organization owner | **Settings → About → Storyboard link previews**: the **Show link previews for storyboards** switch. Plugin keys can't change it. |
+| **One storyboard** | A member | Open the published storyboard, choose **Share**, and use the **Link preview** section's switch, **Show a preview when this storyboard's link is posted**. Or ask Claude: it publishes with `link_preview: false`, or calls `storyboard__share` with `action: "link_preview"` and `enabled: false`. |
+| **One public link** | A member | Revoke the link. A public link always shows its own preview while it is live. |
+
+The **Link preview** section is the first thing in the Share dialog, above the public-links controls, and is there even when public links are off. It shows the exact card a posted link shows now (image, title and description) and this note: *Anyone who sees a posted link sees this card: the question, headline, counts and verdict. Scenes, evidence, drafts and who wrote it are never included.* With the org switch off, the storyboard switch is disabled and says *Link previews are turned off for this organization. An organization owner can turn them on in Settings → About.* A draft has no preview section.
+
+Turning previews off doesn't change what the storyboard's members can open, and it revokes no links. A storyboard's switch keeps its value when the org switch is turned off and on again.
+
+**Previews that were already posted stay.** Turning a preview off stops Cardinal serving it to apps that ask afterwards. A message that already unfurled keeps its card, and apps may cache the image. Deleting the storyboard or revoking a link ends what Cardinal serves, but it can't recall a copy that an app has stored.
+
+### Self-hosted
+
+Where previews and their images are served from, and what the chat app must be able to reach, is in [Self-hosted setup](/ui/storyboards/self-hosted#link-previews).
+
 ## Org policy
 
 The **Public storyboard links** card in **Settings → About** shows whether members can create public links. Only an organization **owner** can change it, with **Allow public storyboard links**.

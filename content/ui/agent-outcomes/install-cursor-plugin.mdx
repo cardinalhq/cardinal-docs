@@ -95,6 +95,18 @@ While it's on, Cursor's agent is told at session start to record each material c
 
 Upgrading to 0.18.0 from an earlier version? Re-run `cardinal-connect` so the `postToolUse` hook gets its longer timeout.
 
+## Storyboard associations
+
+From version **0.21.4**, the plugin tells Cursor how Cardinal's storyboards relate to your work, and records where a storyboard was written. See [Associations](/ui/storyboards/associations) for the model: a storyboard is **about** something someone declared, or **written from** a checkout.
+
+- **At session start**, with Cardinal connected, the plugin gives Cursor this session's id and shows storyboards **about** or **written from** the work in this repository, including after a merge.
+- **No automatic context.** Cursor's hooks can't rewrite a tool call before it runs, so the session-start text tells Cursor to pass the output of the plugin's `cardinal-storyboard context` command as `context`.
+- **Edited files** are recorded by an `afterFileEdit` hook. This follows Cursor's documented hook payload and hasn't yet been checked against a live Cursor build, so treat the list of edited files as best-effort.
+- **No lookup before an edit.** That is Claude Code only.
+- **Upgrading.** Re-run `cardinal-connect` so the file-edit hook is registered.
+- **Opt out.** `CARDINAL_STORYBOARD_SESSION_START=0` drops the session id line and the discovery block; `CARDINAL_STORYBOARD_DISCOVERY=0` drops the discovery block only; `CARDINAL_STORYBOARD_CONTEXT=0` stops Cursor from filling in `session_id` and `context`.
+- **What it sends.** Repository, branch, commit, pull request number and ticket key from the branch name, and (on `main`) recently merged pull request numbers and your recent local branch names, to your own Cardinal. Files edited are repository-relative paths, visible to members of your org and never on a public link. See [Associations](/ui/storyboards/associations#privacy).
+
 ## Privacy
 
 The plugin captures tool names, command lines, and file paths so Cardinal can tell which repo and service a session worked on. The contents of your prompts are never captured. Per-model-call token counts are not currently emitted from Cursor sessions (Cursor's transcript format for that data is undocumented; see the [parity spec](https://github.com/cardinalhq/cardinal-cursor-plugin/blob/main/docs/specs/cursor-parity.md) for the open spike).

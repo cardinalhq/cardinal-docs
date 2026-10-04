@@ -2,7 +2,7 @@ import SupportCallout from '../../../components/SupportCallout';
 
 # Self-hosted setup
 
-Storyboards need no feature flag and no extra services. Storyboards, receipts and datasets are stored in Cardinal UI's existing Postgres, and nothing is rendered in the Cardinal UI pod. This page covers what your operator configures, starting with the usual self-hosted topology: Cardinal UI inside your VPC, reachable only from your network.
+Storyboards need no feature flag and no extra services. Storyboards, receipts and datasets are stored in Cardinal UI's existing Postgres, and no storyboard scene is rendered in the Cardinal UI pod. (The only image it draws is the text-only summary card of a [link preview](#link-previews).) This page covers what your operator configures, starting with the usual self-hosted topology: Cardinal UI inside your VPC, reachable only from your network.
 
 On Cardinal Cloud (`app.cardinalhq.io`) all of this is already set up; see [Use with Claude](/ui/storyboards/claude).
 
@@ -10,7 +10,7 @@ On Cardinal Cloud (`app.cardinalhq.io`) all of this is already set up; see [Use 
 
 ## Requirements
 
-- **A Cardinal UI image that includes Open Storyboards (v1.97.18 or later)** for evidence tiers, public links and personal workspaces. Storyboards themselves need v1.97.10 or later. `storyboard__find` needs v1.97.21 or later, and [acts](/ui/storyboards#acts) (`storyboard__add_act`, `storyboard__discard_act`) need a release after v1.97.21; see [Upgrading to acts](#upgrading-to-acts).
+- **A Cardinal UI image that includes Open Storyboards (v1.97.18 or later)** for evidence tiers, public links and personal workspaces. Storyboards themselves need v1.97.10 or later. `storyboard__find` needs v1.97.21 or later, and [acts](/ui/storyboards#acts) (`storyboard__add_act`, `storyboard__discard_act`) need a release after v1.97.21; see [Upgrading to acts](#upgrading-to-acts). [Associations](/ui/storyboards/associations#versions-and-self-hosted) (about, `storyboard__link`, find by commit, pull request and file) need v1.99.6 to v1.99.8, and [link previews](#link-previews) with an authored headline and cover need **v1.99.8** or later.
 - **`MAESTRO_MCP_API_KEY` on the MCP gateway sidecar as well as the Cardinal UI container.** The sidecar uses it to call back into Cardinal UI when Claude creates, previews, publishes and shares a storyboard. The `maestro` Helm chart **0.10.28 or later** sets it on both containers from one Secret. Chart **0.10.29** also adds typed, install-time-validated values for the settings on this page: `maestro.trustedProxyHops` (`MAESTRO_TRUSTED_PROXY_HOPS`), and `share.host` and `share.ingress.enabled` (`SHARE_HOST`). Setting the variables in `maestro.env` still works; don't set both. On an older chart, add the same `MAESTRO_MCP_API_KEY` entry (the same Secret and key) to both `maestro.env` and `mcpGateway.env`; see [Connect AI clients](/ui/mcp-clients#self-hosted-prepare-your-cardinal-ui-instance).
 - **`GATEWAY_AGGREGATOR_ENABLED=true` on the sidecar.** Receipts are minted on the gateway's aggregated MCP endpoint, which the plugins use. With it unset, tool calls return no `[receipt:…]` trailer and there is nothing to cite:
 
@@ -60,6 +60,20 @@ Only people who can reach that host can open a link. With an in-VPC Cardinal UI,
 An invalid `SHARE_HOST` stops Cardinal UI at startup rather than serving shared pages from the app's origin. With `SHARE_HOST` set, a request for `/s/<token>` on the main host is redirected to it.
 
 `STORYBOARD_SIGNUP_URL` sets where the viewer's **Make your own with Claude** link goes (default `https://app.cardinalhq.io`).
+
+## Link previews
+
+When a storyboard's link is posted in a chat app, the app asks Cardinal for a [preview card](/ui/storyboards/public-links#link-previews). Public links have always had one; from **v1.99.8**, links to storyboards **inside your org** (the `view_url`) have one too, on by default.
+
+**Inside your VPC, check this first.** To unfurl a member link, the chat platform's own servers fetch the link, from outside your network. If your Cardinal UI host (`MAESTRO_BASE_URL`) is reachable only from your network, they can't, and the message shows a plain link with no preview. Nothing breaks: the storyboard and its link work for everyone who can reach the host, and your people's browsers aren't involved.
+
+To get previews for a private host you must make the member link's page reachable by the platform's crawler, which is your operator's call. What it serves a crawler is the app's ordinary page with the preview tags in its head: no storyboard content, and opening the link still needs a signed-in member.
+
+- **Where the images are served from.** The card's image is at `/api/public/storyboard-previews/<storyboard id>/card.png` on `SHARE_HOST` when it is set, else on the `MAESTRO_BASE_URL` origin. The chart's share ingress already routes `/api/public/*` on the share host, so the image needs nothing new when you already publish `SHARE_HOST`. With neither `SHARE_HOST` nor `MAESTRO_BASE_URL` set, a preview has no image and uses the small summary format.
+- **No new settings.** There are no new environment variables, chart values, ports or secrets. The org switch and each storyboard's switch are in the UI; see [Turning previews off](/ui/storyboards/public-links#turning-previews-off).
+- **Upgrading turns member previews on.** After you upgrade to v1.99.8, a posted link to **any** published storyboard unfurls, including ones published before the upgrade. If your org doesn't want that, an organization owner can turn it off in **Settings → About → Storyboard link previews**, before or after the upgrade; the setting needs no restart.
+- **The card image is drawn in the Cardinal UI pod,** from text, without a browser. It uses the fonts in the Cardinal UI image, which cover Latin, Greek and Cyrillic; other scripts and emoji appear as empty boxes in the image (the preview's title and description text is unaffected).
+- **The cover image comes from the author's machine.** The Claude Code plugin uploads its local render after publish, so a Cardinal with no one using the plugin shows only summary cards.
 
 ## Upgrading to acts
 

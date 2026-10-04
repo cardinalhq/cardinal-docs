@@ -1,0 +1,221 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# Associations: written from and about
+
+A storyboard records two different things about the work around it, and Cardinal keeps them apart:
+
+| | Meaning | Who sets it | Shown as |
+| --- | --- | --- | --- |
+| **Written from** | The checkout and session the act was written in: repository, branch, pull request, commit, the files the session edited. | Automatic. The plugin collects it; nobody types it. | **Written from** panel |
+| **About** | What the storyboard explains: pull requests, commits, branches, files, issues, links. | Declared by the author's agent (or you, by asking Claude), per act. | **About** panel |
+
+```
+you edit code on branch fix/cache (PR #1234), then ask for a storyboard of an incident
+
+  written from   cardinalhq/conductor · fix/cache · #1234 · 3f9c2a7 · 3 edited files   (automatic)
+  about          issue ENG-12 · PR cardinalhq/conductor#2048                            (declared)
+```
+
+The split exists because the checkout you happen to be in is not always the subject. A storyboard about last week's incident, written while a different branch was checked out, is not "about" that branch. Cardinal never promotes one to the other on its own: a storyboard is **about** a pull request only when someone declared it.
+
+- **Both are self-reported.** The client reports where it was; the agent declares what it explains. Cardinal doesn't verify either, and the viewer says so in a tooltip. There is no GitHub integration behind them: a pull request here is a number the plugin or the agent supplied, not a record Cardinal fetched.
+- **Members only.** Members of your org see both. A [public link](/ui/storyboards/public-links) never shows either; see [Privacy](#privacy).
+- **Per act.** Each [act](/ui/storyboards#acts) has its own written-from and about. The viewer header shows the union (the latest act wins on duplicates), and **Context by act** shows each act's own.
+
+<SupportCallout />
+
+## Written from
+
+Every act records where it was written, as described in [What each act records](/ui/storyboards/claude#what-each-act-records): repository, directory within it, branch, pull request, commit, hashed directory id, client, and your account email. Two parts are new:
+
+- **The session id** that wrote the act, shown as a short chip (the first 8 characters; hover for the full id, and a button copies it).
+- **Edited files.** The repository-relative paths of the files the session edited, as a count (**3 edited files**) with the list in a popover. At most 50 per act.
+
+The plugin fills these in by itself. In Claude Code you no longer paste `cardinal-storyboard context` into a request: a hook adds the session id and context to `storyboard__create`, `storyboard__add_act`, `storyboard__publish` and `storyboard__find` when the call leaves them out, and never changes a context Claude set. See [Support by agent](#support-by-agent).
+
+### Filled on publish, never overwritten
+
+The pull request for a branch often doesn't exist yet when Claude opens an act. So publishing an act sends the checkout again, and Cardinal **fills only what is still empty**:
+
+| The act, when published | What happens |
+| --- | --- |
+| Was written with no repository | All the checkout's fields are filled. |
+| Has the same repository as the publish | Each empty field among branch, pull request, pull request URL, commit, directory, client and email is filled. |
+| Has a different repository | Nothing is filled, and the publish answer says so in `context_warnings`. |
+| The checkout's commit differs from the recorded one | The newer commit is added as an extra written-from commit, so later commits on the branch are findable too. |
+| The session edited files | The paths are added to the act's edited files. |
+
+A value that is already set is never replaced. The publish answer lists what was filled in `context_filled`.
+
+**One limit.** If the pull request is opened only after an act's last publish, that act's pull request number stays empty. A storyboard can still be found afterwards through the author's own recent branch, by declaring the pull request (`storyboard__link`, below), or by the next act's `storyboard__add_act` or publish. Files edited after the last publish are recorded locally and attached with the next one.
+
+### Unknown context keys are rejected
+
+`context` accepts exactly these keys: `repo`, `repo_path`, `branch`, `pr_number`, `pr_url`, `head_sha`, `workdir_hash`, `client`, `actor_email` and `paths`. Any other key on `storyboard__create`, `storyboard__add_act` or `storyboard__publish` is refused with `400 invalid_body` and this message:
+
+```
+context: unknown key "<k>"; accepted keys: repo, repo_path, branch, pr_number, pr_url, head_sha, workdir_hash, client, actor_email, paths (issue, issues, ticket, tickets, external_ref, external_refs, pr, prs, related_prs, commit, commits, link, links, url, urls, files are accepted and moved to about)
+```
+
+The keys in parentheses are accepted for convenience and **moved to About** (the answer's `context_warnings` says `context.<key>: moved to about.<field>`). Nothing is silently dropped. On `storyboard__find`, `context` is only a lookup: an unknown key there comes back as a `context_warnings` entry (`context.<k>: unknown field, ignored`), never an error.
+
+## About
+
+About is what the storyboard explains. Claude declares it when it creates a storyboard or adds an act (`about`), and can change it on any act, published ones included, with `storyboard__link`.
+
+| Kind | Example | Accepted as |
+| --- | --- | --- |
+| Pull request | `cardinalhq/conductor#2048` | A number, `#2048`, `owner/repo#2048`, or a GitHub `/pull/N` URL |
+| Commit | `1a2b3c4` | 7 to 64 hex characters, or a GitHub `/commit/<sha>` URL |
+| Branch | `fix/cache` | A branch name (with its repository) |
+| File or directory | `packages/maestro/src/storyboard/context.ts` | A repository-relative path (a leading `./` is dropped), or a GitHub `/blob/<ref>/<path>` URL |
+| Issue | `ENG-12`, `cardinalhq/conductor#12` | A tracker key, `#12` (with a repository), a GitHub `/issues/N` URL, a Jira `browse/KEY-N` URL, or a Linear `issue/KEY-N` URL |
+| Link | `https://grafana.example.com/d/a` | Any other `https` URL, with an optional label. GitLab URLs are stored as plain links. |
+
+- **Repository.** `about.repo`, or else the act's own repository, scopes pull requests, branches and paths. An item that needs a repository and has none is dropped with a warning.
+- **No credentials.** A URL with credentials in it (`https://user:pass@host/…`) is rejected, and a stored URL has any credential-looking part redacted.
+- **Caps per act.** At most 100 about entries, of which at most 50 are paths. Items over a cap are dropped with a warning.
+- **Bad items degrade one at a time.** An invalid item is dropped and named in `about_warnings` (for example `about.commits[0]: expected 7-64 hex characters`); the rest is kept. An unknown key inside `about` is refused with `400`, listing the accepted keys: `checkout, repo, prs, commits, branches, paths, issues, links`.
+
+### `checkout: true`
+
+`about: {checkout: true}` declares that the storyboard explains the change in this checkout. Cardinal copies the act's written-from repository, pull request, branch (unless it is `main`, `master`, `develop` or `trunk`), commit and edited files into About. Claude uses it only when the storyboard really is about this branch's or pull request's change. It asks you when unsure, and never uses it for an incident.
+
+### `storyboard__link`
+
+`storyboard__link {storyboard_id, act?, add?, remove?}` adds or removes About entries on an act. `act` defaults to the open act, else the latest published act. At least one of `add` and `remove` is needed.
+
+- **Published acts accept links.** Associations are labels, not scene content: linking never reopens an act or changes what a public link shows.
+- **Only About.** `remove` never touches Written from.
+- **Open to members.** Any member who can write storyboards can add or remove an entry on any act. Cardinal records which key or user added each entry.
+- **The prompt to link.** When an act has a branch or a pull request but no About entries, the answer to `storyboard__create`, `storyboard__add_act` and `storyboard__publish` carries an `about_hint`:
+
+  ```
+  about is empty: if this storyboard explains the change on <repo> <branch|PR #N>, call storyboard__link {storyboard_id, add: {checkout: true}}; if it is about something else (an incident, another PR, an issue), add that instead. A match on this checkout alone is reported as written_from, never as about.
+  ```
+
+- **After the pull request exists.** After you open or merge the pull request a storyboard explains, Claude links it (`add: {prs: [N]}`, or the merge commit) so the storyboard stays findable once the branch is gone.
+
+`storyboard__link` is available through MCP. The plugin's own background calls to Cardinal can find and read storyboards but not link them.
+
+## Finding storyboards
+
+A storyboard is found by what it is about or where it was written, in this order of strength:
+
+```
+strong    the same session                       (written from)
+          a declared pull request, commit, issue, link, branch or file   (about)
+provenance  the same pull request, branch, commit or edited file          (written from)
+weak      the same repository, directory or person
+```
+
+Within a tier, a match on a declared About entry outranks the same match on Written from. Every match says which role matched, so a storyboard that was only written from the same checkout is described as that, never as being about the same pull request.
+
+### From Claude
+
+`storyboard__find` takes `session_id`, `context` (where you are) and `refs` (what you are looking for: `prs`, `commits`, `branches`, `paths`, `issues`, `links`, and `repo`), plus the existing `query`. A SHA, an issue key, or a pull request number alone is enough; with nothing to look up, Cardinal answers `find needs session_id, context, refs or query`. Each match carries:
+
+- `match` and `match_role`: what matched, and whether it matched About (`about`) or Written from (`written_from`);
+- `matched`: the kind, value and repository that matched;
+- `about`: the storyboard's first five About entries;
+- `may_continue`: whether an author may carry on with it without asking.
+
+`may_continue` is true only for an open act that is from this session, yours, **and** about what Claude is writing (an About match, or a strong text match). The same session and the same author alone are not enough, because subagents share a session. Everything else is offered to you as a choice; see [Ask before adding to an existing storyboard](/ui/storyboards/claude#ask-before-adding-to-an-existing-storyboard). When Claude is only reading (reviewing, debugging or resuming work), it reads the matches with `storyboard__get` and asks you nothing.
+
+Lookup works on:
+
+- **Commits by prefix.** A short SHA of 7 or more characters finds a storyboard with that commit, or one that starts with the same characters.
+- **Pull requests.** By number and repository, whether declared in About or recorded in Written from.
+- **Files and directories.** A file finds storyboards about that file or any directory containing it. A directory finds storyboards about files below it.
+- **Issues and links.** By tracker key, `owner/repo#N` or URL.
+- **Squash and merge commits.** The commit that lands on `main` is not the commit that was on the branch. After a merge the plugin finds a pull request through the merge commit's subject (see [after a merge](#after-a-merge)), so a storyboard about the pull request is found even though its branch commits are gone.
+
+Cardinal never calls GitHub to resolve a commit to a pull request. The plugin does it from your local git history.
+
+### In the viewer
+
+The `/storyboards` list has a search box: **Search, or paste a SHA, PR, issue key, URL or path**. See [Search and filters](/ui/storyboards#search-and-filters).
+
+### When the plugin looks on its own
+
+In Claude Code, the [discovery hook](/ui/storyboards/claude#reviewing-and-debugging-with-storyboards) and an edit-time lookup put matching storyboards in Claude's context without being asked. Every injected line names the role:
+
+| Label | Meaning |
+| --- | --- |
+| `about PR cardinalhq/conductor#2048` | A declared pull request. |
+| `about commit 1a2b3c4` | A declared commit. |
+| `about file packages/x.ts` | A declared file. |
+| `about issue ENG-12` | A declared issue. |
+| `about branch fix/x` | A declared branch. |
+| `written from branch fix/x (subject not confirmed)` | Written from this branch; nobody said it is about it. |
+| `written from the checkout of PR cardinalhq/conductor#2048 (subject not confirmed)` | Written from the checkout of that pull request; nobody said it is about it. |
+
+Two suffixes can follow: ` — merged as 1a2b3c4` (the pull request was merged as that commit) and ` — your recent branch` (found through a branch you recently used).
+
+#### After a merge
+
+On `main`, `master`, `develop` or `trunk` there is no branch to look up, so a session there asks about the work that just merged. It sends, to your Cardinal:
+
+- the pull request numbers and merge commits from the subjects of the last 50 first-parent commits (a subject ending `(#N)` or starting `Merge pull request #N`, at most 20);
+- the names of the last 5 distinct non-protected branches in your local reflog.
+
+Two local `git` commands, about 30 to 45 ms each. If nothing recently merged and there is no recent branch, no request is made. On a feature branch the plugin sends the repository, branch, pull request number if it knows one, the checked-out commit, and any ticket key in the branch name (for example `ENG-12` from `feat/ENG-12-cache`). A ticket key from a branch name is only a lookup: it is never stored as an association.
+
+#### Before an edit
+
+Before Claude edits a file, the plugin asks Cardinal for storyboards **about** that file or about a pull request that last changed it, once per directory, at most 6 lookups per session. It injects at most 1 KB, labeled `about file <path>` or `about PR <repo>#<n>, which last changed <path>`, and only what the session has not already been shown. When the storyboard is about a directory that contains the file, the label is `about <dir>, which contains <path>`. This is in Claude Code only.
+
+## Support by agent
+
+| | Claude Code | Codex CLI | Gemini CLI | Cursor |
+| --- | --- | --- | --- | --- |
+| **Minimum plugin version** | 0.39.6 | 0.25.4 | 0.20.4 | 0.21.4 |
+| **Session id and discovery at session start** | Yes, and again when the branch or commit changes | Yes | Yes | Yes |
+| **Discovery after a merge** | Yes | Yes | Yes | Yes |
+| **Edit-time lookup** | Yes | No | No | No |
+| **Edited files recorded** | After `Edit`, `Write`, `MultiEdit` and `NotebookEdit` | After `apply_patch` | After `write_file` and `replace` | After a file edit (`afterFileEdit`); see the note |
+| **Context filled in automatically** | Yes | In `bypassPermissions` mode, or always with `CARDINAL_STORYBOARD_CONTEXT=always` | Yes | No: the agent passes the `cardinal-storyboard context` output |
+| **`cardinal-storyboard` command** | Yes | Yes | Yes | Yes |
+
+- **Claude Code** needs Claude Code **2.1.0 or newer** for the automatic context, because it fills the call in a `PreToolUse` hook. On an older Claude Code the call runs unchanged and Claude passes the `cardinal-storyboard context` output itself.
+- **Codex** applies a rewritten tool call only together with an explicit allow. It isn't verified yet whether that allow can skip an approval prompt Codex would otherwise show, so the plugin fills context only in `bypassPermissions` mode, where nothing would be prompted anyway. In other modes it tells the agent to pass the command's output. Set `CARDINAL_STORYBOARD_CONTEXT=always` to fill in every mode. Files changed through shell commands are not recorded; `apply_patch` is Codex's edit tool. After upgrading, run `python3 scripts/cardinal-connect --repair-hooks` and restart Codex so the new hook is registered.
+- **Gemini CLI** fills context in a `BeforeTool` hook, only for the `cardinal` server's tools. Re-run `cardinal-connect` after upgrading to register it. Gemini HTML-escapes `<` and `>` in the context it receives, so the discovery block arrives as `&lt;cardinal-storyboards&gt;`; it is still delimited.
+- **Cursor** can't rewrite a tool call before it runs, so there is no automatic context: at session start the plugin tells the agent to pass the output of its `cardinal-storyboard context` command. Re-run `cardinal-connect` after upgrading so the file-edit hook is registered. Edited-file recording for Cursor follows Cursor's documented hook payload and has not yet been checked against a live Cursor build, so treat the file list as best-effort.
+- **OpenCode and Pi** are not covered.
+
+On Codex, Gemini CLI and Cursor, the session-start text gives the agent its session id and the context command, and shows the same discovery block as Claude Code's. The command is `python3 "<plugin>/scripts/cardinal-storyboard" context --bare --session-id <id>`; `cardinal-storyboard discover` prints the discovery block on demand.
+
+**Turning it off.**
+
+| Setting | Effect |
+| --- | --- |
+| `CARDINAL_STORYBOARD_DISCOVERY=0` | No discovery block, and no edit-time lookup (Claude Code). |
+| `CARDINAL_STORYBOARD_SESSION_START=0` | Codex, Gemini CLI and Cursor: no session-start session id and no discovery block. |
+| `CARDINAL_STORYBOARD_CONTEXT=0` | The plugin stops filling in `session_id` and `context`. |
+
+## Privacy
+
+- **Public links never carry any of this.** Associations, session ids and edited files are never in a public link's page, its link preview, or its search text.
+- **File names are visible to your org.** Edited files and declared paths are repository-relative, never absolute, and in a private repository they still show file names to every member of your org. They stay inside the same trust boundary as the storyboard itself.
+- **Discovery on `main` sends recent history to your Cardinal.** After a merge, the plugin sends recent merged pull request numbers and the names of your recent local branches, with your API key, to your own Cardinal. It never sends commit messages or code.
+- **Credentials are never stored.** A URL with credentials is rejected, and a stored URL is redacted.
+- **Self-reported.** Neither role is checked against GitHub or your repository, and neither decides who may change a storyboard.
+
+## Versions and self-hosted
+
+There are no new settings, environment variables or chart values for associations.
+
+| You want | Cardinal UI | Plugin |
+| --- | --- | --- |
+| About, `storyboard__link`, strict `context`, context filled on publish, `about_hint` | **v1.99.6** | Any |
+| `refs`, find by commit, pull request, file, issue and link, `match_role`, `may_continue` | **v1.99.7** | 0.39.6 for the labels, post-merge lookup and edit-time lookup |
+| The **About** and **Written from** panels, list search and filters | **v1.99.8** | Not needed |
+
+Upgrade Cardinal UI first. The release adds a database table and indexes through Cardinal's normal migrations, with no step of yours, and is safe to roll out one pod at a time.
+
+- **Older Cardinal, newer plugin.** The plugin learns what the server supports from `storyboard__find` (it remembers the answer for 24 hours) and falls back to the older request. It doesn't fill in `context` on a publish the server can't accept, and shows every match as written from.
+- **Newer Cardinal, older plugin.** A Claude Code plugin before 0.39.6 doesn't tell Cardinal who it is. For its session-start discovery, Cardinal then reports a storyboard that was only **written from** a checkout under `written_from_pr`, `written_from_branch` or `written_from_path` names, which that plugin doesn't inject, so it stops saying "same PR" for work that merely shared a checkout. The cost: until you upgrade the plugin, it shows no pre-merge discovery for storyboards with no declared About entries (every storyboard created before this release). A storyboard that is **about** a pull request or branch keeps working. Upgrading the plugin restores it.
+- **Existing storyboards** keep what they recorded as Written from. Nothing is converted to About, and nothing is backfilled.
+- **Self-hosted gateway older than v1.99.6.** Claude sees no `about` or `refs` in the tool's schema, and skips them, so nothing errors.
+
+<SupportCallout />

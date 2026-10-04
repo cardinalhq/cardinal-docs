@@ -90,6 +90,18 @@ python3 scripts/cardinal-decision on
 
 While it's on, Codex is asked to record each material choice by running `cardinal-decision record …`. Inside Codex's sandbox that command only checks its arguments and prints them; Cardinal's `PostToolUse` hook, which runs outside the sandbox, records the decision, sends it tagged with the session, repo, branch, and PR, and tells Codex the recorded id or why nothing was recorded. `python3 scripts/cardinal-decision off` turns it off, and `CARDINAL_DECISIONS=1` or `0` in Codex's environment overrides the setting.
 
+## Storyboard associations
+
+From version **0.25.4**, the plugin tells Codex how Cardinal's storyboards relate to your work, and records where a storyboard was written. See [Associations](/ui/storyboards/associations) for the model: a storyboard is **about** something someone declared, or **written from** a checkout.
+
+- **At session start**, with Cardinal connected, the plugin gives Codex this session's id and shows storyboards **about** or **written from** the work in this repository, including after a merge. It adds the `cardinal-storyboard` command (`context`, `discover`) for the context a storyboard call needs.
+- **Edited files** are recorded after Codex's `apply_patch` succeeds. Files changed by shell commands are not recorded.
+- **Context filled in automatically** in `bypassPermissions` mode, or in any mode when you set `CARDINAL_STORYBOARD_CONTEXT=always`. Codex applies a rewritten tool call only together with an explicit allow, and it isn't verified yet whether that can skip an approval prompt, so other modes are off by default: the session-start text tells Codex to pass the output of `cardinal-storyboard context` instead.
+- **No lookup before an edit.** That is Claude Code only.
+- **Upgrading.** Run `python3 scripts/cardinal-connect --repair-hooks` and restart Codex, so the new `PreToolUse` hook and the edit-recording are registered.
+- **Opt out.** `CARDINAL_STORYBOARD_SESSION_START=0` drops the session id line and the discovery block; `CARDINAL_STORYBOARD_DISCOVERY=0` drops the discovery block only; `CARDINAL_STORYBOARD_CONTEXT=0` stops Codex from filling in `session_id` and `context`.
+- **What it sends.** Repository, branch, commit, pull request number and ticket key from the branch name, and (on `main`) recently merged pull request numbers and your recent local branch names, to your own Cardinal. Files edited are repository-relative paths, visible to members of your org and never on a public link. See [Associations](/ui/storyboards/associations#privacy).
+
 ## Privacy
 
 The plugin captures tool names, command lines, and file paths so Cardinal can tell which repo and service a session worked on, plus token counts and rate-limit standing for cost reporting. The contents of your prompts are never captured.
