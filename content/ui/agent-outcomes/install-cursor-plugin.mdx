@@ -104,7 +104,7 @@ From version **0.21.4**, the plugin tells Cursor how Cardinal's storyboards rela
 - **Edited files** are recorded by an `afterFileEdit` hook. This follows Cursor's documented hook payload and hasn't yet been checked against a live Cursor build, so treat the list of edited files as best-effort.
 - **No lookup before an edit.** That is Claude Code only.
 - **Upgrading.** Re-run `cardinal-connect` so the file-edit hook is registered.
-- **Opt out.** `CARDINAL_STORYBOARD_SESSION_START=0` drops the session id line and the discovery block; `CARDINAL_STORYBOARD_DISCOVERY=0` drops the discovery block only; `CARDINAL_STORYBOARD_CONTEXT=0` stops Cursor from filling in `session_id` and `context`.
+- **Opt out.** `CARDINAL_STORYBOARD_SESSION_START=0` drops the session id line and the discovery block; `CARDINAL_STORYBOARD_DISCOVERY=0` drops the discovery block only. `CARDINAL_STORYBOARD_CONTEXT=0` has no effect on Cursor, since the plugin never fills in `context` there.
 - **What it sends.** Repository, branch, commit, pull request number and ticket key from the branch name, and (on `main`) recently merged pull request numbers and your recent local branch names, to your own Cardinal. Files edited are repository-relative paths, visible to members of your org and never on a public link. See [Associations](/ui/storyboards/associations#privacy).
 
 ## Privacy

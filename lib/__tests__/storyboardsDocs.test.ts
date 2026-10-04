@@ -443,6 +443,9 @@ describe('storyboards docs: associations', () => {
       '`about branch fix/x`',
       '`written from branch fix/x (subject not confirmed)`',
       '`written from the checkout of PR cardinalhq/conductor#2048 (subject not confirmed)`',
+      '`about link https://example.com/runbook`',
+      '`written from commit 1a2b3c4 (subject not confirmed)`',
+      '`written from a session that edited packages/x.ts (subject not confirmed)`',
     ]) {
       expect(assoc).toContain(label);
     }
@@ -472,7 +475,8 @@ describe('storyboards docs: associations', () => {
     expect(assoc).toContain('There are no new settings, environment variables or chart values for associations.');
     for (const v of ['**v1.99.6**', '**v1.99.7**', '**v1.99.8**']) expect(assoc).toContain(v);
     expect(assoc).toContain('`written_from_pr`, `written_from_branch` or `written_from_path`');
-    expect(assoc).toContain('shows no pre-merge discovery for storyboards with no declared About entries');
+    expect(assoc).toContain('shows no same-PR or same-branch discovery for storyboards with no declared About entries');
+    expect(assoc).not.toContain('no pre-merge discovery');
   });
 
   test('the UI: panels, tooltips, search placeholder and filters', () => {
@@ -533,7 +537,8 @@ describe('storyboards docs: link previews', () => {
   test('member previews: on by default, independent of public links, no existence oracle', () => {
     expect(links).toContain('**On by default.**');
     expect(links).toContain('**Independent of public links.**');
-    expect(links).toContain('So a preview can\'t be used to find out whether a storyboard exists.');
+    expect(links).toContain('So a preview can\'t be used to tell an unknown storyboard from one that doesn\'t preview.');
+    expect(links).not.toContain('find out whether a storyboard exists');
     expect(links).toContain('A `?org=` in the URL is ignored.');
     expect(links).toContain('Cardinal doesn\'t run a Slack app for this');
     expect(links).not.toMatch(/link_shared|chat\.unfurl|Events API/);
@@ -562,7 +567,7 @@ describe('storyboards docs: link previews', () => {
     expect(claude).toContain('A self-hosted Cardinal older than that rejects `card` and `link_preview`, so upgrade it first.');
     expect(claude).toContain('the headline\'s "<n>" matches no value act <k> binds: bind it in a scene of this act, or drop it from the headline');
     expect(claude).toContain('A value that appears only inside a series or a table does not count');
-    for (const term of ['`headline`', '`headline_figure`', '`cover_scene`', '`headline_number_unreconciled`', '`card_needs_whole_act`', '`card_needs_open_act`', '`cover_binds_raw_evidence`']) {
+    for (const term of ['`headline`', '`headline_figure`', '`cover_scene`', '`headline_number_unreconciled`', '`headline_figure_label_too_long`', '`card_needs_whole_act`', '`card_needs_open_act`', '`cover_binds_raw_evidence`']) {
       expect(claude).toContain(term);
     }
     expect(claude).toContain('### Preview with card');
@@ -582,5 +587,23 @@ describe('storyboards docs: link previews', () => {
     expect(selfHosted).toContain('**No new settings.** There are no new environment variables, chart values, ports or secrets.');
     expect(selfHosted).toContain('**Upgrading turns member previews on.**');
     expect(selfHosted).not.toContain('nothing is rendered in the Cardinal UI pod');
+  });
+
+  test('self-hosted: the switch ships with v1.99.8, so it cannot be turned off before the upgrade', () => {
+    expect(selfHosted).not.toContain('before or after the upgrade');
+    expect(selfHosted).toContain('The switch arrives with v1.99.8 too, so member previews are on from the first request the upgraded pods serve; you can\'t turn them off ahead of time.');
+    expect(selfHosted).toContain('right after upgrading. The setting needs no restart');
+  });
+
+  test('self-hosted: names what the crawler page exposes, never claims "no storyboard content"', () => {
+    expect(selfHosted).not.toContain('no storyboard content');
+    expect(selfHosted).toContain('Those tags carry the storyboard\'s question, its headline or finding, its counts and verdict, and the card image, to anyone who has the link');
+    expect(selfHosted).toContain('/ui/storyboards/public-links#what-a-preview-shows');
+  });
+
+  test('Cursor: CARDINAL_STORYBOARD_CONTEXT=0 is not claimed to change anything', () => {
+    const cursor = read('ui/agent-outcomes/install-cursor-plugin.mdx');
+    expect(cursor).not.toContain('stops Cursor from filling in');
+    expect(cursor).toContain('`CARDINAL_STORYBOARD_CONTEXT=0` has no effect on Cursor');
   });
 });

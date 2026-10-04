@@ -122,7 +122,7 @@ The cover is a render Claude Code made on the author's machine and uploaded afte
 - **On by default.** Posting a member link unfurls it unless you turn that off, for the whole org or for one storyboard.
 - **Independent of public links.** A member link preview doesn't need the **Public storyboard links** setting, and turning that setting off doesn't remove it.
 - **The same card for everyone.** The app that fetches the link isn't signed in as anyone, so the preview contains only the items above, and everyone who sees the post sees the same card.
-- **No way to find out what exists.** A link to an unknown storyboard, one in another org, a draft, one whose preview is off, and one in an org that has previews off all look the same to the app that fetches the link: Cardinal's ordinary page with no storyboard details, and the same generic image. A `?org=` in the URL is ignored. An app that asks for many previews in a short time gets the generic one too. So a preview can't be used to find out whether a storyboard exists.
+- **No way to find out what exists.** A link to an unknown storyboard, one in another org, a draft, one whose preview is off, and one in an org that has previews off all look the same to the app that fetches the link: Cardinal's ordinary page with no storyboard details, and the same generic image. A `?org=` in the URL is ignored. An app that asks for many previews of the page in a short time gets the generic one too, and one that asks for many images is refused (`429`). So a preview can't be used to tell an unknown storyboard from one that doesn't preview.
 - **The page itself is unchanged.** Opening a member link still needs you to sign in and be a member.
 
 ### Turning previews off
@@ -133,7 +133,7 @@ Three switches, from broad to narrow. The org switch and a storyboard's switch e
 | --- | --- | --- |
 | **Org** | An organization owner | **Settings → About → Storyboard link previews**: the **Show link previews for storyboards** switch. Plugin keys can't change it. |
 | **One storyboard** | A member | Open the published storyboard, choose **Share**, and use the **Link preview** section's switch, **Show a preview when this storyboard's link is posted**. Or ask Claude: it publishes with `link_preview: false`, or calls `storyboard__share` with `action: "link_preview"` and `enabled: false`. |
-| **One public link** | A member | Revoke the link. A public link always shows its own preview while it is live. |
+| **One public link** | Someone who can share | Revoke the link. A public link always shows its own preview while it is live. |
 
 The **Link preview** section is the first thing in the Share dialog, above the public-links controls, and is there even when public links are off. It shows the exact card a posted link shows now (image, title and description) and this note: *Anyone who sees a posted link sees this card: the question, headline, counts and verdict. Scenes, evidence, drafts and who wrote it are never included.* With the org switch off, the storyboard switch is disabled and says *Link previews are turned off for this organization. An organization owner can turn them on in Settings → About.* A draft has no preview section.
 

@@ -88,7 +88,7 @@ About is what the storyboard explains. Claude declares it when it creates a stor
 - **Published acts accept links.** Associations are labels, not scene content: linking never reopens an act or changes what a public link shows.
 - **Only About.** `remove` never touches Written from.
 - **Open to members.** Any member who can write storyboards can add or remove an entry on any act. Cardinal records which key or user added each entry.
-- **The prompt to link.** When an act has a branch or a pull request but no About entries, the answer to `storyboard__create`, `storyboard__add_act` and `storyboard__publish` carries an `about_hint`:
+- **The prompt to link.** When an act has a repository plus a pull request or a branch other than `main`, `master`, `develop` or `trunk`, but no About entries, the answer to `storyboard__create`, `storyboard__add_act` and `storyboard__publish` carries an `about_hint`:
 
   ```
   about is empty: if this storyboard explains the change on <repo> <branch|PR #N>, call storyboard__link {storyboard_id, add: {checkout: true}}; if it is about something else (an incident, another PR, an issue), add that instead. A match on this checkout alone is reported as written_from, never as about.
@@ -138,7 +138,7 @@ The `/storyboards` list has a search box: **Search, or paste a SHA, PR, issue ke
 
 ### When the plugin looks on its own
 
-In Claude Code, the [discovery hook](/ui/storyboards/claude#reviewing-and-debugging-with-storyboards) and an edit-time lookup put matching storyboards in Claude's context without being asked. Every injected line names the role:
+In Claude Code, the [discovery hook](/ui/storyboards/claude#reviewing-and-debugging-with-storyboards) and an edit-time lookup put matching storyboards in Claude's context without being asked. Every injected line names the role. For example:
 
 | Label | Meaning |
 | --- | --- |
@@ -149,6 +149,9 @@ In Claude Code, the [discovery hook](/ui/storyboards/claude#reviewing-and-debugg
 | `about branch fix/x` | A declared branch. |
 | `written from branch fix/x (subject not confirmed)` | Written from this branch; nobody said it is about it. |
 | `written from the checkout of PR cardinalhq/conductor#2048 (subject not confirmed)` | Written from the checkout of that pull request; nobody said it is about it. |
+| `about link https://example.com/runbook` | A declared link. |
+| `written from commit 1a2b3c4 (subject not confirmed)` | Written from a checkout at that commit; nobody said it is about it. |
+| `written from a session that edited packages/x.ts (subject not confirmed)` | Written in a session that edited that file; nobody said it is about it. |
 
 Two suffixes can follow: ` — merged as 1a2b3c4` (the pull request was merged as that commit) and ` — your recent branch` (found through a branch you recently used).
 
@@ -191,13 +194,13 @@ On Codex, Gemini CLI and Cursor, the session-start text gives the agent its sess
 | --- | --- |
 | `CARDINAL_STORYBOARD_DISCOVERY=0` | No discovery block, and no edit-time lookup (Claude Code). |
 | `CARDINAL_STORYBOARD_SESSION_START=0` | Codex, Gemini CLI and Cursor: no session-start session id and no discovery block. |
-| `CARDINAL_STORYBOARD_CONTEXT=0` | The plugin stops filling in `session_id` and `context`. |
+| `CARDINAL_STORYBOARD_CONTEXT=0` | The plugin stops filling in `session_id` and `context`. It has no effect on Cursor, where the plugin never fills them in. |
 
 ## Privacy
 
 - **Public links never carry any of this.** Associations, session ids and edited files are never in a public link's page, its link preview, or its search text.
 - **File names are visible to your org.** Edited files and declared paths are repository-relative, never absolute, and in a private repository they still show file names to every member of your org. They stay inside the same trust boundary as the storyboard itself.
-- **Discovery on `main` sends recent history to your Cardinal.** After a merge, the plugin sends recent merged pull request numbers and the names of your recent local branches, with your API key, to your own Cardinal. It never sends commit messages or code.
+- **Discovery on `main` sends recent history to your Cardinal.** After a merge, the plugin sends recent merged pull request numbers, their merge commit SHAs, and the names of your recent local branches, with your API key, to your own Cardinal. It never sends commit messages or code.
 - **Credentials are never stored.** A URL with credentials is rejected, and a stored URL is redacted.
 - **Self-reported.** Neither role is checked against GitHub or your repository, and neither decides who may change a storyboard.
 
@@ -214,7 +217,7 @@ There are no new settings, environment variables or chart values for association
 Upgrade Cardinal UI first. The release adds a database table and indexes through Cardinal's normal migrations, with no step of yours, and is safe to roll out one pod at a time.
 
 - **Older Cardinal, newer plugin.** The plugin learns what the server supports from `storyboard__find` (it remembers the answer for 24 hours) and falls back to the older request. It doesn't fill in `context` on a publish the server can't accept, and shows every match as written from.
-- **Newer Cardinal, older plugin.** A Claude Code plugin before 0.39.6 doesn't tell Cardinal who it is. For its session-start discovery, Cardinal then reports a storyboard that was only **written from** a checkout under `written_from_pr`, `written_from_branch` or `written_from_path` names, which that plugin doesn't inject, so it stops saying "same PR" for work that merely shared a checkout. The cost: until you upgrade the plugin, it shows no pre-merge discovery for storyboards with no declared About entries (every storyboard created before this release). A storyboard that is **about** a pull request or branch keeps working. Upgrading the plugin restores it.
+- **Newer Cardinal, older plugin.** A Claude Code plugin before 0.39.6 doesn't tell Cardinal who it is. For its session-start discovery, Cardinal then reports a storyboard that was only **written from** a checkout under `written_from_pr`, `written_from_branch` or `written_from_path` names, which that plugin doesn't inject, so it stops saying "same PR" for work that merely shared a checkout. The cost: until you upgrade the plugin, it shows no same-PR or same-branch discovery for storyboards with no declared About entries (every storyboard created before this release); `same directory` matches still appear. A storyboard that is **about** a pull request or branch keeps working. Upgrading the plugin restores it.
 - **Existing storyboards** keep what they recorded as Written from. Nothing is converted to About, and nothing is backfilled.
 - **Self-hosted gateway older than v1.99.6.** Claude sees no `about` or `refs` in the tool's schema, and skips them, so nothing errors.
 
