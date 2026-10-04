@@ -90,6 +90,18 @@ python3 scripts/cardinal-decision on
 
 While it's on, each prompt tells Gemini to record material choices with `cardinal-decision record …`, and each decision is sent tagged with the session, repo, branch, and PR. `python3 scripts/cardinal-decision off` turns it off. With Gemini CLI's sandbox enabled, the record command can't write `~/.gemini`; it exits with a message telling you to allow that path or run without the sandbox.
 
+## Storyboard associations
+
+From version **0.20.4**, the plugin tells Gemini CLI how Cardinal's storyboards relate to your work, and records where a storyboard was written. See [Associations](/ui/storyboards/associations) for the model: a storyboard is **about** something someone declared, or **written from** a checkout.
+
+- **At session start**, with Cardinal connected, the plugin gives Gemini this session's id and shows storyboards **about** or **written from** the work in this repository, including after a merge. Gemini HTML-escapes `<` and `>` in what it receives, so the block arrives as `&lt;cardinal-storyboards&gt;`; it is still delimited. It adds the `cardinal-storyboard` command (`context`, `discover`).
+- **Edited files** are recorded after `write_file` and `replace` succeed.
+- **Context filled in automatically** by a `BeforeTool` hook, for the `cardinal` server's storyboard tools only.
+- **No lookup before an edit.** That is Claude Code only.
+- **Upgrading.** Re-run `cardinal-connect` so the `BeforeTool` and edit-recording hooks are registered, then restart Gemini CLI.
+- **Opt out.** `CARDINAL_STORYBOARD_SESSION_START=0` drops the session id line and the discovery block; `CARDINAL_STORYBOARD_DISCOVERY=0` drops the discovery block only; `CARDINAL_STORYBOARD_CONTEXT=0` stops Gemini CLI from filling in `session_id` and `context`.
+- **What it sends.** Repository, branch, commit, pull request number and ticket key from the branch name, and (on `main`) recently merged pull request numbers and your recent local branch names, to your own Cardinal. Files edited are repository-relative paths, visible to members of your org and never on a public link. See [Associations](/ui/storyboards/associations#privacy).
+
 ## Privacy
 
 The plugin captures tool names, bash command lines, and file paths so Cardinal can tell which repo and service a session worked on. The contents of your prompts are never captured. Per-turn token counts come straight from Gemini CLI's `AfterModel` hook payload — no transcript scraping — and are attributed to the model id the hook reports. Hooks don't receive cached-token counts, so reported cost is an upper bound.

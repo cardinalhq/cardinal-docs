@@ -63,7 +63,7 @@ The first preview of a draft that binds datasets can take a while, because Cardi
 
 ### Previews
 
-Cardinal renders nothing on its servers. Where Claude can render locally, in Claude Code with the `cardinal` plugin, each scene is rendered **on your machine** in your own Chrome or Chromium, and the images go back to Claude so it can judge the scene as a reader would. The preview browser runs headless, with its OS sandbox on, networking locked off, and a throwaway profile. Setup details are on the [Claude Code plugin page](/ui/agent-outcomes/install-claude-plugin#local-previews).
+Cardinal never renders a storyboard's scenes on its servers. (The one image it draws itself is the text-only summary card of a [link preview](/ui/storyboards/public-links#link-previews).) Where Claude can render locally, in Claude Code with the `cardinal` plugin, each scene is rendered **on your machine** in your own Chrome or Chromium, and the images go back to Claude so it can judge the scene as a reader would. The preview browser runs headless, with its OS sandbox on, networking locked off, and a throwaway profile. Setup details are on the [Claude Code plugin page](/ui/agent-outcomes/install-claude-plugin#local-previews).
 
 Everywhere else, the preview result says that no image was rendered and includes a `draft_url`: the draft in Cardinal's viewer, which you open while signed in to review the visuals yourself. Drafts are visible to members of your org only.
 
@@ -101,7 +101,7 @@ act 1 draft ─publish─► act 1 published ─add_act─► act 2 draft ─pub
 - **The time window can only widen.** `storyboard__add_act` can pass a window that contains the storyboard's current one; a narrower one is refused with `window_must_widen`.
 - **Receipts.** A receipt cited by a published act is kept as long as the storyboard exists. Receipts cited only by the open act still expire at 14 days, so publishing an act that cites an expired one fails with `receipt_not_found`, and Claude re-runs the call.
 
-In Claude Code, the `cardinal` plugin checks for a storyboard to update before it creates one, and asks you first; see [Update an existing storyboard](/ui/storyboards/claude#update-an-existing-storyboard). Every act also records where it was written (repository, branch, pull request), which only members of your org can see.
+In Claude Code, the `cardinal` plugin checks for a storyboard to update before it creates one, and asks you first; see [Update an existing storyboard](/ui/storyboards/claude#update-an-existing-storyboard). Every act also records where it was written (repository, branch, pull request, the files its session edited), and can declare what it is about; both are visible only to members of your org. See [Associations](/ui/storyboards/associations).
 
 ## View storyboards
 
@@ -164,13 +164,24 @@ There are no MCP tools for folders: you organize them in the list. `storyboard__
 - **Delete folder** is in a folder's row menu.
 - The **All / Published / Drafts** switch filters the storyboards.
 
+#### Search and filters
+
+The search box above the list reads **Search, or paste a SHA, PR, issue key, URL or path**. What you type is looked up two ways:
+
+- A **commit SHA** (7 or more characters), a pull request (`owner/repo#2048`), an issue key (`ENG-12`), a URL or a file path finds the storyboards **associated** with it: declared in [About](/ui/storyboards/associations#about) or recorded in [Written from](/ui/storyboards/associations#written-from), on any act.
+- Anything else is a text search over the storyboards' questions and published scenes. Text of 2 or more characters is searched; a few words work best.
+
+Select an About chip on a row to filter by it (a pull request filters by its repository too). While any search or filter is on, the list becomes one flat list of matches across your whole org, with no folders or groups, and each active filter is a chip you can remove. **Clear filters** drops them all. A folder can't be combined with a search or filter, so searching from inside a folder searches everywhere. The **All / Published / Drafts** switch still applies.
+
+A filtered list shows the 100 most recent matches (a search shows up to 50: the SHA, pull request, issue, URL and path matches, plus at most 20 text matches), and says so; it doesn't page. A text search needs a Cardinal with storyboard search set up; without it the list says search isn't available, while SHA, pull request, issue, URL and path lookups keep working.
+
 A folder lists its 1,000 most recently modified storyboards; above that, the list says so.
 
 When you open a storyboard, the back link at the top of the viewer is the same breadcrumb, for example **Storyboards › Incidents › 2026-Q3**.
 
 ### Badges
 
-Badges show where and how a storyboard was made. The viewer's header shows all of them, for the storyboard's latest act; the list shows repository, branch and pull request under each storyboard.
+Badges show where and how a storyboard was made. The viewer's header shows two labeled panels, **About** first and then **Written from**, for the storyboard's latest act; the list shows repository, branch and pull request under each storyboard, and the first **About** chip.
 
 | Badge | Example |
 | --- | --- |
@@ -182,10 +193,14 @@ Badges show where and how a storyboard was made. The viewer's header shows all o
 | **Client** | `claude-code/0.36.0` |
 | **Acts** | `2 acts`, when there is more than one |
 
+**Written from** also shows the session that wrote the act as a short chip with a copy button, a **Commit** badge that links to the commit on GitHub when the pull request URL is a GitHub one, and **3 edited files** (a count, with the paths in a popover).
+
+**About** shows what the author declared: chips for pull requests, issues, commits, files and links (and branches and repositories), each linked when it has an `https` URL. Select a chip to filter the list by it. Hover the heading for *Declared by the author's agent; not verified*; the **Written from** heading says *The checkout and session this was written in, reported by the author's client; not verified*. See [Associations](/ui/storyboards/associations).
+
 Status (**Draft**, **Published**, **Act *n* draft**) is shown beside them, as before. Repository, branch, pull request, commit and client come from the [context each act records](/ui/storyboards/claude#what-each-act-records); a storyboard created before context was recorded has none of them.
 
 - **Created by** is the Cardinal user who created the storyboard, by display name or email. When Cardinal doesn't know which user wrote it, as with the org API key `/cardinal:connect` stores, it is the email Claude's client reported for act 1, shown with a dotted underline: hover it for *Self-reported by the author's client; not verified*. Without either, it is the API key's name. A key's id is never shown.
-- **Context by act.** A storyboard with more than one act has a **Context by act** menu beside its badges, with one row per act (**Act *n* · *title***) and that act's own badges, so you can see where each act was written.
+- **Context by act.** A storyboard with more than one act has a **Context by act** menu beside its badges, with one row per act (**Act *n* · *title***) and that act's own **About** and **Written from** badges, so you can see what each act explains and where it was written.
 
 **Folders and badges are visible only to org members.** A [public link](/ui/storyboards/public-links) never shows them.
 
