@@ -206,7 +206,13 @@ This needs Cardinal UI **v1.99.8** or later. A self-hosted Cardinal older than t
 the headline's "<n>" matches no value act <k> binds: bind it in a scene of this act, or drop it from the headline
 ```
 
-A value that appears only inside a series or a table does not count; to quote one, bind it as a number (or use `headline_figure`). The same check applies to numbers in the figure's label. Preview reports the problem as `card_errors` (and `visual_review` names them), and a publish with a headline error fails with `422` and leaves the act a draft.
+A value that appears only inside a series or a table does not count; to quote one, bind it as a number (or use `headline_figure`). The same check applies to numbers in the figure's label, with its own message:
+
+```
+headline_figure.label's "<n>" matches no value act <k> binds: bind it in a scene of this act, or drop it from the label
+```
+
+Preview reports the problem as `card_errors` (and `visual_review` names them), and a publish with a headline error fails with `422` and leaves the act a draft.
 
 | Code | Kind | Meaning |
 | --- | --- | --- |

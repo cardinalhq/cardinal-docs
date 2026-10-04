@@ -582,7 +582,8 @@ describe('storyboards docs: link previews', () => {
   test('self-hosted: crawler reachability, image host, no new settings, upgrade turns them on', () => {
     expect(selfHosted).toContain('## Link previews');
     expect(selfHosted).toContain('**Inside your VPC, check this first.**');
-    expect(selfHosted).toContain('the message shows a plain link with no preview. Nothing breaks');
+    expect(selfHosted).toContain('the message shows a plain link with no preview. The storyboard and its link still work');
+    expect(selfHosted).not.toContain('Nothing breaks');
     expect(selfHosted).toContain('`/api/public/storyboard-previews/<storyboard id>/card.png`');
     expect(selfHosted).toContain('**No new settings.** There are no new environment variables, chart values, ports or secrets.');
     expect(selfHosted).toContain('**Upgrading turns member previews on.**');
@@ -599,6 +600,27 @@ describe('storyboards docs: link previews', () => {
     expect(selfHosted).not.toContain('no storyboard content');
     expect(selfHosted).toContain('Those tags carry the storyboard\'s question, its headline or finding, its counts and verdict, and the card image, to anyone who has the link');
     expect(selfHosted).toContain('/ui/storyboards/public-links#what-a-preview-shows');
+  });
+
+  test('self-hosted: a public SHARE_HOST serves the member card image by id even when the app host is VPC-only', () => {
+    expect(selfHosted).toContain('**A public `SHARE_HOST` still serves the card image.**');
+    expect(selfHosted).toContain('each previewing storyboard\'s card image is fetchable there from outside your network, even when `MAESTRO_BASE_URL` is reachable only inside your VPC, and even when **Public storyboard links** is off.');
+    expect(selfHosted).toContain('If your org doesn\'t want that, an organization owner should turn off **Settings → About → Storyboard link previews** right after upgrading.');
+    expect(selfHosted).toContain('with a public `SHARE_HOST` every previewing storyboard\'s card image is still fetchable there by id in that window');
+    expect(selfHosted).not.toContain('shows no previews in that window anyway');
+    expect(selfHosted).toContain('`Cache-Control: private, max-age=60`');
+  });
+
+  test('public links: anyone holding a member link sees the card, not only the chat app', () => {
+    const publicLinks = read('ui/storyboards/public-links.mdx');
+    expect(publicLinks).toContain('**Anyone with the link sees the card.** The preview\'s text and image are served without signing in, to whoever has the member link');
+    expect(publicLinks).toContain('(more than 60 a minute from one address)');
+    expect(publicLinks).toContain('(more than 120 a minute) is refused (`429`)');
+  });
+
+  test('claude: the figure label has its own unreconciled-number message', () => {
+    const claude = read('ui/storyboards/claude.mdx');
+    expect(claude).toContain('headline_figure.label\'s "<n>" matches no value act <k> binds: bind it in a scene of this act, or drop it from the label');
   });
 
   test('Cursor: CARDINAL_STORYBOARD_CONTEXT=0 is not claimed to change anything', () => {
