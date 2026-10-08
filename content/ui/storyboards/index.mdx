@@ -10,17 +10,19 @@ A storyboard is neither a dashboard nor a transcript. An investigation of 70 que
 
 <SupportCallout />
 
-## Automatic private drafts
+<a id="automatic-private-drafts" />
 
-For connected Claude Code and Codex sessions in an org with automatic projection enabled, the Investigation exists from session start. As the agent records material findings, decisions and other semantic checkpoints with cited evidence, Cardinal builds and updates the same private draft Storyboard. Codex requires Cardinal plugin 0.26.0 or later. You do not need to ask for a Storyboard or invoke a skill.
+## Live investigation, on-demand visualization
 
-Open the session's Storyboard link in Cardinal while work is underway. The Investigation page shows **Investigation active**, **Building visual explanation…**, the draft and Investigation sequence numbers while **Updating…**, **Up to date**, or **Paused** with a reason. The viewer lets you inspect the evidence behind its scenes. Manual Storyboard edits pause automatic updates so they are not overwritten.
+Connected Claude Code and Codex sessions record findings, decisions, and cited evidence in the same private Investigation from session start. Codex requires Cardinal plugin 0.26.0 or later. Activity stays live as the agent works; new checkpoints do not automatically generate visual scenes.
 
-The member viewer also shows recently recorded checkpoints while their visual scenes are still being generated. These are the investigating agent's claims, with their evidence references, rather than independently verified conclusions. The received and visual checkpoint numbers show how far the scenes have caught up. Generation can take several minutes; a changed investigation question can require a new run. **View last scene** moves to the last scene without moving you away from the scene you are reading during automatic refreshes. **View all activity** opens the full event history.
+Open the session's Storyboard link and choose **Generate visualization** when you want a visual explanation. After new findings arrive, **New findings available** appears and **Update visualization** refreshes the scenes. The Investigation page has the same controls. Opening or refreshing either page does not start generation. Generation can take several minutes. Repeated requests share queued or running work, and unchanged output is reused. There is no daily visualization-generation or request quota; individual runs retain resource bounds and bounded retries.
 
-Publishing and sharing remain explicit actions. If the draft is behind when you publish, **Catch up and publish** waits for a current draft; **Publish as is** explicitly accepts the older draft. A failed, paused or cancelled catch-up does not publish. Public links contain no private Investigation identifiers or projection status.
+The member viewer shows recently recorded checkpoints and their evidence references. These are the investigating agent's claims, not independently verified conclusions. **View last scene** moves to the last scene, and **View all activity** opens the full event history. Hand-edited scenes are preserved and are not overwritten by generation.
 
-Projection reads durable Investigation state, semantic and advisory control events, and cited evidence. It does not receive the session transcript or owner input. Enablement is configured by the operator; see [self-hosted setup](/ui/storyboards/self-hosted#automatic-projection).
+Publishing and sharing remain explicit actions. **Generate and publish** generates missing or outdated scenes, checks their evidence, and publishes only after success. It captures the findings available when generation was requested, so an ongoing investigation cannot keep publication waiting indefinitely. Later findings remain in Activity for a future update. A failed or cancelled generation leaves the draft private. **Publish as is** explicitly accepts existing scenes. Public links contain no private Investigation identifiers or generation status.
+
+Generation reads a fixed prefix of semantic and advisory events and their cited evidence. It does not receive the session transcript or owner input. Enablement is configured by the operator; see [self-hosted setup](/ui/storyboards/self-hosted#on-demand-visualization).
 
 ## Where you can use them
 
