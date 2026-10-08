@@ -108,4 +108,4 @@ Set `STORYBOARD_PROJECTION_ENABLED=true` and `STORYBOARD_PROJECTION_ORG_IDS` to 
 
 Keep `INVESTIGATION_OWNER_INPUT_ENABLED=false` for the initial rollout. Owner input is not a dependency and is never visible to the projector. The projector has no transcript input and cannot publish, share, change the Investigation frame, or post Investigation events. Defaults allow 12 model runs per Storyboard per UTC day and 40 per org per rolling day. See [environment variables](/ui/install/environment#investigation-storyboards).
 
-To stop automatic updates, set `STORYBOARD_PROJECTION_ENABLED=false` or remove the org from a configured allowlist and roll the pods. Existing draft content stays available. No migration rollback is needed.
+To stop automatic updates, set `STORYBOARD_PROJECTION_ENABLED=false` or remove the org from a configured allowlist and roll the pods. Existing draft content stays available. No migration rollback is needed. Before rolling back to a release older than v1.107.0, set `STORYBOARD_PROJECTION_ENABLED=false`: older images ignore the org allowlist.
