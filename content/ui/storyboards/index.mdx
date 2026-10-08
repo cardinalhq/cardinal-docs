@@ -2,13 +2,23 @@ import SupportCallout from '../../../components/SupportCallout';
 
 # Investigation Storyboards
 
-An Investigation Storyboard turns a finished investigation into a short sequence of **scenes** that explain what happened, what was checked, what was ruled out, and what is still open. Each scene has a one-sentence statement and its own interactive visual, and every number in it traces back to an **evidence receipt**: a record of the tool call that produced it.
+An Investigation Storyboard turns an investigation into a short sequence of **scenes** that explain what happened, what was checked, what was ruled out, and what is still open. Each scene has a one-sentence statement and its own interactive visual, and every number in it traces back to an **evidence receipt**: a record of the tool call that produced it.
 
 Claude authors the view and the argument. Cardinal owns the runtime and the evidence. Claude decides which scenes to show and how to draw them, whether that is a timeline, a trace waterfall, or the pods of a Kubernetes cluster drawn inside their nodes. It cannot supply the numbers itself: every value it shows comes from a receipt, or from arithmetic Cardinal performs over receipts.
 
 A storyboard is neither a dashboard nor a transcript. An investigation of 70 queries and three abandoned paths might become six scenes, and a wrong turn is kept only when a reader needs to see why it was ruled out. A storyboard may end on **open** when the evidence doesn't support a root cause.
 
 <SupportCallout />
+
+## Automatic private drafts
+
+For connected Claude Code sessions in an org with automatic projection enabled, the Investigation exists from session start. As Claude records material findings, decisions and other semantic checkpoints with cited evidence, Cardinal builds and updates the same private draft Storyboard. You do not need to ask for a Storyboard or invoke a skill.
+
+Open the session's Storyboard link in Cardinal while work is underway. The Investigation page shows **Investigation active**, **Building visual explanation…**, the draft and Investigation sequence numbers while **Updating…**, **Up to date**, or **Paused** with a reason. The viewer lets you inspect the evidence behind its scenes. Manual Storyboard edits pause automatic updates so they are not overwritten.
+
+Publishing and sharing remain explicit actions. If the draft is behind when you publish, **Catch up and publish** waits for a current draft; **Publish as is** explicitly accepts the older draft. A failed, paused or cancelled catch-up does not publish. Public links contain no private Investigation identifiers or projection status.
+
+Projection reads durable Investigation state, semantic and advisory control events, and cited evidence. It does not receive the session transcript or owner input. Enablement is configured by the operator; see [self-hosted setup](/ui/storyboards/self-hosted#automatic-projection).
 
 ## Where you can use them
 

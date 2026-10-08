@@ -2,7 +2,7 @@ import SupportCallout from '../../../components/SupportCallout';
 
 # Self-hosted setup
 
-Storyboards need no feature flag and no extra services. Storyboards, receipts and datasets are stored in Cardinal UI's existing Postgres, and no storyboard scene is rendered in the Cardinal UI pod. (The only image it draws is the text-only summary card of a [link preview](#link-previews).) This page covers what your operator configures, starting with the usual self-hosted topology: Cardinal UI inside your VPC, reachable only from your network.
+Manually authored Storyboards need no feature flag and no extra services. Storyboards, receipts and datasets are stored in Cardinal UI's existing Postgres, and no storyboard scene is rendered in the Cardinal UI pod. (The only image it draws is the text-only summary card of a [link preview](#link-previews).) This page covers what your operator configures, starting with the usual self-hosted topology: Cardinal UI inside your VPC, reachable only from your network.
 
 On Cardinal Cloud (`app.cardinalhq.io`) all of this is already set up; see [Use with Claude](/ui/storyboards/claude).
 
@@ -99,3 +99,13 @@ Personal workspaces have [daily quotas](/ui/storyboards#personal-workspaces). Te
 | `PERSONAL_WORKSPACE_MAX_PUBLIC_VIEWS_PER_DAY` | `5000` |
 
 <SupportCallout />
+
+## Automatic projection
+
+Use Maestro **v1.107.0 or later** for an org-scoped rollout, including the projector and its status/catch-up UI. With a connected Claude plugin **0.44.1 or later**, eligible sessions automatically maintain a private draft from the Investigation's semantic checkpoints and cited evidence. Existing evidence checks, author authorization, daily budgets and explicit publish/share controls still apply.
+
+Set `STORYBOARD_PROJECTION_ENABLED=true` and `STORYBOARD_PROJECTION_ORG_IDS` to the comma-separated UUIDs of the orgs in your rollout, using `maestro.env` in Helm values. Leaving the org list unset with the flag on enables all orgs; an explicitly empty list enables none. Invalid IDs stop startup. The default model preference is `sonnet`; an eligible configured model must exist or projection pauses.
+
+Keep `INVESTIGATION_OWNER_INPUT_ENABLED=false` for the initial rollout. Owner input is not a dependency and is never visible to the projector. The projector has no transcript input and cannot publish, share, change the Investigation frame, or post Investigation events. Defaults allow 12 model runs per Storyboard per UTC day and 40 per org per rolling day. See [environment variables](/ui/install/environment#investigation-storyboards).
+
+To stop automatic updates, set `STORYBOARD_PROJECTION_ENABLED=false` or remove the org from a configured allowlist and roll the pods. Existing draft content stays available. No migration rollback is needed. Before rolling back to a release older than v1.107.0, set `STORYBOARD_PROJECTION_ENABLED=false`: older images ignore the org allowlist.
