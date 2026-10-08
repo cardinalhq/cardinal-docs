@@ -20,6 +20,8 @@ Open the session's Storyboard link and choose **Generate visualization** when yo
 
 The member viewer shows recently recorded checkpoints and their evidence references. These are the investigating agent's claims, not independently verified conclusions. **View last scene** moves to the last scene, and **View all activity** opens the full event history. Hand-edited scenes are preserved and are not overwritten by generation.
 
+On the Investigation page, post a **Question**, **Challenge**, or **Cue** to the investigation. Agents read these messages when they next check for updates. If several sessions are attached, **To** lets you choose **This investigation** for a shared message or a specific session. Messages stay within that investigation.
+
 Publishing and sharing remain explicit actions. **Generate and publish** generates missing or outdated scenes, checks their evidence, and publishes only after success. It captures the findings available when generation was requested, so an ongoing investigation cannot keep publication waiting indefinitely. Later findings remain in Activity for a future update. A failed or cancelled generation leaves the draft private. **Publish as is** explicitly accepts existing scenes. Public links contain no private Investigation identifiers or generation status.
 
 Generation reads a fixed prefix of semantic and advisory events and their cited evidence. It does not receive the session transcript or owner input. Enablement is configured by the operator; see [self-hosted setup](/ui/storyboards/self-hosted#on-demand-visualization).
