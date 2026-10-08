@@ -85,6 +85,10 @@ Each prompt's branch state includes the branch's pull request when the GitHub CL
 
 If you use Claude Code's Bash sandbox, the record command needs to write `~/.claude/cardinal` and reach your Cardinal ingest host, so Claude Code asks before running it outside the sandbox. Add both to your sandbox allowlist to skip the prompt.
 
+## Automatic Storyboards
+
+Connected sessions automatically get an Investigation. In orgs where automatic projection is enabled, Claude's semantic checkpoints and cited evidence keep a private Storyboard up to date while you work, without a Storyboard command. Open its link at any time to see progress and inspect evidence. Publishing and sharing require an explicit action. This path does not require owner-input capture and does not send a transcript to the projector. See [automatic private drafts](/ui/storyboards#automatic-private-drafts).
+
 ## Storyboard skills
 
 From version **0.32.0**, the plugin ships two skills for [Investigation Storyboards](/ui/storyboards). Claude uses them on its own when you ask it to write up, explain, or storyboard an investigation, and you can also invoke them directly:
@@ -106,7 +110,7 @@ Authoring needs the **Member** or **Owner** role in the org Claude works in.
 
 ### Evidence from your other tools
 
-From version **0.35.0**, a hook keeps the result of **every** tool call on your machine, under `~/.cardinal/evidence/`, so a storyboard can cite it as **captured** evidence. That includes shell commands, file reads and edits, web fetches and your **other** MCP servers, but never Cardinal's own tools, which are already witnessed. Credentials are scrubbed, each result is capped at 256 KiB, and entries are deleted after 14 days. A call that touches something sensitive, such as a `.env` file, a private key or `gh auth token`, is **withheld**: only a stub saying why is kept, and it can't be cited. Nothing is uploaded until a storyboard cites a result: Claude then runs `cardinal-evidence promote` for exactly those results. Turn capture off with `cardinal-evidence off`. See [Captured evidence](/ui/storyboards/evidence#captured).
+From version **0.35.0**, a hook keeps the result of **every** tool call on your machine, under `~/.cardinal/evidence/`, so a storyboard can cite it as **captured** evidence. That includes shell commands, file reads and edits, web fetches and your **other** MCP servers, but never Cardinal's own tools, which are already witnessed. Credentials are scrubbed, each result is capped at 256 KiB, and entries are deleted after 14 days. A call that touches something sensitive, such as a `.env` file, a private key or `gh auth token`, is **withheld**: only a stub saying why is kept, and it can't be cited. Nothing is uploaded until an Investigation checkpoint or Storyboard cites a result: Claude then runs `cardinal-evidence promote` for exactly those results. Turn capture off with `cardinal-evidence off`. See [Captured evidence](/ui/storyboards/evidence#captured).
 
 ### Local previews
 
@@ -135,7 +139,7 @@ Claude Code reads the `cardinal` server's tool list when a session connects. A s
 
 ## Privacy
 
-Until you run `/cardinal:connect`, the plugin sends no session telemetry at all. Once connected, by default it captures bash command lines and file paths so Cardinal can tell which repo and service a session worked on. The contents of your prompts are never captured, and session telemetry carries no tool outputs and no tool inputs beyond those command lines and paths. If your org's policy forbids command lines and paths too, connect with `--no-tool-details` — sessions still appear, but as `repo=unknown`.
+Until you run `/cardinal:connect`, the plugin sends no session telemetry at all. Once connected, by default it captures bash command lines and file paths so Cardinal can tell which repo and service a session worked on. Session telemetry carries no prompt contents, tool outputs, or tool inputs beyond those command lines and paths. Optional Investigation owner-input capture is a separate capability, disabled by default and disclosed before the first capture; it is not required for Storyboards and is never sent to the projector. If your org's policy forbids command lines and paths too, connect with `--no-tool-details` — sessions still appear, but as `repo=unknown`.
 
 Tool results are handled separately, as storyboard evidence. Capture works the same way whether or not the plugin is connected:
 

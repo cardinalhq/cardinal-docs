@@ -77,6 +77,13 @@ All optional. See [Storyboards: self-hosted setup](/ui/storyboards/self-hosted) 
 
 | Variable | Default | Notes |
 | -------- | ------- | ----- |
+| `STORYBOARD_PROJECTION_ENABLED` | `false` | Set to `true` to generate private draft Storyboards from durable Investigation checkpoints and cited evidence. Publishing and sharing remain explicit |
+| `STORYBOARD_PROJECTION_ORG_IDS` | Unset (all orgs when enabled) | Maestro v1.107.0+: comma-separated organization UUIDs restricting automatic projection. An explicitly empty value enables no orgs; malformed IDs stop startup. Use this for a limited rollout |
+| `STORYBOARD_PROJECTION_MODEL` | `sonnet` | Ordered comma-separated model-name or model-ID substrings from the enabled catalog. No match pauses projection; no weaker-model fallback |
+| `STORYBOARD_PROJECTION_DAILY_RUNS` | `12` | Maximum model runs per Storyboard per UTC day |
+| `STORYBOARD_PROJECTION_ORG_DAILY_RUNS` | `40` | Maximum model runs per org per rolling day |
+| `STORYBOARD_PROJECTION_MAX_CONCURRENT` | `2` | Maximum concurrent projection runs per process |
+| `INVESTIGATION_OWNER_INPUT_ENABLED` | `false` | Optional owner-input capture capability. Independent of Storyboard projection; keep off for the initial projection rollout. The projector never reads owner input |
 | `SHARE_HOST` | — | Bare `host[:port]` (e.g. `share.example.com`) that serves [public storyboard links](/ui/storyboards/public-links) at `https://<SHARE_HOST>/s/<token>`. On that host Cardinal UI serves only the public viewer, its read API, the abuse-report POST and static assets, and never reads or sets a cookie. Unset: links use `MAESTRO_BASE_URL`'s origin, or can't be created without it. An invalid value stops Cardinal UI at startup |
 | `STORYBOARD_SIGNUP_URL` | `https://app.cardinalhq.io` | Where the public viewer's **Make your own with Claude** link goes. Must be an absolute http(s) URL |
 | `PERSONAL_WORKSPACE_MAX_PUBLISHES_PER_DAY` | `20` | Personal-workspace quota |
