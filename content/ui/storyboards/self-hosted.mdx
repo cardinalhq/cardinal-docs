@@ -105,7 +105,7 @@ Personal workspaces have [daily quotas](/ui/storyboards#personal-workspaces). Te
 
 ## Session-owned visualization
 
-Visualization authoring runs in the connected agent session after the user accepts its offer or explicitly requests an update. No server LLM configuration, generation queue, or generation endpoint is needed. The server retains evidence capture, activity, authoring APIs, validation, viewing, and publishing.
+Visualization authoring runs in the connected agent session when the user requests an update or publication. A publish request refreshes and previews the scenes before publishing; there are no recurring end-of-work offers or stop-hook update prompts. Draft-status storyboards are author-only, while published storyboards are visible to org members. No server LLM configuration, generation queue, or generation endpoint is needed. The server retains evidence capture, activity, authoring APIs, validation, viewing, and publishing.
 
 Upgrade the server and agent plugins together. Existing scenes and published snapshots remain available. Historical projection tables are retained for compatibility and rollback; the new server does not run their jobs. Remove `STORYBOARD_PROJECTION_*` settings from deployment values; this release ignores them. Before rolling back to an older server, keep `STORYBOARD_PROJECTION_ENABLED=false` so old background or queued work cannot resume.
 

@@ -19,7 +19,7 @@ you edit code on branch fix/cache (PR #1234), then ask for a storyboard of an in
 The split exists because the checkout you happen to be in is not always the subject. A storyboard about last week's incident, written while a different branch was checked out, is not "about" that branch. Cardinal never promotes one to the other on its own: a storyboard is **about** a pull request only when someone declared it.
 
 - **Both are self-reported.** The client reports where it was; the agent declares what it explains. Cardinal doesn't verify either, and the viewer says so in a tooltip. There is no GitHub integration behind them: a pull request here is a number the plugin or the agent supplied, not a record Cardinal fetched.
-- **Members only.** Members of your org see both. A [public link](/ui/storyboards/public-links) never shows either; see [Privacy](#privacy).
+- **Members only.** Members of your org see both on published storyboards. On draft-status storyboards, only the author can see them. A [public link](/ui/storyboards/public-links) never shows either; see [Privacy](#privacy).
 - **Per act.** Each [act](/ui/storyboards#acts) has its own written-from and about. The viewer header shows the union (the latest act wins on duplicates), and **Context by act** shows each act's own.
 
 <SupportCallout />
@@ -87,7 +87,7 @@ About is what the storyboard explains. Claude declares it when it creates a stor
 
 - **Published acts accept links.** Associations are labels, not scene content: linking never reopens an act or changes what a public link shows.
 - **Only About.** `remove` never touches Written from.
-- **Open to members.** Any member who can write storyboards can add or remove an entry on any act. Cardinal records which key or user added each entry.
+- **Open to members.** Any member who can write storyboards can add or remove an entry on any act of a published storyboard. Draft-status storyboards are accessible only to their author. Cardinal records which key or user added each entry.
 - **The prompt to link.** When an act has a repository plus a pull request or a branch other than `main`, `master`, `develop` or `trunk`, but no About entries, the answer to `storyboard__create`, `storyboard__add_act` and `storyboard__publish` carries an `about_hint`:
 
   ```
@@ -199,7 +199,7 @@ On Codex, Gemini CLI and Cursor, the session-start text gives the agent its sess
 ## Privacy
 
 - **Public links never carry any of this.** Associations, session ids and edited files are never in a public link's page, its link preview, or its search text.
-- **File names are visible to your org.** Edited files and declared paths are repository-relative, never absolute, and in a private repository they still show file names to every member of your org. They stay inside the same trust boundary as the storyboard itself.
+- **File names follow storyboard visibility.** Edited files and declared paths are repository-relative, never absolute. On a published storyboard they show file names to every member of your org, even for a private repository. On a draft-status storyboard they are visible only to its author.
 - **Discovery on `main` sends recent history to your Cardinal.** After a merge, the plugin sends recent merged pull request numbers, their merge commit SHAs, and the names of your recent local branches, with your API key, to your own Cardinal. It never sends commit messages or code.
 - **Credentials are never stored.** A URL with credentials is rejected, and a stored URL is redacted.
 - **Self-reported.** Neither role is checked against GitHub or your repository, and neither decides who may change a storyboard.

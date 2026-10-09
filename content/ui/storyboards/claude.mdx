@@ -101,7 +101,7 @@ When Claude is only reading, to review, debug or resume work, it reads the match
 `storyboard__get {storyboard_id, acts?}` reads one storyboard: its question, time window, status, and acts (title, summary, status, and the [context it recorded](#what-each-act-records)); and for each scene, its title, statement, state, claims with the receipts behind each one and their roles (`supports`, `contradicts`, …), open questions, and cited receipt ids with their [evidence tier](/ui/storyboards/evidence#evidence-tiers). It also returns who created the storyboard (`created_by`) and its folder (`folder_path`). Claude then reads the evidence behind a claim with `storyboard__get_receipt`.
 
 - It is read-only and mints no receipt: a receipt of a storyboard isn't evidence.
-- It needs the **Member** or **Owner** role, like everything else that shows recorded context. Draft acts are included, marked as drafts.
+- It needs the **Member** or **Owner** role, like everything else that shows recorded context. Draft-status storyboards are returned only to their author. Published storyboards remain readable by org members, including their later draft acts, marked as drafts.
 - `acts: [n, …]` reads chosen acts only. A storyboard too large for one response leaves its earliest acts out and says how to read them.
 
 Every client gets `storyboard__get`, not only Claude Code. Cardinal's MCP server also tells every client, when it connects, to call `storyboard__find {context}` and then `storyboard__get` on the matches before reviewing or debugging work on a repository, branch or pull request.
