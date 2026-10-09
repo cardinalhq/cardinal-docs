@@ -18,13 +18,15 @@ A storyboard is neither a dashboard nor a transcript. An investigation of 70 que
 
 Connected agent sessions record findings, decisions, and cited evidence in the same private Investigation as work proceeds. Activity stays live. The visualization is authored by the agent in your session, using the context of the work and the evidence it collected.
 
-When the agent finishes its work, it asks: **“Would you like me to update the storyboard visualization?”** Say yes and it uses the storyboard skill to author scenes, render previews, inspect them, and refine the result. Say no and the existing visualization stays unchanged. Completing the visualization does not trigger another offer. You can also request an update directly in the session.
+Ask your agent to **publish the storyboard** when the investigation is ready. The storyboard skill first creates or updates the scenes from the latest findings and cited evidence, renders previews, inspects them, and refines the visualization. It then validates and publishes the completed act. The agent does not offer an update at the end of each turn or run a stop-hook prompt. You can request a visualization update without publishing; that leaves a draft private.
 
 The UI displays the storyboard and its activity; it has no Generate or Update visualization controls. The server stores the authored scenes, resolves evidence bindings, and validates them. It does not run a second model to generate visuals. An ended session must be resumed in your agent to author further updates.
 
 The member viewer shows recently recorded findings and their evidence references. **View last scene** moves to the last scene, and **View all activity** opens the full history.
 
-Publishing and sharing remain explicit actions. **Publish** checks and freezes the version you reviewed without generating or updating it. Failed checks leave the draft private. Later visualization work uses an open draft or a new act on the same storyboard; published acts remain immutable.
+Publishing and sharing remain explicit actions. A publish request to the agent includes updating and previewing the visualization before publication. The UI’s **Publish** button checks and freezes existing scenes; it does not generate them. Empty acts cannot be published, and failed checks leave the draft private. Later visualization work uses an open draft or a new act on the same storyboard; published acts remain immutable.
+
+**Draft-status storyboards are visible only to their author**, including in lists, search, and direct links. Once published, the storyboard is visible to members of its org and contains its authored visualization. Publishing does not create a public link.
 
 Upgrade both Conductor and the Cardinal agent plugin to releases containing session-owned visualization. Older plugins may still describe server generation; restart or resume with the updated plugin to load the new workflow. See [self-hosted setup](/ui/storyboards/self-hosted#session-owned-visualization).
 
@@ -58,11 +60,11 @@ Consecutive scenes can share one Canvas, so the same picture stays on screen and
 
 After investigating, ask Claude in plain words:
 
-> *Storyboard this investigation for the team.*
+> *Publish a storyboard of this investigation for the team.*
 >
-> *Write up how we found the checkout regression, with visuals.*
+> *Update the visuals and publish how we found the checkout regression.*
 
-Claude reads Cardinal's authoring guide from the MCP server itself (`storyboard__describe_grammar`), so the same guidance reaches every client, with or without a plugin. In Claude Code, the plugin's `/cardinal:storyboard` and `/cardinal:canvas` skills add the local preview loop. Claude drafts the scenes, validates them with Cardinal, previews, revises, and publishes:
+Claude reads Cardinal's authoring guide from the MCP server itself (`storyboard__describe_grammar`), so the same guidance reaches every client, with or without a plugin. In Claude Code, the plugin's `/cardinal:storyboard` and `/cardinal:canvas` skills add the local preview loop. For an explicit publish request, Claude drafts or refreshes the scenes, validates them with Cardinal, previews, revises, and publishes. A request only to create or update visuals stops at the private draft:
 
 ```
 investigation (collects receipt ids)
@@ -83,9 +85,9 @@ The first preview of a draft that binds datasets can take a while, because Cardi
 
 Cardinal never renders a storyboard's scenes on its servers. (The one image it draws itself is the text-only summary card of a [link preview](/ui/storyboards/public-links#link-previews).) Where Claude can render locally, in Claude Code with the `cardinal` plugin, each scene is rendered **on your machine** in your own Chrome or Chromium, and the images go back to Claude so it can judge the scene as a reader would. The preview browser runs headless, with its OS sandbox on, networking locked off, and a throwaway profile. Setup details are on the [Claude Code plugin page](/ui/agent-outcomes/install-claude-plugin#local-previews).
 
-Everywhere else, the preview result says that no image was rendered and includes a `draft_url`: the draft in Cardinal's viewer, which you open while signed in to review the visuals yourself. Drafts are visible to members of your org only.
+Everywhere else, the preview result says that no image was rendered and includes a `draft_url`: the draft in Cardinal's viewer, which you open while signed in to review the visuals yourself. A storyboard with Draft status is visible only to its author, even if another org member has its link.
 
-Previews are optional. Skipping them can lower the quality of the visuals, but it doesn't affect whether a storyboard can be published, or what publishing checks.
+The publishing skill includes a preview and refinement pass. The server itself uses deterministic checks rather than rendered pixels to decide whether an act can be published.
 
 ## Publish
 
@@ -115,7 +117,7 @@ act 1 draft ─publish─► act 1 published ─add_act─► act 2 draft ─pub
 - **Append-only.** Scenes are added to the open act only. A published act's scenes can't be edited or removed (`scene_published`), and a new scene can't reuse a published scene's id. A new act can use a published act's Canvas surfaces as they are, or define new ones; it can't change a published surface (`surface_published`).
 - **Publishing publishes the open act.** `storyboard__publish` runs the checks above on that act's scenes. An act with no scenes is refused with `act_empty`. Once every act is published, writes are refused with `published`, and the message tells Claude to call `storyboard__add_act`.
 - **Public links don't follow new acts on their own.** A link keeps showing the acts it covered, and publishing an act onto a storyboard with live links asks whether to extend them. See [Public links and new acts](/ui/storyboards/public-links#links-and-new-acts).
-- **Discarding a draft act.** Only the open act can be discarded, never a published one. Its author can discard it: Claude calls `storyboard__discard_act`, and only from the connection that opened the act. An organization owner can discard any open act from the viewer with **Discard draft act**, then **Discard act *n***. Discarding removes the act's scenes, the surfaces it defined, and its citations; the published acts stay as they are. Discarding act 1 of a storyboard that was never published deletes the draft storyboard.
+- **Discarding a draft act.** Only the open act can be discarded, never a published one. Its author can discard it: Claude calls `storyboard__discard_act`, and only from the connection that opened the act. An organization owner can discard an open act of a published storyboard from the viewer with **Discard draft act**, then **Discard act *n***. Discarding removes the act's scenes, the surfaces it defined, and its citations; the published acts stay as they are. Discarding act 1 of a storyboard that was never published deletes the draft storyboard.
 - **The time window can only widen.** `storyboard__add_act` can pass a window that contains the storyboard's current one; a narrower one is refused with `window_must_widen`.
 - **Receipts.** A receipt cited by a published act is kept as long as the storyboard exists. Receipts cited only by the open act still expire at 14 days, so publishing an act that cites an expired one fails with `receipt_not_found`, and Claude re-runs the call.
 
@@ -125,7 +127,7 @@ In Claude Code, the `cardinal` plugin checks for a storyboard to update before i
 
 | Page | What it shows |
 | --- | --- |
-| `/storyboards` | Your org's storyboards and folders, drafts included, at the top level. |
+| `/storyboards` | Your org's published storyboards, your own drafts, and folders at the top level. |
 | `/storyboards?folder=<folder id>` | The storyboards and subfolders in one folder. |
 | `/storyboards/<id>?scene=N` | One storyboard, opened at scene *N* (1-based). `&step=K` opens a reveal step within the scene. |
 
@@ -134,7 +136,7 @@ There is no sidebar entry. You reach storyboards through:
 - the **`view_url`** Claude returns when it creates, previews, or publishes a storyboard (and the `draft_url` a preview returns); or
 - the **Storyboards** button in the header of the **Dashboards** page.
 
-The viewer is available to org members with the **Member** or **Owner** role. Drafts are visible at the same link while Claude works on them, and refresh as it writes. That includes a draft act of a published storyboard: its scenes follow the published ones under an **Act *n* · *title*** divider, with a **Draft act** badge, and the storyboards list marks the storyboard **Act *n* draft**.
+The viewer is available to org members with the **Member** or **Owner** role. A draft-status storyboard is visible at the same link only to its author while Claude works on it, and refreshes as it writes. Published storyboards remain visible to org members, including a later open draft act: its scenes follow the published ones under an **Act *n* · *title*** divider, with a **Draft act** badge, and the storyboards list marks the storyboard **Act *n* draft**.
 
 To show a **published** storyboard to someone outside your org, create a [public link](/ui/storyboards/public-links): the **Share** button in the viewer's header, or ask Claude to share it. Readers need no account. On Cardinal Cloud links open on `share.cardinalhq.io`. Whether members can create them is an org setting that an owner controls; it is on by default in personal workspaces.
 

@@ -242,7 +242,7 @@ describe('storyboards docs: statements that must stay correct', () => {
     for (const term of ['`storyboard__add_act`', '`storyboard__discard_act`', '`open_act_exists`', '`act_empty`', '**Discard draft act**']) {
       expect(index).toContain(term);
     }
-    expect(index).toContain('An organization owner can discard any open act from the viewer');
+    expect(index).toContain('An organization owner can discard an open act of a published storyboard from the viewer');
     expect(index).toMatch(/\| Acts per storyboard \| 20 \|/);
   });
 
@@ -300,6 +300,23 @@ describe('storyboards docs: statements that must stay correct', () => {
     const plugin = read('ui/agent-outcomes/install-claude-plugin.mdx');
     const privacy = plugin.slice(plugin.indexOf('## Privacy'), plugin.indexOf('## Disconnect'));
     expect(privacy).toContain('`CARDINAL_STORYBOARD_DISCOVERY=0`');
+  });
+
+  test('publication refreshes visuals explicitly and draft-status storyboards are author-only', () => {
+    const index = read('ui/storyboards/index.mdx');
+    const hosted = read('ui/storyboards/self-hosted.mdx');
+    expect(index).toContain('first creates or updates the scenes');
+    expect(index).toContain('renders previews, inspects them, and refines the visualization');
+    expect(index).toContain('It then validates and publishes the completed act');
+    expect(index).toContain('**Draft-status storyboards are visible only to their author**');
+    expect(index).toContain('including in lists, search, and direct links');
+    expect(index).toContain('Empty acts cannot be published');
+    expect(index).toContain('The UI’s **Publish** button checks and freezes existing scenes');
+    expect(index).not.toContain('Would you like me to update the storyboard visualization?');
+    expect(index).not.toContain('Drafts are visible to members of your org only');
+    expect(plugin).not.toContain('When Claude finishes its work, it asks');
+    expect(hosted).not.toContain('after the user accepts its offer');
+    expect(index).toContain('Published storyboards remain visible to org members, including a later open draft act');
   });
 
   test('index: folders, the Finder-like list and badges, members only', () => {
@@ -425,7 +442,7 @@ describe('storyboards docs: associations', () => {
     expect(assoc).toContain('`context_filled`');
     expect(assoc).toContain('If the pull request is opened only after an act\'s last publish');
     expect(assoc).toContain('`storyboard__link {storyboard_id, act?, add?, remove?}`');
-    expect(assoc).toContain('Any member who can write storyboards can add or remove an entry on any act.');
+    expect(assoc).toContain('Any member who can write storyboards can add or remove an entry on any act of a published storyboard.');
     expect(assoc).toContain(
       'about is empty: if this storyboard explains the change on <repo> <branch|PR #N>, call storyboard__link {storyboard_id, add: {checkout: true}}; if it is about something else (an incident, another PR, an issue), add that instead. A match on this checkout alone is reported as written_from, never as about.',
     );
@@ -472,7 +489,7 @@ describe('storyboards docs: associations', () => {
 
   test('privacy: never public, file names visible to the org, main sends recent history', () => {
     expect(assoc).toContain('**Public links never carry any of this.**');
-    expect(assoc).toContain('**File names are visible to your org.**');
+    expect(assoc).toContain('**File names follow storyboard visibility.**');
     expect(assoc).toContain('**Discovery on `main` sends recent history to your Cardinal.**');
   });
 
