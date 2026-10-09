@@ -101,15 +101,12 @@ Personal workspaces have [daily quotas](/ui/storyboards#personal-workspaces). Te
 <SupportCallout />
 
 <a id="automatic-projection" />
+<a id="on-demand-visualization" />
 
-## On-demand visualization
+## Session-owned visualization
 
-Enable storyboard generation for connected investigations with `STORYBOARD_PROJECTION_ENABLED=true`. Generation runs only when a member selects **Generate visualization**, **Update visualization**, or **Generate and publish**, or explicitly requests it through `storyboard__request_projection`. Checkpoints continue to appear in Activity without scheduling generation. Older Maestro releases used automatic updates and daily budgets; upgrade to the release containing on-demand visualization to use this workflow.
+Visualization authoring runs in the connected agent session after the user accepts its offer or explicitly requests an update. No server LLM configuration, generation queue, or generation endpoint is needed. The server retains evidence capture, activity, authoring APIs, validation, viewing, and publishing.
 
-Set `STORYBOARD_PROJECTION_ORG_IDS` to the comma-separated UUIDs of the orgs in your rollout, using `maestro.env` in Helm values. Leaving the org list unset with the flag on enables all orgs; an explicitly empty list enables none. Invalid IDs stop startup. The default model preference is `sonnet`; an eligible configured model must exist or generation is unavailable.
+Upgrade the server and agent plugins together. Existing scenes and published snapshots remain available. Historical projection tables are retained for compatibility and rollback; the new server does not run their jobs. Remove `STORYBOARD_PROJECTION_*` settings from deployment values; this release ignores them. Before rolling back to an older server, keep `STORYBOARD_PROJECTION_ENABLED=false` so old background or queued work cannot resume.
 
-Keep `INVESTIGATION_OWNER_INPUT_ENABLED=false` for the initial rollout. Owner input is not a dependency and is never visible to the generator. It has no transcript input and cannot publish, share, change the Investigation frame, or post Investigation events. Daily generation and request quotas have been removed. `STORYBOARD_PROJECTION_DAILY_RUNS`, `STORYBOARD_PROJECTION_ORG_DAILY_RUNS`, and the old quiet-period/horizon settings are ignored. Per-run cost, token and time bounds, concurrency, bounded retries, and short burst protection remain. See [environment variables](/ui/install/environment#investigation-storyboards).
-
-Requests are durable and capture a fixed event prefix. Repeated requests join existing work; checkpoints arriving during generation wait for the next explicit update. The migration clears old automatically scheduled work. Existing visualizations and published snapshots are preserved.
-
-To disable generation, set `STORYBOARD_PROJECTION_ENABLED=false` or remove the org from the configured allowlist and roll the pods. Existing draft content stays available. Disable this flag before rolling back to an older automatic-generation release if you want to prevent background generation from resuming.
+`INVESTIGATION_OWNER_INPUT_ENABLED` remains an independent, optional capability. It is not required for session-owned visualization. A visualization update does not upload the session transcript: the agent authors scenes with selected evidence references.

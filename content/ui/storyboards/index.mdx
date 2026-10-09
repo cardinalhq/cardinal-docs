@@ -4,25 +4,29 @@ import SupportCallout from '../../../components/SupportCallout';
 
 An Investigation Storyboard turns an investigation into a short sequence of **scenes** that explain what happened, what was checked, what was ruled out, and what is still open. Each scene has a one-sentence statement and its own interactive visual, and every number in it traces back to an **evidence receipt**: a record of the tool call that produced it.
 
-Claude authors the view and the argument. Cardinal owns the runtime and the evidence. Claude decides which scenes to show and how to draw them, whether that is a timeline, a trace waterfall, or the pods of a Kubernetes cluster drawn inside their nodes. It cannot supply the numbers itself: every value it shows comes from a receipt, or from arithmetic Cardinal performs over receipts.
+Your investigating agent authors the view and the argument. Cardinal owns the runtime and the evidence. Claude decides which scenes to show and how to draw them, whether that is a timeline, a trace waterfall, or the pods of a Kubernetes cluster drawn inside their nodes. It cannot supply the numbers itself: every value it shows comes from a receipt, or from arithmetic Cardinal performs over receipts.
 
 A storyboard is neither a dashboard nor a transcript. An investigation of 70 queries and three abandoned paths might become six scenes, and a wrong turn is kept only when a reader needs to see why it was ruled out. A storyboard may end on **open** when the evidence doesn't support a root cause.
 
 <SupportCallout />
 
 <a id="automatic-private-drafts" />
+<a id="live-investigation-on-demand-visualization" />
+<a id="session-owned-visualization" />
 
-## Live investigation, on-demand visualization
+## Live investigation, session-owned visualization
 
-Connected Claude Code and Codex sessions record findings, decisions, and cited evidence in the same private Investigation from session start. Codex requires Cardinal plugin 0.26.0 or later. Activity stays live as the agent works; new checkpoints do not automatically generate visual scenes.
+Connected agent sessions record findings, decisions, and cited evidence in the same private Investigation as work proceeds. Activity stays live. The visualization is authored by the agent in your session, using the context of the work and the evidence it collected.
 
-Open the session's Storyboard link and choose **Generate visualization** when you want a visual explanation. After new findings arrive, **New findings available** appears and **Update visualization** refreshes the scenes. The Investigation page has the same controls. Opening or refreshing either page does not start generation. Generation can take several minutes. Repeated requests share queued or running work, and unchanged output is reused. There is no daily visualization-generation or request quota; individual runs retain resource bounds and bounded retries.
+When the agent finishes its work, it asks: **“Would you like me to update the storyboard visualization?”** Say yes and it uses the storyboard skill to author scenes, render previews, inspect them, and refine the result. Say no and the existing visualization stays unchanged. Completing the visualization does not trigger another offer. You can also request an update directly in the session.
 
-The member viewer shows recently recorded checkpoints and their evidence references. These are the investigating agent's claims, not independently verified conclusions. **View last scene** moves to the last scene, and **View all activity** opens the full event history. Hand-edited scenes are preserved and are not overwritten by generation.
+The UI displays the storyboard and its activity; it has no Generate or Update visualization controls. The server stores the authored scenes, resolves evidence bindings, and validates them. It does not run a second model to generate visuals. An ended session must be resumed in your agent to author further updates.
 
-Publishing and sharing remain explicit actions. **Generate and publish** generates missing or outdated scenes, checks their evidence, and publishes only after success. It captures the findings available when generation was requested, so an ongoing investigation cannot keep publication waiting indefinitely. Later findings remain in Activity for a future update. A failed or cancelled generation leaves the draft private. **Publish as is** explicitly accepts existing scenes. Public links contain no private Investigation identifiers or generation status.
+The member viewer shows recently recorded findings and their evidence references. **View last scene** moves to the last scene, and **View all activity** opens the full history.
 
-Generation reads a fixed prefix of semantic and advisory events and their cited evidence. It does not receive the session transcript or owner input. Enablement is configured by the operator; see [self-hosted setup](/ui/storyboards/self-hosted#on-demand-visualization).
+Publishing and sharing remain explicit actions. **Publish** checks and freezes the version you reviewed without generating or updating it. Failed checks leave the draft private. Later visualization work uses an open draft or a new act on the same storyboard; published acts remain immutable.
+
+Upgrade both Conductor and the Cardinal agent plugin to releases containing session-owned visualization. Older plugins may still describe server generation; restart or resume with the updated plugin to load the new workflow. See [self-hosted setup](/ui/storyboards/self-hosted#session-owned-visualization).
 
 ## Where you can use them
 

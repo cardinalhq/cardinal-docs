@@ -87,7 +87,7 @@ If you use Claude Code's Bash sandbox, the record command needs to write `~/.cla
 
 ## Automatic Storyboards
 
-Connected sessions automatically get an Investigation. Findings and cited evidence appear in Activity as Claude works. In orgs with visualization generation enabled, choose **Generate visualization** or **Update visualization** in Cardinal when you want visual scenes. **Generate and publish** builds the requested version before publishing it. New checkpoints do not automatically regenerate scenes. This path does not require owner-input capture and does not send a transcript to the generator. See [live investigation and on-demand visualization](/ui/storyboards#live-investigation-on-demand-visualization).
+Connected sessions automatically get an Investigation. Findings and cited evidence appear in Activity as Claude works. When Claude finishes its work, it asks whether you want to update the storyboard visualization. If you say yes, that same session authors and previews the scenes; if you decline, the visualization stays unchanged. The UI and server do not generate visuals. Publishing validates and freezes the reviewed draft. This workflow does not require owner-input capture. See [session-owned visualization](/ui/storyboards#session-owned-visualization).
 
 ## Storyboard skills
 
