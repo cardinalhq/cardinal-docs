@@ -73,15 +73,13 @@ In normal operation you configure LLMs through the superadmin UI; those credenti
 
 ### Investigation Storyboards
 
+Visualization authoring runs in the agent session after user consent. `STORYBOARD_PROJECTION_*` generation settings are retired and ignored by this release.
+
 All optional. See [Storyboards: self-hosted setup](/ui/storyboards/self-hosted) for how they fit together.
 
 | Variable | Default | Notes |
 | -------- | ------- | ----- |
-| `STORYBOARD_PROJECTION_ENABLED` | `false` | Set to `true` to allow on-demand private Storyboard generation from durable Investigation checkpoints and cited evidence. Publishing and sharing remain explicit |
-| `STORYBOARD_PROJECTION_ORG_IDS` | Unset (all orgs when enabled) | Maestro v1.107.0+: comma-separated organization UUIDs restricting on-demand visualization generation. An explicitly empty value enables no orgs; malformed IDs stop startup. Use this for a limited rollout |
-| `STORYBOARD_PROJECTION_MODEL` | `sonnet` | Ordered comma-separated model-name or model-ID substrings from the enabled catalog. No match pauses projection; no weaker-model fallback |
-| `STORYBOARD_PROJECTION_MAX_CONCURRENT` | `2` | Maximum concurrent projection runs per process |
-| `INVESTIGATION_OWNER_INPUT_ENABLED` | `false` | Optional owner-input capture capability. Independent of Storyboard projection; keep off for the initial projection rollout. The projector never reads owner input |
+| `INVESTIGATION_OWNER_INPUT_ENABLED` | `false` | Optional owner-input capture capability; independent of session-owned visualization authoring |
 | `SHARE_HOST` | — | Bare `host[:port]` (e.g. `share.example.com`) that serves [public storyboard links](/ui/storyboards/public-links) at `https://<SHARE_HOST>/s/<token>`. On that host Cardinal UI serves only the public viewer, its read API, the abuse-report POST and static assets, and never reads or sets a cookie. Unset: links use `MAESTRO_BASE_URL`'s origin, or can't be created without it. An invalid value stops Cardinal UI at startup |
 | `STORYBOARD_SIGNUP_URL` | `https://app.cardinalhq.io` | Where the public viewer's **Make your own with Claude** link goes. Must be an absolute http(s) URL |
 | `PERSONAL_WORKSPACE_MAX_PUBLISHES_PER_DAY` | `20` | Personal-workspace quota |
