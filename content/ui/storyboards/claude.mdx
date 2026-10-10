@@ -226,7 +226,7 @@ Preview reports the problem as `card_errors` (and `visual_review` names them), a
 | `headline_figure_not_cited` | Warning | The headline doesn't state the figure's value (or there is no headline), so the figure reads as a separate claim. |
 | `cover_binds_raw_evidence` | Warning | The cover scene binds a whole result or row set. Member previews and summary-only public links then show the summary card instead. |
 
-`card` describes the open act as a whole. Preview with `card` and a `scene_ids` that leaves a scene out is refused (`card_needs_whole_act`), and so is a preview with `card` when every act is published (`card_needs_open_act`). The browser's Publish button never sets a card: a storyboard published there previews with Cardinal's own pick of the finding.
+`card` describes the open act as a whole. Preview with `card` and a `scene_ids` that leaves a scene out is refused (`card_needs_whole_act`), and so is a preview with `card` when every act is published (`card_needs_open_act`). Publishing happens in the investigating agent's session. If the agent omits `card`, the storyboard previews with Cardinal's own pick of the finding.
 
 The headline changes the finding only. The verdict and the counts always come from the scenes' states, so a headline can't claim a result the scenes don't reach.
 
