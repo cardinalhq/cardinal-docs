@@ -20,9 +20,9 @@ Connected agent sessions record findings, decisions, and cited evidence in the s
 
 Ask your agent to **publish the storyboard** when the investigation is ready. The storyboard skill first creates or updates the scenes from the latest findings and cited evidence, renders previews, inspects them, and refines the visualization. It then validates and publishes the completed act. The agent does not offer an update at the end of each turn or run a stop-hook prompt. You can request a visualization update without publishing; that leaves a draft private.
 
-The UI displays the storyboard and its activity; it has no Generate or Update visualization controls. The server stores the authored scenes, resolves evidence bindings, and validates them. It does not run a second model to generate visuals. An ended session must be resumed in your agent to author further updates.
+The storyboard page displays the authored scenes; it has no Generate, Update visualization, or Publish controls. The server stores the authored scenes, resolves evidence bindings, and validates them. It does not run a second model to generate visuals. An ended session must be resumed in your agent to author further updates.
 
-The member viewer shows recently recorded findings and their evidence references. **View last scene** moves to the last scene, and **View all activity** opens the full history.
+Investigation activity, recorded findings, evidence references, challenges, and acknowledgments live on the separate **Investigation** page. Choose **Investigation** in the storyboard header to open it. The storyboard page stays focused on its scenes.
 
 Publishing and sharing remain explicit actions. A publish request to the agent includes updating and previewing the visualization before publication. The UI’s **Publish** button checks and freezes existing scenes; it does not generate them. Empty acts cannot be published, and failed checks leave the draft private. Later visualization work uses an open draft or a new act on the same storyboard; published acts remain immutable.
 
