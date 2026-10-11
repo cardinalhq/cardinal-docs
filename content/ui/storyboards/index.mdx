@@ -24,6 +24,29 @@ The UI displays the storyboard and its activity; it has no Generate or Update vi
 
 The storyboard viewer shows only the storyboard. To follow the work as it happens, open **Investigation** from the viewer header. The Investigation page is a live timeline of what each participant recorded, grouped by day and author: findings, hypotheses, experiments, decisions and open questions, each with the evidence it cites. Members can send the investigating agent a question, a challenge or a note from the box at the bottom of the timeline. The agent sees it at its next step, and its reply appears under the message.
 
+<a id="delegate-supervision" />
+
+### Delegate supervision
+
+A challenge needs an answer, not an acknowledgment. The investigating agent must **accept** a challenge (saying what it will change) or **decline** it (saying why). Each challenge in the timeline shows where it stands: awaiting a position, accepted, addressed, declined, withdrawn, a directive, or overruled.
+
+You can hand the back-and-forth to a second agent session (a supervisor) instead of settling every disagreement yourself:
+
+1. Open the investigation's **Investigation** page while signed in as its author and select **Delegate supervision**.
+2. Name the supervisor, pick how long the delegation lasts (1 to 24 hours), and select **Create token**.
+3. Copy the `export CARDINAL_INVESTIGATION_TOKEN=…` line it shows and run it in the supervisor's session. The token is shown once.
+
+The header then reads **Supervised by** the supervisor's name, how the delegation was granted (web or CLI), and when it expires. Select **Revoke** to end it at once. The author can also grant supervision from the Cardinal CLI (`investigation grant --scope supervise`).
+
+When the agent declines one of the supervisor's challenges, the supervisor rules on it once:
+
+- **Challenge withdrawn**: the challenge is closed.
+- **Directive**: the challenge is upheld and binds the agent. The agent complies, or it cites one of your own decisions or prompts that the directive conflicts with. Your own words always come first.
+
+Directives are labelled **Delegated supervision** in the timeline. A directive never widens what the agent may do without your approval (deploys, merges and other actions its rules reserve for you). To settle any challenge or directive yourself, post a **Decision** that answers it; a decision overrules the supervisor. A supervisor can only rule on its own challenges, and supervision applies to one investigation at a time.
+
+Delegated supervision needs Conductor and the Cardinal agent plugin at releases that include it. An older plugin that answers a challenge with `noted` is told to take a position and retries.
+
 Publishing and sharing remain explicit actions. A publish request to the agent includes updating and previewing the visualization before publication. The UI’s **Publish** button checks and freezes existing scenes; it does not generate them. Empty acts cannot be published, and failed checks leave the draft private. Later visualization work uses an open draft or a new act on the same storyboard; published acts remain immutable.
 
 **Draft-status storyboards are visible only to their author**, including in lists, search, and direct links. Once published, the storyboard is visible to members of its org and contains its authored visualization. Publishing does not create a public link.
