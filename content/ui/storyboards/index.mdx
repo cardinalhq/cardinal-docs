@@ -36,12 +36,12 @@ You can hand the back-and-forth to a second agent session (a supervisor) instead
 2. Name the supervisor, pick how long the delegation lasts (1 to 24 hours), and select **Create token**.
 3. Copy the `export CARDINAL_INVESTIGATION_TOKEN=…` line it shows and run it in the supervisor's session. The token is shown once.
 
-The header then reads **Supervised by** the supervisor's name, how the delegation was granted (web or CLI), and when it expires. Select **Revoke** to end it at once. The author can also grant supervision from the Cardinal CLI (`investigation grant --scope supervise`).
+The header then reads **Supervised by** the supervisor's name, how the delegation was granted (web or CLI), and when it expires. Select **Revoke** to end it at once. A delegation you made on the web can only be revoked from your signed-in web session, so the agent, which works with your plugin's key, cannot remove its own supervisor. The author can also grant supervision from the Cardinal CLI (`investigation grant --scope supervise`); such a grant can only rule on its own challenges.
 
-When the agent declines one of the supervisor's challenges, the supervisor rules on it once:
+Once the agent has taken a position on one of the supervisor's challenges (accepted or declined), the supervisor can rule on it once:
 
 - **Challenge withdrawn**: the challenge is closed.
-- **Directive**: the challenge is upheld and binds the agent. The agent complies, or it cites one of your own decisions or prompts that the directive conflicts with. Your own words always come first.
+- **Directive**: the challenge is upheld and binds the agent. The agent complies, or it cites one of your **Decisions** that the directive conflicts with. Only Decisions you posted from the Investigation page count: if the directive conflicts with something you told the agent in its session, post a Decision to settle it.
 
 Directives are labelled **Delegated supervision** in the timeline. A directive never widens what the agent may do without your approval (deploys, merges and other actions its rules reserve for you). To settle any challenge or directive yourself, post a **Decision** that answers it; a decision overrules the supervisor. A supervisor can only rule on its own challenges, and supervision applies to one investigation at a time.
 
