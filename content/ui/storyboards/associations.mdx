@@ -113,7 +113,7 @@ Within a tier, a match on a declared About entry outranks the same match on Writ
 
 ### From Claude
 
-`storyboard__find` takes `session_id`, `context` (where you are) and `refs` (what you are looking for: `prs`, `commits`, `branches`, `paths`, `issues`, `links`, and `repo`), plus the existing `query`. A SHA, an issue key, or a pull request number alone is enough; with nothing to look up, Cardinal answers `find needs session_id, context, refs or query`. Each match carries:
+`storyboard__find` takes `session_id`, `context` (where you are) and `refs` (what you are looking for: `prs`, `commits`, `branches`, `paths`, `issues`, `links`, and `repo`), plus the existing `query` and `tags` (see [Tags](/ui/storyboards/claude#tags)). A SHA, an issue key, or a pull request number alone is enough; with nothing to look up, Cardinal answers `find needs session_id, context, refs, query or tags`. Each match carries:
 
 - `match` and `match_role`: what matched, and whether it matched About (`about`) or Written from (`written_from`);
 - `matched`: the kind, value and repository that matched;
