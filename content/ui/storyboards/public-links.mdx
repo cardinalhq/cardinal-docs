@@ -11,6 +11,7 @@ On a self-hosted Cardinal UI, where links point depends on your operator's setti
 ## Rules
 
 - **Published storyboards only.** A draft can never be shared publicly. A link shows only published [acts](/ui/storyboards#acts), and published acts are immutable, so it always shows exactly what passed publish.
+- **At least one published scene.** An act published without scenes publishes only its investigation record, which a public link never shows. Until a scene is published, creating a link is refused with `no_published_scenes`.
 - **A link shows the acts it covers.** Publishing a new act asks whether to extend existing links; links that include raw evidence need a separate confirmation. A new link covers every act published when it is created. See [Links and new acts](#links-and-new-acts).
 - **Your org must allow it.** The org setting **Public storyboard links** decides whether members can create links. See [Org policy](#org-policy).
 - **The URL is the credential.** Cardinal stores only a hash of it, so the URL is shown once, when the link is created. A lost URL can't be recovered: revoke the link and create another.
@@ -72,9 +73,10 @@ What the evidence drawer shows depends on **Include raw evidence**:
 | Receipts the storyboard doesn't cite | Never | Never |
 | Who wrote it: session id, API key, client, uploader | Never | Never |
 | Where each act was written: repository, branch, pull request, commit, directory id, email | Never | Never |
-| Which folder the storyboard is in, its metadata badges, and who created it | Never | Never |
+| The storyboard's tags, its metadata badges, and who created it | Never | Never |
+| Its investigation timeline and the agent sessions behind it | Never | Never |
 
-Public links never show folders, repository/branch/PR badges or who created the storyboard. Moving a storyboard between [folders](/ui/storyboards#folders) doesn't change its links.
+Public links never show [tags](/ui/storyboards#tags), repository/branch/PR badges or who created the storyboard. Tagging a storyboard doesn't change its links.
 
 The query and its arguments are always visible on a public link, raw evidence or not. Only credentials are redacted: literals in a SQL, LogQL or PromQL query, such as customer ids, emails or hostnames, are shown to anyone with the link, so check every cited query before you share.
 
@@ -106,7 +108,7 @@ The description reads `<finding> · <counts>`, cut to 200 characters. When it is
 
 ### What it never shows
 
-Scenes other than the one finding, evidence and receipts, drafts, the context the storyboard was written from, its [associations](/ui/storyboards/associations), who wrote it, and which folder it is in. A member link's preview uses only the latest **published** act, never a draft act.
+Scenes other than the one finding, evidence and receipts, drafts, the context the storyboard was written from, its [associations](/ui/storyboards/associations), who wrote it, and its tags. A member link's preview uses only the latest **published** act, never a draft act.
 
 A **public link's** preview is pinned to the acts the link shows, up to its `through_act`. Publishing a later act changes nothing about it until the link is [extended](#links-and-new-acts), and then it describes the extended link.
 
@@ -166,6 +168,7 @@ The **Public storyboard links** card in **Settings → About** shows whether mem
 | --- | --- | --- |
 | `public_links_disabled` | The org's **Public storyboard links** setting is off. | Ask an organization owner to turn it on in **Settings → About**. |
 | `storyboard_not_published` | The storyboard is a draft. | Publish it first. |
+| `no_published_scenes` | The storyboard's published acts have no scenes: it published only its investigation record. | Add at least one scene and publish it, then create the link. |
 | `raw_evidence_required` | The link has raw evidence off, but a scene binds a whole result or every row of a dataset. The error lists those scenes. | Turn on **Include raw evidence**, or publish a narrower storyboard. |
 | `storyboard_changed` | The storyboard changed while the link was being created. | Try again. |
 | `share_host_not_configured` | This Cardinal has no public address for links. | Self-hosted only: your operator sets `SHARE_HOST` or `MAESTRO_BASE_URL`. See [Self-hosted setup](/ui/storyboards/self-hosted#public-links). |

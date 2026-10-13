@@ -239,7 +239,7 @@ describe('storyboards docs: statements that must stay correct', () => {
     expect(storyboards).not.toContain('Published storyboards are immutable');
     expect(index).toContain('**Published acts are immutable.**');
     expect(index).toContain('## Acts');
-    for (const term of ['`storyboard__add_act`', '`storyboard__discard_act`', '`open_act_exists`', '`act_empty`', '**Discard draft act**']) {
+    for (const term of ['`storyboard__add_act`', '`storyboard__discard_act`', '`open_act_exists`', '**Discard draft act**']) {
       expect(index).toContain(term);
     }
     expect(index).toContain('An organization owner can discard an open act of a published storyboard from the viewer');
@@ -310,7 +310,7 @@ describe('storyboards docs: statements that must stay correct', () => {
     expect(index).toContain('It then validates and publishes the completed act');
     expect(index).toContain('**Draft-status storyboards are visible only to their author**');
     expect(index).toContain('including in lists, search, and direct links');
-    expect(index).toContain('Empty acts cannot be published');
+    expect(index).not.toContain('Empty acts cannot be published');
     expect(index).toContain('The UI’s **Publish** button checks and freezes existing scenes');
     expect(index).not.toContain('Would you like me to update the storyboard visualization?');
     expect(index).not.toContain('Drafts are visible to members of your org only');
@@ -319,30 +319,83 @@ describe('storyboards docs: statements that must stay correct', () => {
     expect(index).toContain('Published storyboards remain visible to org members, including a later open draft act');
   });
 
-  test('index: folders, the Finder-like list and badges, members only', () => {
+  // Tags replace folders (conductor #2111-#2115, the plugins' storyboard skill).
+  test('index: tags, the Finder-like list and badges, members only; no folders', () => {
     const index = read('ui/storyboards/index.mdx');
-    expect(index).toContain('### Folders');
+    expect(index).toContain('### Tags');
     expect(index).toContain('### The storyboards list');
     expect(index).toContain('### Badges');
-    expect(index).toContain('Move to…');
-    expect(index).toContain('up to 8 levels deep');
-    expect(index).toContain('**Only empty folders can be deleted.**');
-    for (const code of ['`folder_not_empty`', '`folder_cycle`', '`folder_too_deep`']) expect(index).toContain(code);
+    for (const label of ['**Edit tags**', '**Manage tags**', '**Untagged**', '**Group by** **Tag**, **Repo** or **None**', '`?tags=incident-review,p1`', '*Remove incident-review from 14 storyboards?*']) {
+      expect(index).toContain(label);
+    }
+    expect(index).toContain('up to 40 characters');
+    expect(index).toContain('**Up to 5 per storyboard.**');
+    expect(index).toContain('**A tag belongs to whoever created it**');
     for (const column of ['**Name**', '**Created by**', '**Modified**', '**Status**', '**Acts**']) expect(index).toContain(`| ${column} |`);
     for (const badge of ['**Repository**', '**Branch**', '**Pull request**', '**Commit**', '**Client**']) expect(index).toContain(`| ${badge} |`);
     // StoryboardBadges.tsx SELF_REPORTED_TOOLTIP and CONTEXT_BY_ACT_LABEL.
     expect(index).toContain("*Self-reported by the author's client; not verified*");
     expect(index).toContain('**Context by act**');
     expect(index).toContain("A key's id is never shown.");
-    expect(index).toContain('**Folders and badges are visible only to org members.**');
-    expect(index).toMatch(/\| Folder nesting \| 8 levels \|/);
+    expect(index).toContain('**Tags and badges are visible only to org members.**');
+    expect(index).toMatch(/\| Tags per storyboard \| 5 \|/);
+    expect(index).toMatch(/\| Tags per org \| 1,000 \|/);
   });
 
-  test('public links never show folders, badges or who created the storyboard', () => {
+  test('folders are gone from every storyboards page but the self-hosted upgrade note', () => {
+    for (const rel of PAGES.filter((p) => p !== 'ui/storyboards/self-hosted.mdx')) {
+      expect(read(rel)).not.toMatch(/folder/i);
+    }
+    const selfHosted = read('ui/storyboards/self-hosted.mdx');
+    expect(selfHosted).toContain('## Upgrading to tags');
+    expect(selfHosted).toContain('Folders are not converted to tags');
+    expect(selfHosted).toContain('**Upgrade through v1.114.0.**');
+  });
+
+  test('public links never show tags, badges or who created the storyboard', () => {
     const links = read('ui/storyboards/public-links.mdx');
-    expect(links).toContain('Public links never show folders, repository/branch/PR badges or who created the storyboard.');
-    expect(links).toContain('never show folders');
-    expect(links).toContain('| Which folder the storyboard is in, its metadata badges, and who created it | Never | Never |');
+    expect(links).toContain('Public links never show [tags](/ui/storyboards#tags), repository/branch/PR badges or who created the storyboard.');
+    expect(links).toContain("| The storyboard's tags, its metadata badges, and who created it | Never | Never |");
+  });
+
+  // Investigation first, zero-scene publish, named acks and
+  // the Sessions panel (conductor #2111-#2115).
+  test('index: investigation first, zero-scene publish, named acknowledgements, sessions', () => {
+    const index = read('ui/storyboards/index.mdx');
+    expect(index).toContain('**A storyboard opens on its investigation until it has scenes.**');
+    expect(index).toContain('`?view=scenes`');
+    expect(index).toContain('`?view=investigation`');
+    expect(index).toContain('**An act can be published without scenes.**');
+    expect(index).toContain('**Published investigation (no scenes)**');
+    expect(index).not.toContain('`act_empty`');
+    expect(index).toContain('**Codex accepted**');
+    expect(index).toContain('**Claude Code accepted**');
+    expect(index).toContain('### Sessions and resume');
+    expect(index).toContain('`claude --resume <session_id>`');
+    expect(index).toContain('`codex resume <session_id>`');
+    expect(index).toContain('on the machine this session ran on');
+    expect(index).toContain('**Continue in any agent**');
+    expect(index).toContain('Sessions is for members only; a public link never shows it.');
+  });
+
+  test('public links: a link needs a published scene', () => {
+    const links = read('ui/storyboards/public-links.mdx');
+    expect(links).toContain('**At least one published scene.**');
+    expect(links).toContain('| `no_published_scenes` |');
+  });
+
+  test('claude: the tag tools, the skill steps and find/get tags', () => {
+    const claude = read('ui/storyboards/claude.mdx');
+    expect(claude).toContain('## Tags');
+    for (const tool of ['`storyboard__list_tags {query?}`', '`storyboard__create_tag {name, description}`', '`storyboard__set_tags {storyboard_id, tags}`']) {
+      expect(claude).toContain(`| ${tool} |`);
+    }
+    expect(claude).toContain('pick 1 to 3 that fit the investigation');
+    expect(claude).toContain('(`existing: true`)');
+    expect(claude).toContain('up to 5 `similar` existing tags');
+    expect(claude).toContain('`storyboard__find {tags}` keeps only storyboards that carry every tag named');
+    expect(claude).toContain('its tags (`tags`)');
+    expect(claude).not.toContain('folder_path');
   });
 
   test('evidence: passing Go tests are kept; paths per tier', () => {
@@ -446,7 +499,7 @@ describe('storyboards docs: associations', () => {
     expect(assoc).toContain(
       'about is empty: if this storyboard explains the change on <repo> <branch|PR #N>, call storyboard__link {storyboard_id, add: {checkout: true}}; if it is about something else (an incident, another PR, an issue), add that instead. A match on this checkout alone is reported as written_from, never as about.',
     );
-    expect(assoc).toContain('`find needs session_id, context, refs or query`');
+    expect(assoc).toContain('`find needs session_id, context, refs, query or tags`');
     expect(assoc).toContain('`may_continue`');
     expect(assoc).toContain('GitLab URLs are stored as plain links.');
   });
@@ -508,7 +561,7 @@ describe('storyboards docs: associations', () => {
     expect(index).toContain('**Clear filters**');
     expect(index).toContain("*Declared by the author's agent; not verified*");
     expect(index).toContain('*The checkout and session this was written in, reported by the author\'s client; not verified*');
-    expect(index).toContain('A folder can\'t be combined with a search or filter');
+    expect(index).toContain('The **All / Published / Drafts** switch and the tag filter still apply.');
     expect(index).not.toContain('Cardinal renders nothing on its servers');
   });
 
@@ -551,7 +604,7 @@ describe('storyboards docs: link previews', () => {
     expect(links).toContain('## Link previews');
     expect(links).toContain('### What a preview shows');
     expect(links).toContain('### What it never shows');
-    expect(links).toContain('Scenes other than the one finding, evidence and receipts, drafts, the context the storyboard was written from, its [associations](/ui/storyboards/associations), who wrote it, and which folder it is in.');
+    expect(links).toContain('Scenes other than the one finding, evidence and receipts, drafts, the context the storyboard was written from, its [associations](/ui/storyboards/associations), who wrote it, and its tags.');
     expect(links).toContain('A **public link\'s** preview is pinned to the acts the link shows, up to its `through_act`.');
     expect(links).toContain('`3 established · 1 ruled out · 2 open`');
   });

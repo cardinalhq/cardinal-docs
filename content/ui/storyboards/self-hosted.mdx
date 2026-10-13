@@ -88,6 +88,18 @@ Acts change what a public link may show, so the database and the public read pat
 
 Nothing else changes for operators: acts need no new setting, environment variable or chart value, and storyboards created before the upgrade become single-act storyboards with no migration step of yours.
 
+## Upgrading to tags
+
+Tags replace folders over three releases, each a normal rolling upgrade:
+
+- **v1.113.0** adds tags (two new tables, created on start). Folders still work.
+- **v1.114.0** removes folders from the API and the browser. The folder table stays in the database, unread.
+- **v1.115.0** drops the folder table and every storyboard's folder assignment.
+
+Folders are not converted to tags: existing folder assignments are discarded. If you want to keep how storyboards were grouped, tag them before upgrading to v1.114.0.
+
+**Upgrade through v1.114.0.** If you upgrade straight from a release older than v1.114.0 to v1.115.0 or later, pods still on the old release read the dropped folder column and fail to list or open storyboards until every pod has rolled. Upgrade to v1.114.0 first, let every pod roll, then upgrade further. Rolling back past v1.115.0 needs the folder table restored from a backup.
+
 ## Personal-workspace quotas
 
 Personal workspaces have [daily quotas](/ui/storyboards#personal-workspaces). Team orgs are never metered. Override the defaults with positive integers:

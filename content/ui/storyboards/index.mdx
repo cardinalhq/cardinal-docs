@@ -20,15 +20,19 @@ Connected agent sessions record findings, decisions, and cited evidence in the s
 
 Ask your agent to **publish the storyboard** when the investigation is ready. The storyboard skill first creates or updates the scenes from the latest findings and cited evidence, renders previews, inspects them, and refines the visualization. It then validates and publishes the completed act. The agent does not offer an update at the end of each turn or run a stop-hook prompt. You can request a visualization update without publishing; that leaves a draft private.
 
-The UI displays the storyboard and its activity; it has no Generate or Update visualization controls. The server stores the authored scenes, resolves evidence bindings, and validates them. It does not run a second model to generate visuals. An ended session must be resumed in your agent to author further updates.
+The UI displays the storyboard and its activity; it has no Generate or Update visualization controls. The server stores the authored scenes, resolves evidence bindings, and validates them. It does not run a second model to generate visuals. An ended session must be resumed in your agent to author further updates; see [Sessions and resume](#sessions-and-resume).
 
 The storyboard viewer shows only the storyboard. To follow the work as it happens, open **Investigation** from the viewer header. The Investigation page is a live timeline of what each participant recorded, grouped by day and author: findings, hypotheses, experiments, decisions and open questions, each with the evidence it cites. Members can send the investigating agent a question, a challenge or a note from the box at the bottom of the timeline. The agent sees it at its next step, and its reply appears under the message.
+
+**A storyboard opens on its investigation until it has scenes.** While no act has a scene, opening a storyboard shows its Investigation page; once any act has a scene, it opens on the scenes. Add `?view=scenes` or `?view=investigation` to the link to choose, and the Investigation page's link back to the storyboard opens the scenes. The `view_url` itself doesn't change, and a public link always shows the scenes.
 
 <a id="delegate-supervision" />
 
 ### Delegate supervision
 
 A challenge needs an answer, not an acknowledgment. The investigating agent must **accept** a challenge (saying what it will change) or **decline** it (saying why). Each challenge in the timeline shows where it stands: awaiting a position, accepted, addressed, declined, withdrawn, a directive, or overruled.
+
+Each acknowledgement names who gave it: the agent, with its mark (**Codex accepted**, **Claude Code accepted**), or the person who answered from the web app. A client Cardinal doesn't recognize is shown as **Agent**. Acknowledgements of one of your decisions name the agent and its session, for example *Acknowledged by Codex · session 1a2b3c4d…*.
 
 You can hand the back-and-forth to a second agent session (a supervisor) instead of settling every disagreement yourself:
 
@@ -47,11 +51,29 @@ Directives are labelled **Delegated supervision** in the timeline. A directive n
 
 Delegated supervision needs Conductor and the Cardinal agent plugin at releases that include it. An older plugin that answers a challenge with `noted` is told to take a position and retries.
 
-Publishing and sharing remain explicit actions. A publish request to the agent includes updating and previewing the visualization before publication. The UI’s **Publish** button checks and freezes existing scenes; it does not generate them. Empty acts cannot be published, and failed checks leave the draft private. Later visualization work uses an open draft or a new act on the same storyboard; published acts remain immutable.
+Publishing and sharing remain explicit actions. A publish request to the agent includes updating and previewing the visualization before publication. The UI’s **Publish** button checks and freezes existing scenes; it does not generate them. Failed checks leave the draft private. Later visualization work uses an open draft or a new act on the same storyboard; published acts remain immutable.
 
 **Draft-status storyboards are visible only to their author**, including in lists, search, and direct links. Once published, the storyboard is visible to members of its org and contains its authored visualization. Publishing does not create a public link.
 
+**An act can be published without scenes.** Publishing it publishes the investigation record, so the work is visible to your org and another agent can pick it up. Its Investigation page is labelled **Published investigation (no scenes)**. A public link still needs at least one published scene; see [Public links](/ui/storyboards/public-links#rules).
+
 Upgrade both Conductor and the Cardinal agent plugin to releases containing session-owned visualization. Older plugins may still describe server generation; restart or resume with the updated plugin to load the new workflow. See [self-hosted setup](/ui/storyboards/self-hosted#session-owned-visualization).
+
+### Sessions and resume
+
+**Sessions**, in the storyboard's header and on its Investigation page, lists every agent session behind the storyboard: the sessions that wrote its acts and those that posted to its investigation, up to 50. Each row shows the agent, the person, when the session ran and which acts it wrote, and a command to reopen it, with **Copy**:
+
+| Agent | Resume command |
+| --- | --- |
+| Claude Code | `claude --resume <session_id>` |
+| Codex | `codex resume <session_id>` |
+| Any other agent | None: use the continue prompt. |
+
+A command works only in the author's checkout on the machine the session ran on, where its transcript lives, and the panel says so, for example *Run in your checkout of cardinalhq/conductor on feat/cache, on the machine this session ran on.* Cardinal stores only a hash of the working directory, so it can't give you a path.
+
+Below the sessions, **Continue in any agent** is a prompt to copy into any agent that has the Cardinal plugin. It names the storyboard, its question and window, the latest act, the latest hypotheses and open questions, and tells the agent to read the record with `storyboard__get` and `storyboard__read_investigation_events`, then keep working in the same storyboard. Use it when you can't resume the original session, or to hand the work to a different agent or person.
+
+Sessions is for members only; a public link never shows it. The agent, person and checkout are reported by each agent's plugin and aren't verified.
 
 ## Where you can use them
 
@@ -116,7 +138,7 @@ The publishing skill includes a preview and refinement pass. The server itself u
 
 Publishing runs Cardinal's evidence checks. They are deterministic, and none of them looks at the rendered pixels. Publishing fails when any of these fails:
 
-- The storyboard is complete and valid, and has at least one scene.
+- The storyboard is complete and valid. An act with no scenes is checked on its framing alone: the storyboard's question and a closed time window.
 - Every cited receipt exists and belongs to your org.
 - Every binding resolves against its receipt or frozen dataset, and every dataset binding has been materialized.
 - Derived values (ratios, differences, counts, percent changes) are computed by Cardinal from the approved set of operations.
@@ -138,7 +160,7 @@ act 1 draft ─publish─► act 1 published ─add_act─► act 2 draft ─pub
 
 - **One open act at a time.** `storyboard__add_act` opens the next act, with a title and an optional summary. It needs every earlier act to be published; while an act is open it answers `open_act_exists`, and Claude continues that act instead.
 - **Append-only.** Scenes are added to the open act only. A published act's scenes can't be edited or removed (`scene_published`), and a new scene can't reuse a published scene's id. A new act can use a published act's Canvas surfaces as they are, or define new ones; it can't change a published surface (`surface_published`).
-- **Publishing publishes the open act.** `storyboard__publish` runs the checks above on that act's scenes. An act with no scenes is refused with `act_empty`. Once every act is published, writes are refused with `published`, and the message tells Claude to call `storyboard__add_act`.
+- **Publishing publishes the open act.** `storyboard__publish` runs the checks above on that act's scenes. An act with no scenes publishes too: it publishes the investigation record (see [above](#live-investigation-session-owned-visualization)). Once every act is published, writes are refused with `published`, and the message tells Claude to call `storyboard__add_act`.
 - **Public links don't follow new acts on their own.** A link keeps showing the acts it covered, and publishing an act onto a storyboard with live links asks whether to extend them. See [Public links and new acts](/ui/storyboards/public-links#links-and-new-acts).
 - **Discarding a draft act.** Only the open act can be discarded, never a published one. Its author can discard it: Claude calls `storyboard__discard_act`, and only from the connection that opened the act. An organization owner can discard an open act of a published storyboard from the viewer with **Discard draft act**, then **Discard act *n***. Discarding removes the act's scenes, the surfaces it defined, and its citations; the published acts stay as they are. Discarding act 1 of a storyboard that was never published deletes the draft storyboard.
 - **The time window can only widen.** `storyboard__add_act` can pass a window that contains the storyboard's current one; a narrower one is refused with `window_must_widen`.
@@ -150,8 +172,9 @@ In Claude Code, the `cardinal` plugin checks for a storyboard to update before i
 
 | Page | What it shows |
 | --- | --- |
-| `/storyboards` | Your org's published storyboards, your own drafts, and folders at the top level. |
-| `/storyboards?folder=<folder id>` | The storyboards and subfolders in one folder. |
+| `/storyboards` | Your org's published storyboards and your own drafts. |
+| `/storyboards?tags=<tag>,<tag>` | The storyboards that carry every tag named. |
+| `/storyboards/<id>` | One storyboard: its Investigation page while no act has a scene, its scenes once one does. `?view=scenes` or `?view=investigation` chooses. |
 | `/storyboards/<id>?scene=N` | One storyboard, opened at scene *N* (1-based). `&step=K` opens a reveal step within the scene. |
 
 There is no sidebar entry. You reach storyboards through:
@@ -175,36 +198,37 @@ Exploration is scoped to the evidence the storyboard captured. Questions that ne
 
 Each Canvas runs in a sandboxed frame with no network access, cookies, storage, or access to the rest of the page. It can only draw the evidence Cardinal resolved for it.
 
-### Folders
+### Tags
 
-Storyboards can be organized into folders. Folders belong to the org, not to one person: every member sees the same tree.
+Tags are how an org groups storyboards. A tag is a label shared by the whole org, with a name and a one-line description, and both members and agents apply them.
 
-- **Nestable.** A folder can hold subfolders, up to 8 levels deep. Names are up to 120 characters, can't contain `/`, and are unique within their parent folder, ignoring case.
-- **One folder per storyboard.** A storyboard sits in at most one folder. One that isn't in a folder is at the top level, which is where every storyboard created before folders starts.
-- **Who can change them.** Any member who can write storyboards (**Member** or **Owner**) can create, rename and move folders, and move storyboards between them.
-- **Only empty folders can be deleted.** Move or delete what is inside first; otherwise Cardinal answers `folder_not_empty`. A folder can't be moved into itself or one of its subfolders (`folder_cycle`), or deeper than 8 levels (`folder_too_deep`).
-- **Moving isn't editing.** Moving a storyboard doesn't change its content, its **Modified** time or its public links.
+- **Names** are lowercase words joined by dashes (`incident-review`, `db-timeouts`), up to 40 characters, unique in the org. Every tag needs a description of what belongs under it.
+- **Color** comes from the name, so a tag looks the same everywhere. It isn't stored or chosen.
+- **Up to 5 per storyboard.** Applying tags needs the same access as editing the storyboard. Tagging doesn't change the storyboard's content, its **Modified** time or its public links.
+- **Agents tag as they work.** The Cardinal plugin's storyboard skill reuses an existing tag that fits and creates one only when none does; see [Tags](/ui/storyboards/claude#tags).
+- **A tag belongs to whoever created it**, whether they created it in the browser or through their agent. Only the creator can rename it, change its description or delete it; there is no override for owners. Anyone else sees it read-only, with the creator's name.
 
-There are no MCP tools for folders: you organize them in the list. `storyboard__find` and `storyboard__get` tell Claude which folder a storyboard is in (`folder_path`, for example `Incidents/2026-Q3`).
+**On a storyboard:** its tags are shown under the question in the viewer's header. **Edit tags** lets a member pick existing tags or create one, with its description, without leaving the storyboard.
+
+**Manage tags**, at the end of the tag filter bar, lists every tag in the org with its description, how many storyboards carry it, and who created it. The creator can edit or delete a tag from there. Deleting asks first, with the number of storyboards (*Remove incident-review from 14 storyboards?*), and removes the tag from all of them.
 
 ### The storyboards list
 
-`/storyboards` works like a file browser. A breadcrumb at the top (**Storyboards › Incidents › 2026-Q3**) shows where you are; select a segment to go back up. Subfolders are listed first, then storyboards:
+`/storyboards` lists your org's storyboards, the 1,000 most recent, like a file browser:
 
 | Column | What it shows |
 | --- | --- |
-| **Name** | A folder or storyboard icon and the name or question. Under a storyboard, compact badges show its repository, branch and pull request. |
-| **Created by** | Who created the storyboard or folder (see [Badges](#badges)). |
+| **Name** | The storyboard's question. Under it, compact badges show its repository, branch and pull request, then its tags (the first 3, then **+*n* more**). |
+| **Created by** | Who created the storyboard (see [Badges](#badges)). |
 | **Modified** | When it last changed, as a relative time (`5m ago`). Hover it for the exact date and time. |
-| **Status** | **Draft**, **Published**, or **Act *n* draft**. Empty for folders. |
-| **Acts** | How many acts the storyboard has. Empty for folders. |
+| **Status** | **Draft**, **Published**, or **Act *n* draft**. |
+| **Acts** | How many acts the storyboard has. |
 
-- **Sort** by selecting a column header; select it again to reverse the order. Folders always stay above storyboards. The default is **Modified**, newest first, and your browser remembers your choice.
-- **Open** a folder or storyboard with a double-click, or with **Enter** on the focused row. **↑**/**↓**, **Home** and **End** move between rows.
+- **Sort** by selecting a column header; select it again to reverse the order. The default is **Modified**, newest first, and your browser remembers your choice.
+- **Group by** **Tag**, **Repo** or **None**. By tag, a storyboard appears under each of its tags, the most used tags first, and storyboards with no tags are last, under **Untagged**; hover a group's header for the tag's description. By repo, a storyboard appears under each repository it is associated with. **Tag** is unavailable while the org has no tags. Your browser remembers your choice.
+- **Filter by tag** with the tag bar above the list, which has one chip per tag, most used first. Select several to list the storyboards that carry all of them. The selection is kept in the URL (`?tags=incident-review,p1`), so you can share a filtered view. Selecting a tag chip on a row adds that tag to the filter. **Clear** drops the tags.
+- **Open** a storyboard with a double-click, or with **Enter** on the focused row. **↑**/**↓**, **Home** and **End** move between rows.
 - **Select** with a click; Cmd-click (Ctrl-click) adds or removes a row, Shift-click selects a range.
-- **New folder** adds a folder in the current one and lets you type its name; **Enter** saves, **Esc** cancels. To rename a folder, press **F2** on it or choose **Rename** from its row menu (**…**).
-- **Move** the selected rows by dragging them onto a folder row or onto a breadcrumb segment (**Storyboards** is the top level), or with **Move to…** in the toolbar or a row menu. **Move to…** opens a folder tree you can use with the keyboard: **↑**/**↓** to move, **→** to expand, **←** to collapse, **Enter** to select, then **Move**. Folders you can't move into are greyed out and can't be selected.
-- **Delete folder** is in a folder's row menu.
 - The **All / Published / Drafts** switch filters the storyboards.
 
 #### Search and filters
@@ -214,13 +238,11 @@ The search box above the list reads **Search, or paste a SHA, PR, issue key, URL
 - A **commit SHA** (7 or more characters), a pull request (`owner/repo#2048`), an issue key (`ENG-12`), a URL or a file path finds the storyboards **associated** with it: declared in [About](/ui/storyboards/associations#about) or recorded in [Written from](/ui/storyboards/associations#written-from), on any act.
 - Anything else is a text search over the storyboards' questions and published scenes. Text of 2 or more characters is searched; a few words work best.
 
-Select an About chip on a row to filter by it (a pull request filters by its repository too). While any search or filter is on, the list becomes one flat list of matches across your whole org, with no folders or groups, and each active filter is a chip you can remove. **Clear filters** drops them all. A folder can't be combined with a search or filter, so searching from inside a folder searches everywhere. The **All / Published / Drafts** switch still applies.
+Select an About chip on a row to filter by it (a pull request filters by its repository too). While any search or filter is on, the list becomes one flat list of matches across your whole org, with no groups, and each active filter is a chip you can remove. **Clear filters** drops them all. The **All / Published / Drafts** switch and the tag filter still apply.
 
 A filtered list shows the 100 most recent matches (a search shows up to 50: the SHA, pull request, issue, URL and path matches, plus at most 20 text matches), and says so; it doesn't page. A text search needs a Cardinal with storyboard search set up; without it the list says search isn't available, while SHA, pull request, issue, URL and path lookups keep working.
 
-A folder lists its 1,000 most recently modified storyboards; above that, the list says so.
-
-When you open a storyboard, the back link at the top of the viewer is the same breadcrumb, for example **Storyboards › Incidents › 2026-Q3**.
+When you open a storyboard, **Storyboards** above its question links back to the list.
 
 ### Badges
 
@@ -245,16 +267,16 @@ Status (**Draft**, **Published**, **Act *n* draft**) is shown beside them, as be
 - **Created by** is the Cardinal user who created the storyboard, by display name or email. When Cardinal doesn't know which user wrote it, as with the org API key `/cardinal:connect` stores, it is the email Claude's client reported for act 1, shown with a dotted underline: hover it for *Self-reported by the author's client; not verified*. Without either, it is the API key's name. A key's id is never shown.
 - **Context by act.** A storyboard with more than one act has a **Context by act** menu beside its badges, with one row per act (**Act *n* · *title***) and that act's own **About** and **Written from** badges, so you can see what each act explains and where it was written.
 
-**Folders and badges are visible only to org members.** A [public link](/ui/storyboards/public-links) never shows them.
+**Tags and badges are visible only to org members.** A [public link](/ui/storyboards/public-links) never shows them.
 
 ## Limits
 
 | Limit | Value |
 | --- | --- |
 | Acts per storyboard | 20 |
-| Folders per org | 1,000 |
-| Folder nesting | 8 levels |
-| Storyboards listed per folder | 1,000, most recently modified first |
+| Tags per org | 1,000 |
+| Tags per storyboard | 5 |
+| Storyboards in the list | 1,000, most recent first |
 | Scenes per storyboard, across all its acts | 50 |
 | Shared Canvas surfaces per storyboard, across all its acts | 16 |
 | Evidence bindings per storyboard, across all its acts | 1,500 |
