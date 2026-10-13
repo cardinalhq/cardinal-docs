@@ -342,10 +342,14 @@ describe('storyboards docs: statements that must stay correct', () => {
     expect(index).toMatch(/\| Tags per org \| 1,000 \|/);
   });
 
-  test('folders are gone from every storyboards page', () => {
-    for (const rel of PAGES) {
+  test('folders are gone from every storyboards page but the self-hosted upgrade note', () => {
+    for (const rel of PAGES.filter((p) => p !== 'ui/storyboards/self-hosted.mdx')) {
       expect(read(rel)).not.toMatch(/folder/i);
     }
+    const selfHosted = read('ui/storyboards/self-hosted.mdx');
+    expect(selfHosted).toContain('## Upgrading to tags');
+    expect(selfHosted).toContain('Folders are not converted to tags');
+    expect(selfHosted).toContain('**Upgrade through v1.114.0.**');
   });
 
   test('public links never show tags, badges or who created the storyboard', () => {
