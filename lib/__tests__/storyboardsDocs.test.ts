@@ -212,9 +212,10 @@ describe('storyboards docs: statements that must stay correct', () => {
     }
   });
 
-  test('public links: published only, org policy defaults, raw evidence opt-in', () => {
+  test('public links: org-visible only, org policy defaults, raw evidence opt-in', () => {
     const links = read('ui/storyboards/public-links.mdx');
-    expect(links).toContain('**Published storyboards only.** A draft can never be shared publicly.');
+    expect(links).toContain('**Shared with your org first.**');
+    expect(links).not.toContain('**Published storyboards only.**');
     expect(links).toContain('**Public storyboard links**');
     expect(links).toMatch(/Team orgs[^\n]*\| \*\*Off\*\*/);
     expect(links).toMatch(/Personal workspaces[^\n]*\| \*\*On\*\*/);
@@ -226,7 +227,7 @@ describe('storyboards docs: statements that must stay correct', () => {
     expect(links).toContain("| The full result the investigation saw (credentials redacted), including a failed call's error text | No | Yes |");
     expect(links).not.toContain('and the query text');
     expect(links).toContain('The query and its arguments are always visible on a public link, raw evidence or not.');
-    for (const err of ['`public_links_disabled`', '`storyboard_not_published`', '`share_host_not_configured`']) {
+    for (const err of ['`public_links_disabled`', '`storyboard_private`', '`share_host_not_configured`']) {
       expect(links).toContain(err);
     }
   });
@@ -246,15 +247,16 @@ describe('storyboards docs: statements that must stay correct', () => {
     expect(index).toMatch(/\| Acts per storyboard \| 20 \|/);
   });
 
-  test('public links: a link shows the acts it covers; extending asks, raw evidence always needs a yes', () => {
+  test('public links: a link pins what it shows; publishing asks, raw evidence always needs a yes', () => {
     const links = read('ui/storyboards/public-links.mdx');
-    expect(links).toContain('A link shows the acts it covers');
-    expect(links).toContain('## Links and new acts');
-    for (const term of ['`public_links_decision_required`', '`raw_evidence_confirmation_required`', '`share_permission_required`', '`raw_scenes_hidden`', '`through_act`']) {
+    expect(links).toContain('**A link pins what it shows.**');
+    expect(links).toContain('## Links, new acts and new events');
+    expect(links).toContain('**Update link**');
+    for (const term of ['`public_links_decision_required`', '`raw_evidence_confirmation_required`', '`share_permission_required`', '`raw_scenes_hidden`', '`through_act`', '`through_event_seq`', '`timeline_head`', '`invalid_through_event_seq`']) {
       expect(links).toContain(term);
     }
     expect(links).toContain('The plugin always asks you before confirming raw evidence on an extended link, even when you asked it to update what you shared');
-    expect(links).toContain('nothing says that later acts exist');
+    expect(links).toContain('nothing says that later acts or events exist');
     expect(links).toContain('| Where each act was written: repository, branch, pull request, commit, directory id, email | Never | Never |');
   });
 
@@ -380,10 +382,18 @@ describe('storyboards docs: statements that must stay correct', () => {
     expect(index).toContain('Sessions is for members only; a public link never shows it.');
   });
 
-  test('public links: a link needs a published scene', () => {
+  // Public links without a story (conductor #2127): no published act or scene
+  // is needed; a link pins its acts and the investigation timeline.
+  test('public links: no story needed, and readers see the investigation tab', () => {
     const links = read('ui/storyboards/public-links.mdx');
-    expect(links).toContain('**At least one published scene.**');
-    expect(links).toContain('| `no_published_scenes` |');
+    const claude = read('ui/storyboards/claude.mdx');
+    expect(links).toContain('**No story needed.**');
+    expect(links).toContain('A public link has the same **Investigation** and **Story** tabs as the storyboard, read-only.');
+    for (const doc of [links, claude, read('ui/storyboards/index.mdx')]) {
+      expect(doc).not.toContain('`no_published_scenes`');
+      expect(doc).not.toContain('`storyboard_not_published`');
+      expect(doc).not.toContain('needs a published scene');
+    }
   });
 
   test('claude: the tag tools, the skill steps and find/get tags', () => {

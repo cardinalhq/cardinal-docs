@@ -2,7 +2,7 @@ import SupportCallout from '../../../components/SupportCallout';
 
 # Public links
 
-A public link opens one **published** storyboard, read-only, for anyone who has the link. Readers need no Cardinal account. Use it to share a write-up with a vendor, a customer, or a team that isn't in your Cardinal org. Members of your org don't need one: once the storyboard is [shared with your org](/ui/storyboards#who-can-see-a-storyboard), they can open its `view_url`.
+A public link opens one storyboard that is [shared with your org](/ui/storyboards#who-can-see-a-storyboard), read-only, for anyone who has the link: its investigation and any finished acts, as they were when the link was made. Readers need no Cardinal account. Use it to share a write-up with a vendor, a customer, or a team that isn't in your Cardinal org. Members of your org don't need one: they can open the storyboard's `view_url`.
 
 On a self-hosted Cardinal UI, where links point depends on your operator's settings; see [Self-hosted setup](/ui/storyboards/self-hosted#public-links).
 
@@ -10,10 +10,9 @@ On a self-hosted Cardinal UI, where links point depends on your operator's setti
 
 ## Rules
 
-- **Shared with your org first.** Only a storyboard whose visibility is **Org** can get a public link; a private one is refused with `storyboard_private`. Making a storyboard private revokes its live links at once, and sharing it with the org again doesn't bring them back. See [Who can see a storyboard](/ui/storyboards#who-can-see-a-storyboard).
-- **Published storyboards only.** A draft can never be shared publicly. A link shows only published [acts](/ui/storyboards#acts), and published acts are immutable, so it always shows exactly what passed publish.
-- **At least one published scene.** An act published without scenes publishes only its investigation record, which a public link never shows. Until a scene is published, creating a link is refused with `no_published_scenes`.
-- **A link shows the acts it covers.** Publishing a new act asks whether to extend existing links; links that include raw evidence need a separate confirmation. A new link covers every act published when it is created. See [Links and new acts](#links-and-new-acts).
+- **Shared with your org first.** Only a storyboard that everyone in your org can see gets a public link. A private storyboard is refused with `storyboard_private`: share it with your org first (**Share → Who can see this**). Making a storyboard private again revokes its live links at once, and sharing it with the org again doesn't bring them back. See [Who can see a storyboard](/ui/storyboards#who-can-see-a-storyboard).
+- **No story needed.** A link can share an investigation that has no published act yet. Readers see its timeline, and they see scenes only from published [acts](/ui/storyboards#acts). A draft act is never shown, and published acts are immutable, so the scenes a link shows are exactly what passed publish.
+- **A link pins what it shows.** A new link shows every act published when it is created and the investigation timeline as of that moment. It never follows later changes on its own: **Update link** moves it forward, and publishing a new act asks whether to show that act. A link that includes raw evidence needs a separate confirmation. See [Links, new acts and new events](#links-new-acts-and-new-events).
 - **Your org must allow it.** The org setting **Public storyboard links** decides whether members can create links. See [Org policy](#org-policy).
 - **The URL is the credential.** Cardinal stores only a hash of it, so the URL is shown once, when the link is created. A lost URL can't be recovered: revoke the link and create another.
 - **Revocable.** Revoking a link stops it working within a minute (a reader's browser may keep showing a cached copy for up to 60 seconds). Deleting the storyboard ends its links too.
@@ -26,7 +25,7 @@ On Cardinal Cloud, public links are served from `share.cardinalhq.io`, a separat
 
 For a live investigation draft, ask your agent to publish the storyboard. Its skill updates the scenes, renders and refines previews, then publishes. A storyboard stays private to its author until it is shared with your org or its first act is published. If you publish an already authored visualization through the UI instead, first choose **Publish…**. If the question or time window is not yet stated, review the publishing details, choose the period this version covers, and select **Save publishing details**. This saves the framing while keeping the Storyboard private. If scenes are missing or outdated, ask your investigating agent to update and preview the visualization in its session. Then choose **Publish**. Publishing freezes that act; it does not create an external link.
 
-**In Cardinal:** open the published storyboard and choose **Share** in its header. In the **Share** dialog, check that **Who can see this** is **Everyone in your organization**, then:
+**In Cardinal:** open the storyboard (on either its Investigation or its Story tab) and choose **Share** in its header. If it's private, choose **Everyone in your organization** under **Who can see this** first. Then, under public links:
 
 1. Leave **Include raw evidence** off unless readers need the raw results (see [What readers see](#what-readers-see)).
 2. Pick when the link **Expires**: never, or after 1, 7, 30 or 90 days.
@@ -36,15 +35,15 @@ For a live investigation draft, ask your agent to publish the storyboard. Its sk
 
 ## List and revoke links
 
-The **Share** dialog lists every link of the storyboard with its status (`active`, `revoked` or `expired`), whether it includes raw evidence, its expiry, how many times it was viewed, and which acts it shows, for example *Shows acts 1–1 of 2*. Choose **Revoke**, then **Confirm revoke**, to end one.
+The **Share** dialog lists every link of the storyboard with its status (`active`, `revoked` or `expired`), whether it includes raw evidence, its expiry, how many times it was viewed, and what it shows: for example *Shows acts 1–1 of 2*, or *Shows the investigation only* for a link made before any act was published. *Newer investigation events are not on this link* means the investigation has moved on since the link was made or last updated. Choose **Revoke**, then **Confirm revoke**, to end one.
 
-From Claude, `storyboard__share` with `action: "list"` returns the same metadata, including each link's `through_act`, and `action: "revoke"` with a `share_id` (`shr_…`) ends a link. Revoking is safe to repeat. Neither the list nor anything else ever returns a link's URL again.
+From Claude, `storyboard__share` with `action: "list"` returns the same metadata, including each link's `through_act` and `through_event_seq` and the investigation's `timeline_head`, and `action: "revoke"` with a `share_id` (`shr_…`) ends a link. Revoking is safe to repeat. Neither the list nor anything else ever returns a link's URL again.
 
-Creating, listing, extending and revoking links needs the **Member** or **Owner** role.
+Creating, listing, updating and revoking links needs the **Member** or **Owner** role.
 
-## Links and new acts
+## Links, new acts and new events
 
-A link records the last act it shows, its `through_act`. When Claude publishes a later act, existing links don't show it until someone decides they should, so a URL you already sent never starts showing content you haven't seen.
+A link records what it shows: the last act, its `through_act` (`0` when it shows no act), and the last investigation event, its `through_event_seq`. When Claude publishes a later act or records more of the investigation, existing links don't show it until someone decides they should, so a URL you already sent never starts showing content you haven't seen.
 
 ```
 act 1 published ── link created (shows act 1)
@@ -53,16 +52,21 @@ act 2 published ── public_links: "keep"   → the link still shows act 1
                    (raw-evidence link over raw bindings: also confirm_raw_evidence, after the person says yes)
 ```
 
-- **Publishing asks.** Publishing act 2 or later onto a storyboard with live links is refused with `public_links_decision_required`, which lists the links, until the publish says `public_links: "extend"` (show the new act) or `"keep"` (links keep showing the acts they show now). The Cardinal plugin asks you, unless you already told Claude to update what you shared. A storyboard with no live links publishes without the question.
+- **Publishing asks.** Publishing an act (act 1 too, when a link was made before it) onto a storyboard with live links is refused with `public_links_decision_required`, which lists the links, until the publish says `public_links: "extend"` (show the new act) or `"keep"` (links keep showing the acts they show now). The Cardinal plugin asks you, unless you already told Claude to update what you shared. A storyboard with no live links publishes without the question.
 - **Extending is sharing.** `extend` needs permission to share storyboards publicly, as creating a link does; without it the publish is refused with `share_permission_required`, and `keep` still works.
-- **Raw evidence needs its own yes.** When a link includes raw evidence and the acts it would newly show bind whole results or every row of a dataset, extending it is refused with `raw_evidence_confirmation_required`, which lists those bindings, until the call adds `confirm_raw_evidence: true`. The plugin always asks you before confirming raw evidence on an extended link, even when you asked it to update what you shared, and only your yes sends it.
+- **Raw evidence needs its own yes.** When a link includes raw evidence and the acts it would newly show bind whole results or every row of a dataset, or the investigation events it would newly show cite receipts it doesn't show yet, updating it is refused with `raw_evidence_confirmation_required`, which lists those bindings and receipts, until the call adds `confirm_raw_evidence: true`. The plugin always asks you before confirming raw evidence on an extended link, even when you asked it to update what you shared, and only your yes sends it.
 - **Links without raw evidence stay without it.** On a link without raw evidence, a newly shown scene that binds a whole result or every row of a dataset is listed, but its Canvas isn't served to readers. The publish result names those scenes in `raw_scenes_hidden`.
-- **Extend later.** In the **Share** dialog, choose **Extend to act *n*** on a link (a raw-evidence link over raw bindings shows them first, with **Confirm raw evidence and extend to act *n***). From Claude, `storyboard__share` with `action: "extend"`, the link's `share_id` and optionally `through_act`. A link can't be narrowed: to show fewer acts, revoke it and create another.
-- **No notice of later acts.** A reader of a link sees the acts it shows, and nothing says that later acts exist. A draft act is never shown.
+- **Update link.** In the Share dialog, choose **Update link** on a link, or **Update link to act *n*** when there is a later act too. It moves the link to the latest act and the latest investigation event. A raw-evidence link shows what it would newly expose first, with **Confirm raw evidence and update link**. From Claude, `storyboard__share` with `action: "extend"` and the link's `share_id`: with no other options both move to the latest, and `through_act` or `through_event_seq` moves only that one. A link can't be narrowed: to show less, revoke it and create another.
+- **Reopening an act narrows links.** Reopening act *n* for changes makes links that showed it show acts 1 to *n*−1. Reopening act 1 leaves them showing the investigation only, and the links stay live.
+- **No notice of later changes.** A reader of a link sees what it shows, and nothing says that later acts or events exist. A draft act is never shown.
 
 ## What readers see
 
-A public link opens the same viewer your org uses: every scene of the acts the link shows, with a divider for each act, its statement, state, claims and open questions, its Canvas, and the storyboard's evidence tally with a tier badge on every receipt. It has no way into the rest of Cardinal and no **Open in Explore**. Nothing is re-queried when a reader opens it.
+A public link has the same **Investigation** and **Story** tabs as the storyboard, read-only. It opens on **Story** when the link shows an act, and on **Investigation** otherwise.
+
+**Investigation** shows the investigation as of the link: the hypotheses, experiments, findings, decisions and questions the agents recorded, with their text, how they refer to each other, whether a finding was revised or retracted, when each was recorded, and the receipts each one cites. Each entry is labelled only "Agent", "Agent 2" and so on, in the order the agents first appear. Notes, questions and challenges people posted, the agents' acknowledgements, owner decisions, prompts, and which person, key or session wrote an entry are never shown. Investigation ids, session ids and key ids that appear in text are replaced with `[redacted]`.
+
+**Story** opens the same viewer your org uses: every scene of the acts the link shows, with a divider for each act, its statement, state, claims and open questions, its Canvas, and the storyboard's evidence tally with a tier badge on every receipt. It has no way into the rest of Cardinal and no **Open in Explore**. Nothing is re-queried when a reader opens it.
 
 What the evidence drawer shows depends on **Include raw evidence**:
 
@@ -75,7 +79,10 @@ What the evidence drawer shows depends on **Include raw evidence**:
 | Who wrote it: session id, API key, client, uploader | Never | Never |
 | Where each act was written: repository, branch, pull request, commit, directory id, email | Never | Never |
 | The storyboard's tags, its metadata badges, and who created it | Never | Never |
-| Its investigation timeline and the agent sessions behind it | Never | Never |
+| The investigation's hypotheses, experiments, findings, decisions and questions, as of the link, labelled "Agent", "Agent 2" | Yes | Yes |
+| The receipts those entries cite, as above | Summary | Summary and raw |
+| Notes, questions, challenges, acknowledgements, owner decisions and prompts on the investigation | Never | Never |
+| The agent sessions behind it (the **Sessions** panel) | Never | Never |
 
 Public links never show [tags](/ui/storyboards#tags), repository/branch/PR badges or who created the storyboard. Tagging a storyboard doesn't change its links.
 
@@ -111,7 +118,7 @@ The description reads `<finding> · <counts>`, cut to 200 characters. When it is
 
 Scenes other than the one finding, evidence and receipts, drafts, the context the storyboard was written from, its [associations](/ui/storyboards/associations), who wrote it, and its tags. A member link's preview uses only the latest **published** act, never a draft act.
 
-A **public link's** preview is pinned to the acts the link shows, up to its `through_act`. Publishing a later act changes nothing about it until the link is [extended](#links-and-new-acts), and then it describes the extended link.
+A **public link's** preview is pinned to the acts the link shows, up to its `through_act`. Publishing a later act changes nothing about it until the link is [updated](#links-new-acts-and-new-events), and then it describes the updated link. A link that shows no act has no card of its own: it unfurls with the generic preview.
 
 ### What the image is
 
@@ -169,8 +176,6 @@ The **Public storyboard links** card in **Settings → About** shows whether mem
 | --- | --- | --- |
 | `public_links_disabled` | The org's **Public storyboard links** setting is off. | Ask an organization owner to turn it on in **Settings → About**. |
 | `storyboard_private` | The storyboard is private to its author. | Its author shares it with the org (**Share → Who can see this**, or `storyboard__share` with `action: "set_visibility"`), then creates the link. |
-| `storyboard_not_published` | The storyboard is a draft. | Publish it first. |
-| `no_published_scenes` | The storyboard's published acts have no scenes: it published only its investigation record. | Add at least one scene and publish it, then create the link. |
 | `raw_evidence_required` | The link has raw evidence off, but a scene binds a whole result or every row of a dataset. The error lists those scenes. | Turn on **Include raw evidence**, or publish a narrower storyboard. |
 | `storyboard_changed` | The storyboard changed while the link was being created. | Try again. |
 | `share_host_not_configured` | This Cardinal has no public address for links. | Self-hosted only: your operator sets `SHARE_HOST` or `MAESTRO_BASE_URL`. See [Self-hosted setup](/ui/storyboards/self-hosted#public-links). |
@@ -178,7 +183,8 @@ The **Public storyboard links** card in **Settings → About** shows whether mem
 | `public_links_decision_required` | An act is being published onto a storyboard with live links. | Publish again with `public_links: "extend"` or `"keep"`. Claude asks you which. |
 | `raw_evidence_confirmation_required` | A link with raw evidence would newly show acts that bind whole results or every row of a dataset. The error lists the bindings. | Review them. Only if you agree, extend with `confirm_raw_evidence: true`; otherwise keep the link as it is. |
 | `share_permission_required` | The caller may publish but not share publicly. | Publish with `public_links: "keep"`; someone who can share extends the links later. |
-| `invalid_through_act` | The act asked for is not published, or is before what the link shows now. | Extend to a published act at or after the link's current `through_act`. |
+| `invalid_through_act` | The act asked for is not published, or is before what the link shows now. | Update to a published act at or after the link's current `through_act`. |
+| `invalid_through_event_seq` | The event asked for is before what the link shows now, or past the investigation's latest event. | Update to a `through_event_seq` between the link's current one and `timeline_head` (list shows both). |
 | `share_not_active` | The link was revoked or has expired. | Create a new link. |
 
 ## Report abuse

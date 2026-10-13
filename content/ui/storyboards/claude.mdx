@@ -151,7 +151,7 @@ Each match's description reads *why · number of acts · when it was last update
 
 In a non-interactive run (`claude -p`), Claude can't ask, so it creates a new storyboard and names the best match in its final message, with how to fold the new one into it ("say: add this to *storyboard*").
 
-To hand an investigation to another agent before it has scenes, ask Claude to publish the act anyway: an act with no scenes publishes the investigation record, which org members and their agents can then read and continue. A public link still needs a published scene. To continue someone else's investigation, copy the prompt from the storyboard's [Sessions](/ui/storyboards#sessions-and-resume) panel into any agent with the Cardinal plugin.
+To hand an investigation to another agent before it has scenes, ask Claude to publish the act anyway: an act with no scenes publishes the investigation record, which org members and their agents can then read and continue. A public link can share it too, before any act is published; see [Public links](/ui/storyboards/public-links#rules). To continue someone else's investigation, copy the prompt from the storyboard's [Sessions](/ui/storyboards#sessions-and-resume) panel into any agent with the Cardinal plugin.
 
 To drop an act you opened by mistake, ask Claude to discard it (`storyboard__discard_act`). Only the connection that opened an act can discard it this way; an organization owner can discard any open act from the viewer. See [Acts](/ui/storyboards#acts).
 
@@ -161,7 +161,7 @@ Publishing an act onto a storyboard that has live public links needs a decision 
 
 **Raw evidence always needs your answer.** When a link includes raw evidence and the acts it would newly show bind whole results or every row of a dataset, Cardinal refuses with `raw_evidence_confirmation_required` and lists those bindings. The plugin always asks before confirming raw evidence on an extended link, even when you asked it to update what you shared: Claude shows you the bindings, and only your yes sends `confirm_raw_evidence: true`. If you say no, it publishes with `public_links: "keep"`.
 
-See [Links and new acts](/ui/storyboards/public-links#links-and-new-acts).
+See [Links and new acts](/ui/storyboards/public-links#links-new-acts-and-new-events).
 
 ### What each act records
 
@@ -313,7 +313,6 @@ The Codex, Cursor, Gemini CLI, OpenCode and Pi plugins connect the same way, eac
 | `unknown_tags` | `storyboard__set_tags` named a tag that doesn't exist. Claude creates it with `storyboard__create_tag`, or picks an existing one, and tries again. |
 | `storyboard_tag_limit` | A storyboard can carry at most 5 tags. |
 | `not_tag_owner` | Only a tag's creator can rename it, change its description or delete it. |
-| `no_published_scenes` | Creating a public link needs at least one published scene. Claude adds and publishes a scene first. |
 | Claude doesn't mention a storyboard you know covers this work | The discovery hook finds storyboards **about** this work or **written from** the same pull request, branch, commit or edited file; it doesn't match the same directory or repository alone. A storyboard written before 0.39.6 may have no declared About entries: ask Claude to add the pull request with `storyboard__link`. Check that the plugin is connected (`/cardinal:status`), that `CARDINAL_STORYBOARD_DISCOVERY` isn't `0`, and run `cardinal-storyboard discover` to see what it finds. You can always ask Claude to look with `storyboard__find`. |
 | The `storyboard__*` tools are missing | Run `/cardinal:status`. If it says you're not connected, run `/cardinal:connect`. If you are, reconnect the server with `/mcp` or start a new session. |
 
