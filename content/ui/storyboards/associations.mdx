@@ -199,7 +199,7 @@ On Codex, Gemini CLI and Cursor, the session-start text gives the agent its sess
 ## Privacy
 
 - **Public links never carry any of this.** Associations, session ids and edited files are never in a public link's page, its link preview, or its search text.
-- **File names follow storyboard visibility.** Edited files and declared paths are repository-relative, never absolute. On a published storyboard they show file names to every member of your org, even for a private repository. On a draft-status storyboard they are visible only to its author.
+- **File names follow storyboard visibility.** Edited files and declared paths are repository-relative, never absolute. On a storyboard shared with your org they show file names to every member, even for a private repository. On a private storyboard they are visible only to its author.
 - **Discovery on `main` sends recent history to your Cardinal.** After a merge, the plugin sends recent merged pull request numbers, their merge commit SHAs, and the names of your recent local branches, with your API key, to your own Cardinal. It never sends commit messages or code.
 - **Credentials are never stored.** A URL with credentials is rejected, and a stored URL is redacted.
 - **Self-reported.** Neither role is checked against GitHub or your repository, and neither decides who may change a storyboard.

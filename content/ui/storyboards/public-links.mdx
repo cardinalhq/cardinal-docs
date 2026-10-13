@@ -2,7 +2,7 @@ import SupportCallout from '../../../components/SupportCallout';
 
 # Public links
 
-A public link opens one **published** storyboard, read-only, for anyone who has the link. Readers need no Cardinal account. Use it to share a write-up with a vendor, a customer, or a team that isn't in your Cardinal org. Members of your org don't need one: they can open the storyboard's `view_url`.
+A public link opens one **published** storyboard, read-only, for anyone who has the link. Readers need no Cardinal account. Use it to share a write-up with a vendor, a customer, or a team that isn't in your Cardinal org. Members of your org don't need one: once the storyboard is [shared with your org](/ui/storyboards#who-can-see-a-storyboard), they can open its `view_url`.
 
 On a self-hosted Cardinal UI, where links point depends on your operator's settings; see [Self-hosted setup](/ui/storyboards/self-hosted#public-links).
 
@@ -10,6 +10,7 @@ On a self-hosted Cardinal UI, where links point depends on your operator's setti
 
 ## Rules
 
+- **Shared with your org first.** Only a storyboard whose visibility is **Org** can get a public link; a private one is refused with `storyboard_private`. Making a storyboard private revokes its live links at once, and sharing it with the org again doesn't bring them back. See [Who can see a storyboard](/ui/storyboards#who-can-see-a-storyboard).
 - **Published storyboards only.** A draft can never be shared publicly. A link shows only published [acts](/ui/storyboards#acts), and published acts are immutable, so it always shows exactly what passed publish.
 - **At least one published scene.** An act published without scenes publishes only its investigation record, which a public link never shows. Until a scene is published, creating a link is refused with `no_published_scenes`.
 - **A link shows the acts it covers.** Publishing a new act asks whether to extend existing links; links that include raw evidence need a separate confirmation. A new link covers every act published when it is created. See [Links and new acts](#links-and-new-acts).
@@ -23,9 +24,9 @@ On Cardinal Cloud, public links are served from `share.cardinalhq.io`, a separat
 
 ## Create a link
 
-For a live investigation draft, ask your agent to publish the storyboard. Its skill updates the scenes, renders and refines previews, then publishes. Draft-status storyboards remain author-only until publication. If you publish an already authored visualization through the UI instead, first choose **Publish…**. If the question or time window is not yet stated, review the publishing details, choose the period this version covers, and select **Save publishing details**. This saves the framing while keeping the Storyboard private. If scenes are missing or outdated, ask your investigating agent to update and preview the visualization in its session. Then choose **Publish**. Publishing freezes that act; it does not create an external link.
+For a live investigation draft, ask your agent to publish the storyboard. Its skill updates the scenes, renders and refines previews, then publishes. A storyboard stays private to its author until it is shared with your org or its first act is published. If you publish an already authored visualization through the UI instead, first choose **Publish…**. If the question or time window is not yet stated, review the publishing details, choose the period this version covers, and select **Save publishing details**. This saves the framing while keeping the Storyboard private. If scenes are missing or outdated, ask your investigating agent to update and preview the visualization in its session. Then choose **Publish**. Publishing freezes that act; it does not create an external link.
 
-**In Cardinal:** open the published storyboard and choose **Share** in its header. In the **Share publicly** dialog:
+**In Cardinal:** open the published storyboard and choose **Share** in its header. In the **Share** dialog, check that **Who can see this** is **Everyone in your organization**, then:
 
 1. Leave **Include raw evidence** off unless readers need the raw results (see [What readers see](#what-readers-see)).
 2. Pick when the link **Expires**: never, or after 1, 7, 30 or 90 days.
@@ -35,7 +36,7 @@ For a live investigation draft, ask your agent to publish the storyboard. Its sk
 
 ## List and revoke links
 
-The **Share publicly** dialog lists every link of the storyboard with its status (`active`, `revoked` or `expired`), whether it includes raw evidence, its expiry, how many times it was viewed, and which acts it shows, for example *Shows acts 1–1 of 2*. Choose **Revoke**, then **Confirm revoke**, to end one.
+The **Share** dialog lists every link of the storyboard with its status (`active`, `revoked` or `expired`), whether it includes raw evidence, its expiry, how many times it was viewed, and which acts it shows, for example *Shows acts 1–1 of 2*. Choose **Revoke**, then **Confirm revoke**, to end one.
 
 From Claude, `storyboard__share` with `action: "list"` returns the same metadata, including each link's `through_act`, and `action: "revoke"` with a `share_id` (`shr_…`) ends a link. Revoking is safe to repeat. Neither the list nor anything else ever returns a link's URL again.
 
@@ -56,7 +57,7 @@ act 2 published ── public_links: "keep"   → the link still shows act 1
 - **Extending is sharing.** `extend` needs permission to share storyboards publicly, as creating a link does; without it the publish is refused with `share_permission_required`, and `keep` still works.
 - **Raw evidence needs its own yes.** When a link includes raw evidence and the acts it would newly show bind whole results or every row of a dataset, extending it is refused with `raw_evidence_confirmation_required`, which lists those bindings, until the call adds `confirm_raw_evidence: true`. The plugin always asks you before confirming raw evidence on an extended link, even when you asked it to update what you shared, and only your yes sends it.
 - **Links without raw evidence stay without it.** On a link without raw evidence, a newly shown scene that binds a whole result or every row of a dataset is listed, but its Canvas isn't served to readers. The publish result names those scenes in `raw_scenes_hidden`.
-- **Extend later.** In the **Share publicly** dialog, choose **Extend to act *n*** on a link (a raw-evidence link over raw bindings shows them first, with **Confirm raw evidence and extend to act *n***). From Claude, `storyboard__share` with `action: "extend"`, the link's `share_id` and optionally `through_act`. A link can't be narrowed: to show fewer acts, revoke it and create another.
+- **Extend later.** In the **Share** dialog, choose **Extend to act *n*** on a link (a raw-evidence link over raw bindings shows them first, with **Confirm raw evidence and extend to act *n***). From Claude, `storyboard__share` with `action: "extend"`, the link's `share_id` and optionally `through_act`. A link can't be narrowed: to show fewer acts, revoke it and create another.
 - **No notice of later acts.** A reader of a link sees the acts it shows, and nothing says that later acts exist. A draft act is never shown.
 
 ## What readers see
@@ -167,6 +168,7 @@ The **Public storyboard links** card in **Settings → About** shows whether mem
 | Error | Why | What to do |
 | --- | --- | --- |
 | `public_links_disabled` | The org's **Public storyboard links** setting is off. | Ask an organization owner to turn it on in **Settings → About**. |
+| `storyboard_private` | The storyboard is private to its author. | Its author shares it with the org (**Share → Who can see this**, or `storyboard__share` with `action: "set_visibility"`), then creates the link. |
 | `storyboard_not_published` | The storyboard is a draft. | Publish it first. |
 | `no_published_scenes` | The storyboard's published acts have no scenes: it published only its investigation record. | Add at least one scene and publish it, then create the link. |
 | `raw_evidence_required` | The link has raw evidence off, but a scene binds a whole result or every row of a dataset. The error lists those scenes. | Turn on **Include raw evidence**, or publish a narrower storyboard. |
