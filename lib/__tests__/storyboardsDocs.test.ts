@@ -302,13 +302,13 @@ describe('storyboards docs: statements that must stay correct', () => {
     expect(privacy).toContain('`CARDINAL_STORYBOARD_DISCOVERY=0`');
   });
 
-  test('publication refreshes visuals explicitly and draft-status storyboards are author-only', () => {
+  test('publication refreshes visuals explicitly and private storyboards are author-only', () => {
     const index = read('ui/storyboards/index.mdx');
     const hosted = read('ui/storyboards/self-hosted.mdx');
     expect(index).toContain('first creates or updates the scenes');
     expect(index).toContain('renders previews, inspects them, and refines the visualization');
     expect(index).toContain('It then validates and publishes the completed act');
-    expect(index).toContain('**Draft-status storyboards are visible only to their author**');
+    expect(index).toContain('**A private storyboard is visible only to its author**');
     expect(index).toContain('including in lists, search, and direct links');
     expect(index).not.toContain('Empty acts cannot be published');
     expect(index).toContain('The UI’s **Publish** button checks and freezes existing scenes');
@@ -316,7 +316,9 @@ describe('storyboards docs: statements that must stay correct', () => {
     expect(index).not.toContain('Drafts are visible to members of your org only');
     expect(plugin).not.toContain('When Claude finishes its work, it asks');
     expect(hosted).not.toContain('after the user accepts its offer');
-    expect(index).toContain('Published storyboards remain visible to org members, including a later open draft act');
+    expect(index).toContain("An org-visible storyboard's later open draft act is visible to members too");
+    expect(index).toContain('### Who can see a storyboard');
+    expect(index).not.toContain('Draft-status storyboards are visible only to their author');
   });
 
   // Tags replace folders (conductor #2111-#2115, the plugins' storyboard skill).
@@ -331,7 +333,7 @@ describe('storyboards docs: statements that must stay correct', () => {
     expect(index).toContain('up to 40 characters');
     expect(index).toContain('**Up to 5 per storyboard.**');
     expect(index).toContain('**A tag belongs to whoever created it**');
-    for (const column of ['**Name**', '**Created by**', '**Modified**', '**Status**', '**Acts**']) expect(index).toContain(`| ${column} |`);
+    for (const column of ['**Name**', '**Created by**', '**Modified**', '**Visibility**', '**Acts**']) expect(index).toContain(`| ${column} |`);
     for (const badge of ['**Repository**', '**Branch**', '**Pull request**', '**Commit**', '**Client**']) expect(index).toContain(`| ${badge} |`);
     // StoryboardBadges.tsx SELF_REPORTED_TOOLTIP and CONTEXT_BY_ACT_LABEL.
     expect(index).toContain("*Self-reported by the author's client; not verified*");
@@ -495,7 +497,7 @@ describe('storyboards docs: associations', () => {
     expect(assoc).toContain('`context_filled`');
     expect(assoc).toContain('If the pull request is opened only after an act\'s last publish');
     expect(assoc).toContain('`storyboard__link {storyboard_id, act?, add?, remove?}`');
-    expect(assoc).toContain('Any member who can write storyboards can add or remove an entry on any act of a published storyboard.');
+    expect(assoc).toContain('Any member who can write storyboards can add or remove an entry on any act of a storyboard shared with your org.');
     expect(assoc).toContain(
       'about is empty: if this storyboard explains the change on <repo> <branch|PR #N>, call storyboard__link {storyboard_id, add: {checkout: true}}; if it is about something else (an incident, another PR, an issue), add that instead. A match on this checkout alone is reported as written_from, never as about.',
     );
@@ -561,7 +563,7 @@ describe('storyboards docs: associations', () => {
     expect(index).toContain('**Clear filters**');
     expect(index).toContain("*Declared by the author's agent; not verified*");
     expect(index).toContain('*The checkout and session this was written in, reported by the author\'s client; not verified*');
-    expect(index).toContain('The **All / Published / Drafts** switch and the tag filter still apply.');
+    expect(index).toContain('The **All / Private / Shared** switch and the tag filter still apply.');
     expect(index).not.toContain('Cardinal renders nothing on its servers');
   });
 
