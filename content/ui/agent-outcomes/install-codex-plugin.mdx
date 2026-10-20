@@ -11,6 +11,28 @@ Like the Claude Code plugin, it also delivers **session context and spend limits
 
 <SupportCallout />
 
+## Coordination gate preview
+
+Plugin 0.38.0 adds an **opt-in coordination gate** for the validated direct CLI
+paths on Codex CLI 0.162.1. Before declared actions, it checks for new input from
+configured collaborators. Pending input blocks the attempted action until the
+session reads the complete contribution and explicitly handles it; the agent
+then chooses its next action again. Installation leaves the gate off.
+
+The backend must advertise `event_snapshot` version 1. Launching with
+`CARDINAL_COORDINATION_MODE=direct-cli` declares the supported protocol; it does
+not activate the gate. Activation additionally needs a session-specific policy
+and fresh probes through the registered `Bash` and `apply_patch` hooks. After an
+upgrade, reconnect and trust the current hooks before attempting activation.
+
+The [runtime and operator contract](https://github.com/cardinalhq/cardinal-agent-plugins/blob/main/docs/specs/coordination-gate-runtime.md)
+documents setup, policy, the `gate-enable`, `gate-status`, `gate-read`,
+`gate-reviewed` and `gate-disable` commands, and rollback. Disabling preserves
+pending gate content and lets existing delivery resume. Desktop/interactive
+paths, unlisted wrappers, suppressed code-mode rejections and interactive stdin
+are outside this preview's coverage. Actual hook crashes or timeouts may fail
+open. Broader performance and fleet acceptance are still pending.
+
 ## Requirements
 
 - A recent Codex CLI release (with MCP server and hooks support).
