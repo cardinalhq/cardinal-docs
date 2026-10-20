@@ -18,6 +18,28 @@ Writing to Cardinal, storyboards included, needs that API key; there is no OAuth
 
 <SupportCallout />
 
+## Coordination gate preview
+
+Plugin 0.60.0 adds an **opt-in coordination gate** for the validated `-p` CLI
+paths on Claude Code 2.1.304. Before declared actions, it checks for new input
+from configured collaborators. Pending input blocks the attempted action until
+the session reads the complete contribution and explicitly handles it; the agent
+then chooses its next action again. Installation leaves the gate off.
+
+The backend must advertise `event_snapshot` version 1. Launching with
+`CARDINAL_COORDINATION_MODE=direct-cli` declares the supported protocol; it does
+not activate the gate. Activation additionally needs a session-specific policy
+and fresh probes through the registered `Bash`, `Write`, `Edit` and
+`NotebookEdit` hooks.
+
+The [runtime and operator contract](https://github.com/cardinalhq/cardinal-agent-plugins/blob/main/docs/specs/coordination-gate-runtime.md)
+documents setup, policy, the `gate-enable`, `gate-status`, `gate-read`,
+`gate-reviewed` and `gate-disable` commands, and rollback. Disabling preserves
+pending gate content and lets existing delivery resume. MultiEdit,
+interactive/desktop use and unlisted command equivalents are outside this
+preview's coverage. Actual hook crashes or timeouts may fail open. Broader
+performance and fleet acceptance are still pending.
+
 ## Requirements
 
 - Claude Code with plugin support (any recent stable release).
