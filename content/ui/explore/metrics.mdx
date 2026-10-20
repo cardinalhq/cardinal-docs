@@ -67,7 +67,7 @@ Metrics can show two kinds of markers:
 - **Log correlation** comes from **Correlate to Metrics** in Explore Logs. Select a marker to inspect the nearby matching log lines.
 - **Events** come from connected sources such as Kubernetes or GitHub. Configure them with the **Events** button and select only the clusters, namespaces, repositories, or event types relevant to the chart.
 
-See [Using Explore correlation](/ui/integrations/kubernetes#using-explore-correlation) for Kubernetes setup. When a series contains Kubernetes resource labels, its legend may also open the Infra Map for a live view of the related workload.
+See [Using Explore correlation](/ui/integrations/kubernetes#using-explore-correlation) for Kubernetes setup. Cardinal SaaS supports [remote Kubernetes API access](/ui/integrations/kubernetes#connecting-from-cardinal-saas); you do not need to host Cardinal in the monitored cluster. Collected metrics can be queried without that API connection. Event-overlay setup and the Infra Map's live view require a connected, reachable Kubernetes API.
 
 ## Share and reuse
 

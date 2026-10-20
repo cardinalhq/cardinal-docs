@@ -8,9 +8,9 @@ The fastest way to run Cardinal Data Lake is to let Cardinal install and manage 
 Cardinal's **Perch operator** deploys **Cardinal Data Lake and the Cardinal UI together as a single unit** — then keeps
 them upgraded, healthy, and reporting status back to Cardinal.
 
-> **Cardinal UI** is the on-prem build of Cardinal's Cardinal UI console. When the operator installs your site it
-> brings up both Cardinal Data Lake (the observability data lake) and the Cardinal UI (the console you query it from),
-> version-matched and wired together.
+> This guide installs a **self-hosted Cardinal site** in your own cloud or on-premises cluster. The operator brings
+> up both Cardinal Data Lake and Cardinal UI, version-matched and wired together. To connect **Cardinal SaaS** to
+> a monitored Kubernetes cluster, see the [Kubernetes integration](/ui/integrations/kubernetes#kubernetes-monitoring-from-cardinal-saas).
 
 <div style={{ padding: '1rem 1.25rem', border: '1px solid var(--nextra-border, #333)', borderRadius: 8, margin: '1.5rem 0' }}>
 
@@ -44,7 +44,7 @@ You'll need:
   > ```bash
   > kubectl annotate storageclass gp2 storageclass.kubernetes.io/is-default-class=true
   > ```
-- **Outbound HTTPS** from the cluster to Cardinal. No inbound ports are opened.
+- **Outbound HTTPS** from the cluster to Cardinal for operator management. The operator does not require inbound access to your cluster API.
 - A free Cardinal account at [app.cardinalhq.io](https://app.cardinalhq.io). Creating your first site starts a
   **60-day trial automatically — no credit card required**.
 
@@ -72,10 +72,12 @@ your cluster before anything is installed:
 |---|---|
 | **Cluster-admin RBAC** | Cluster-scoped read so the agent can discover your workloads and report status. |
 | **Namespace creation** | The Helm chart creates a dedicated namespace (default `perch-system`). |
-| **Network egress** | Outbound HTTPS to Cardinal only — no inbound ports are opened. |
+| **Network egress** | Outbound HTTPS to Cardinal for operator management; no inbound API connection is required by the operator. |
 | **Secret access** | The install key is stored as a Kubernetes Secret in the operator's namespace. |
 | **A default StorageClass** | Telemetry is stored on PersistentVolumes from your default StorageClass. |
 | **Public image pulls** | Nodes pull container images from `public.ecr.aws`. |
+
+Operator management and telemetry export are separate from live Kubernetes API access. If you also enable the [Kubernetes integration from Cardinal SaaS](/ui/integrations/kubernetes#connecting-from-cardinal-saas), its backend must be able to reach the API endpoint. Installing Perch does not create that network path.
 
 ### 2. Install the Perch operator
 
