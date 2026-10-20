@@ -2,13 +2,41 @@ import SupportCallout from '../../../components/SupportCallout';
 
 # Kubernetes
 
-Connect Cardinal to a Kubernetes cluster so your connected agent can read cluster state and so chart markers in **Explore** highlight when Kubernetes events (BackOff, FailedScheduling, Unhealthy, etc.) coincide with metric or log changes.
+Cardinal SaaS can monitor Kubernetes clusters and connect to their APIs remotely. You can use a managed cloud cluster such as EKS, GKE, or AKS, or a cluster you operate yourself. Cardinal does not need to run inside the monitored cluster or on its control-plane nodes.
+
+There are two connections to distinguish: collectors export telemetry for dashboards and queries, while the Kubernetes integration gives Cardinal read-only access to the cluster API for live inspection and event correlation.
+
+## Kubernetes monitoring from Cardinal SaaS
+
+| Capability | Data source | Does Cardinal SaaS need access to the cluster API? |
+| ---------- | ----------- | ------------------------------------------------ |
+| Query collected metrics, logs, and traces; build dashboards and telemetry alerts | Telemetry exported by collectors and queried through your configured data source | No. Collectors access the cluster as needed and export telemetry through the configured collection path. |
+| Configure Kubernetes event overlays in Explore | Kubernetes integration, with stored event history when available | Yes for the current setup flow: Cardinal discovers namespaces through the API and falls back to live Events when stored history is unavailable or empty. |
+| Inspect current resources with agent tools or the Infra Map | Kubernetes API | Yes. Cardinal makes authenticated, read-only API requests. |
+
+Running collectors in your cluster does not require self-hosting Cardinal. See [OpenTelemetry Collectors](/data-lake/collectors) for the collection path and [Connecting from Cardinal SaaS](#connecting-from-cardinal-saas) below for live API access.
+
+### Connecting from Cardinal SaaS
+
+Configure the cluster's **API Server URL**, **CA Certificate**, and a **Bearer Token** or client certificate in **Settings > Integrations > Kubernetes**. Cardinal's backend services connect to that URL over HTTPS:
+
+```text
+Cardinal SaaS ── HTTPS + read-only credentials ──► Your Kubernetes API
+```
+
+The requirement is network reachability from Cardinal's backend, rather than local access to your control plane. A kubeconfig that works on your laptop does not establish connectivity from Cardinal SaaS.
+
+- **Reachable external endpoint:** allow HTTPS from Cardinal to the API endpoint. If the endpoint uses a source-IP allowlist, contact [support@cardinalhq.io](mailto:support@cardinalhq.io) for the egress addresses applicable to your Cardinal deployment.
+- **Private-only endpoint:** direct API integration requires a network path from your Cardinal deployment to that endpoint. Contact support to confirm connectivity options for your environment before configuring it. Supplying credentials alone does not make a private endpoint reachable.
+- **Collector export only:** telemetry collection can continue without direct API access from Cardinal SaaS. Live inspection, Infra Map topology, and the current event-overlay setup still require the API connection described above.
+
+Neither an OpenTelemetry collector nor the Perch operator automatically creates a tunnel from Cardinal SaaS to your Kubernetes API. The [operator installation](/data-lake/install) uses a separate outbound connection to manage a self-hosted site.
 
 ## Overview
 
 The Kubernetes integration is **read-only**. It surfaces two capabilities:
 
-- **Chart markers** — `core/v1/Event` records appear as colored markers on the Metrics and Logs timelines, alongside any GitHub events you have enabled. Useful for correlating "what broke" with "what changed."
+- **Chart markers** — Kubernetes Events appear as colored markers on the Metrics and Logs timelines, alongside any GitHub events you have enabled. With [object-event collection](/data-lake/collectors#historical-kubernetes-events), Cardinal reads historical Events from Cardinal Data Lake first. Configured object-change streams can also surface configuration changes. Without stored history, Cardinal reads Events from the live API.
 - **MCP tools** — read-only kubectl-equivalent access over the MCP endpoint: `list_events`, `list_resources`, `get_resource`, `get_logs`, `list_api_resources`.
 
 Cardinal never writes to your cluster. The integration stores your credentials encrypted at rest and transmits them per-request to the agent gateway.
@@ -30,7 +58,7 @@ Token authentication (recommended):
 
 | Field | Required | Description |
 | ----- | -------- | ----------- |
-| **API Server URL** | Yes | The cluster's external apiserver endpoint (e.g., `https://abc123.gr7.us-east-2.eks.amazonaws.com`) |
+| **API Server URL** | Yes | The cluster's HTTPS API endpoint reachable from your Cardinal deployment (e.g., `https://abc123.gr7.us-east-2.eks.amazonaws.com`). For SaaS, reachability must be from Cardinal's backend. |
 | **CA Certificate** | Yes | The cluster's CA in PEM format |
 | **Bearer Token** | Yes | A long-lived ServiceAccount token (see Prerequisites below) |
 | **Default Namespace** | No | Used when a tool call omits one |
@@ -45,9 +73,11 @@ Client-certificate authentication is also supported as an alternative to bearer 
 | **Description** | Human-readable description |
 | **Planner Hint** | Guidance for the AI on when to use this integration (e.g., "Use for the prod-us cluster running checkout and payments") |
 
+Set the integration's **cluster slug** to the collector's `k8s.cluster.name` value when using stored Kubernetes event history. For example, if `K8S_CLUSTER_NAME=prod-us`, use `prod-us` as the slug. Cardinal Data Lake exposes that attribute as `k8s_cluster_name`; a different slug prevents the history queries from matching your cluster's records.
+
 ## Prerequisites
 
-- A Kubernetes cluster (1.24+) reachable from Cardinal's egress
+- A Kubernetes cluster (1.24+) whose HTTPS API endpoint is reachable from your Cardinal deployment; for SaaS, see [Connecting from Cardinal SaaS](#connecting-from-cardinal-saas)
 - Cluster-admin (or equivalent) access to install the recommended `ClusterRole` and `ServiceAccount`
 
 ### Recommended ClusterRole
@@ -403,6 +433,21 @@ Once the integration is created:
 2. Click **Event Sources** in the chart toolbar.
 3. Toggle **Kubernetes** on and step through the wizard: pick a cluster, namespaces (or `*` for all), and event reasons to surface.
 4. Markers appear inline on the chart with reason-based colors (BackOff and FailedScheduling are red; Unhealthy and Killing are amber; informational reasons are neutral).
+
+For historical windows, enable [Kubernetes event collection](/data-lake/collectors#historical-kubernetes-events) in addition to this integration. Stored Events survive the deletion of the Pod they refer to and remain available for your log retention period. The live API's Event retention is typically about an hour and cannot provide the same history.
+
+Historical reads do not turn this into a fully collector-only integration: the current wizard still discovers namespaces through the API, and an empty or failed history read triggers the live API fallback.
+
+## Troubleshooting connectivity and missing events
+
+| Symptom | Check |
+| ------- | ----- |
+| API works from your laptop but Test Connection cannot reach it | Verify DNS, routing, and firewall/source-IP rules from Cardinal's backend. A laptop VPN connection does not give SaaS the same access. |
+| TLS or certificate error | Verify the API URL and the CA certificate for that endpoint. |
+| `401 Unauthorized` | Verify the bearer token or client certificate is valid. Replace expired credentials in the integration. |
+| `403 Forbidden` | Verify the ServiceAccount's Role/ClusterRole and bindings cover the requested resources and namespaces. |
+| Recent Events appear but older history does not | Verify the collector exports Kubernetes Events as logs; cluster metrics alone do not contain event history. Also check the query window and log retention. |
+| Collected Events are present but the overlay misses them | Match the integration slug to `k8s_cluster_name` in the stored records, and check the selected namespaces and event reasons. |
 
 ## What This Enables
 

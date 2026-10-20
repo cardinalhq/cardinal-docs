@@ -5,6 +5,12 @@ import CollectorManifestsWizard from '../../components/CollectorManifestsWizard'
 
 Cardinal Data Lake ingests telemetry from [OpenTelemetry Collectors](https://opentelemetry.io/docs/collector/) that write data to your S3-compatible object storage bucket. This guide covers the recommended three-tier collector architecture for monitoring Kubernetes clusters.
 
+## Collection and SaaS access
+
+Collectors run alongside your workloads and export telemetry through the gateway to object storage. Cardinal queries that telemetry through the configured Cardinal Data Lake integration. This collection path works without Cardinal SaaS connecting directly to your Kubernetes API; collectors use their own cluster credentials for Kubernetes discovery and collection.
+
+The [Kubernetes integration](/ui/integrations/kubernetes#kubernetes-monitoring-from-cardinal-saas) is a separate connection for live cluster inspection, Infra Map topology, and configuring Kubernetes event overlays. It supports remote API access from SaaS when the endpoint is reachable and read-only credentials are configured. Exporting telemetry does not establish that API connection or a reverse tunnel.
+
 ## Architecture Overview
 
 The collector stack uses three components, each with a distinct role:
@@ -176,6 +182,51 @@ service:
 | CPU | 1 | 1 |
 | Memory | 500Mi | 500Mi |
 
+### Historical Kubernetes events
+
+The poller configuration above collects **metrics** through `k8s_cluster`. To retain Kubernetes Events for chart overlays and workload history, also collect them as **logs** using the OpenTelemetry [`k8s_objects` receiver](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/k8sobjectsreceiver). Use a collector distribution that includes this receiver, such as OpenTelemetry Collector Contrib.
+
+Merge the following receiver, processor, and logs pipeline into the poller configuration. Keep the existing metrics pipeline:
+
+```yaml copy
+receivers:
+  k8s_objects:
+    auth_type: serviceAccount
+    objects:
+      - name: events
+        group: events.k8s.io
+        mode: watch
+
+processors:
+  resource/k8sobjects:
+    attributes:
+      - { action: upsert, key: service.name, value: k8s-objects }
+      - { action: upsert, key: k8s.cluster.name, value: "${env:K8S_CLUSTER_NAME}" }
+
+service:
+  pipelines:
+    logs/k8s_objects:
+      receivers: [k8s_objects]
+      processors: [resource/k8sobjects, batch]
+      exporters: [otlphttp/upstream]
+```
+
+The `batch` processor and `otlphttp/upstream` exporter are defined in the poller configuration above. For this cluster-wide watch, grant the poller's ServiceAccount `get`, `list`, and `watch` on `events` in the `events.k8s.io` API group through a ClusterRole and ClusterRoleBinding. Collection begins when the receiver starts; it cannot recover Events already removed from the API server.
+
+Cardinal's history reader expects these labels after ingestion:
+
+| Stored label | Value |
+| ------------ | ----- |
+| `service_name` | `k8s-objects` |
+| `k8s_cluster_name` | The Kubernetes integration's cluster slug, matching `K8S_CLUSTER_NAME` |
+| `k8s_resource_name` | `events`, supplied by the receiver |
+
+For attribution after a Pod has been deleted, the ownership reader can also consume Pod, ReplicaSet, and Job snapshots from this stream. Configure `pods`, `replicasets` (group `apps`), and `jobs` (group `batch`) in `mode: pull`, for example every `15m`, with read permissions for those resources. Their object bodies must retain `kind`, `metadata.uid`, `metadata.name`, `metadata.namespace`, and `metadata.ownerReferences`. Review which object fields you export: full Pod specs can contain literal environment values.
+
+Configuration-change history uses a separate `service.name=k8s-object-changes` stream containing watched ConfigMaps, Services, Ingresses, NetworkPolicies, and StorageClasses. The Events-only example above does not collect those changes. Export only the objects and fields your organization intends to retain in its log store.
+
+Stored Events can be read without a live API request when history is available. The current [overlay setup and fallback](/ui/integrations/kubernetes#using-explore-correlation) still use the Kubernetes API; adding this pipeline does not remove that requirement.
+
 ## Gateway
 
 The gateway is the central aggregation point. It receives data from agents and pollers on an internal port, and can also accept external OTLP data directly. All data is exported to your S3 bucket.
@@ -267,7 +318,7 @@ If you prefer to edit the base manifests directly, the following table lists eve
 
 | Variable | Manifest(s) | Description |
 |----------|-------------|-------------|
-| `K8S_CLUSTER_NAME` | agent/daemonset.yaml, poller/deployment.yaml, gateway/deployment.yaml | Cluster identifier. Must match across all three components — it's stamped as a resource attribute by the agent and poller, and used as the S3 prefix segment by the gateway. |
+| `K8S_CLUSTER_NAME` | agent/daemonset.yaml, poller/deployment.yaml, gateway/deployment.yaml | Cluster identifier. Must match across all three components — it's stamped as a resource attribute by the agent and poller, and used as the S3 prefix segment by the gateway. For Kubernetes event history, also use this value as the Kubernetes integration's cluster slug. |
 | `LAKERUNNER_ORGANIZATION_ID` | gateway/deployment.yaml | The organization UUID provisioned during Cardinal Data Lake installation. This is the same value generated by the `Organization ID` field in the [Manual install](/data-lake/manual-install) wizard. Telemetry is written to `otel-raw/{LAKERUNNER_ORGANIZATION_ID}/{K8S_CLUSTER_NAME}/`, so the value here must match the org ID configured in your Cardinal Data Lake deployment. |
 | `AWS_REGION` | gateway/deployment.yaml | Region of the S3 bucket. |
 | `AWS_S3_BUCKET` | gateway/deployment.yaml | Target bucket for telemetry. |
