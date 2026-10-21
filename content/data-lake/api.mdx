@@ -287,7 +287,7 @@ export LAKE_URL='http://<query-service-host>:8080'
 
 ### Metrics — `curl`
 
-Query the p95 request latency over the last 30 minutes, bucketed every minute:
+Query the p95 request latency per service over the last 30 minutes, bucketed every minute, from an OpenTelemetry histogram named `http_server_request_duration`:
 
 ```bash
 curl -N \
@@ -296,7 +296,7 @@ curl -N \
   -H 'Accept: text/event-stream' \
   "$LAKE_URL/api/v1/metrics/query" \
   --data-raw '{
-    "q":    "histogram_quantile(0.95, sum by (le,service_name) (rate(http_request_duration_seconds_bucket[1m])))",
+    "q":    "histogram_quantile(0.95, sum by (service_name) (rate(http_server_request_duration[5m])))",
     "s":    "e-30m",
     "e":    "now",
     "step": 60
@@ -316,6 +316,8 @@ data: {"type":"result","data":{"tags":{"service_name":"web"},"value":0.042,"time
 
 data: {"type":"done","data":{"status":"ok"}}
 ```
+
+OpenTelemetry histograms have no `_bucket` series or `le` label, so the query reads the histogram by its own name. For a classic Prometheus histogram sent over remote write, use its `_bucket` series and keep `le` in the grouping: `histogram_quantile(0.95, sum by (le, service_name) (rate(http_request_duration_seconds_bucket[5m])))`. See [Histograms](/data-lake/query-language#histograms).
 
 ### Logs — raw path
 
