@@ -11,34 +11,40 @@ Like the Claude Code plugin, it also delivers **session context and spend limits
 
 <SupportCallout />
 
-## Automatic agent coordination
+## Coordination on agent intent
 
-Plugin 0.39.0 automatically checks new collaborator feedback before native
-edits, direct commits, pushes, merges and Investigation verdicts on the validated
-direct Codex CLI paths. Pending feedback prevents that invocation until the
-agent reads every chunk and explicitly handles it, then chooses its next action.
-No mode setting, policy file or enable command is needed.
+Plugin 0.40.0 lets the agent choose when coordination matters, during reasoning,
+planning, decisions, answering or other work. Supervisor and worker share the
+same operations:
 
-Agents can also declare a required result with `investigation request`, naming
-the assignee and actions that must wait. The assignee responds `complete`,
-`blocked`, `abstain` or `reject`. Only the requester accepting the exact complete
-result, or explicitly cancelling with a reason, releases the dependency.
-Acknowledgments, timeout and blocked/abstain/reject replies never release it;
-unrelated actions remain available.
+- `investigation sync --intent PURPOSE` catches up on fresh collaborator information.
+- `investigation request --assignee PRINCIPAL --assignee-session SID --intent PURPOSE --text REQUEST` declares a required result for that work.
+- `investigation wait --intent PURPOSE` waits until new information or a result needs attention. Reuse the exact purpose to resume after an interruption; `--request Q` adds an existing prerequisite.
 
-Use [the request commands](https://github.com/cardinalhq/cardinal-agent-plugins/blob/main/docs/specs/coordination-requests.md)
-for explicit dependencies and [the runtime contract](https://github.com/cardinalhq/cardinal-agent-plugins/blob/main/docs/specs/coordination-gate-runtime.md)
-for feedback handling and coverage. The connected backend must advertise
-`event_snapshot` and `coordination_requests` version 1; incompatible or unreadable
-state defers covered actions with an upgrade/retry message.
+Ordinary tools are not classified or blocked by coordination. There is no fixed
+list of edits, commits or other supported actions, and no mode setting, policy
+file or enable command. Normal delivery can notify the agent about new information;
+explicit synchronization retains its own handling and dependency state.
 
-After upgrading, reconnect/repair and trust the current Cardinal hooks if they
-are not already registered, then restart Codex.
+The assignee responds `complete`, `blocked`, `abstain` or `reject`. Only the
+requester accepting the exact complete result, or cancelling with a reason,
+resolves the dependency. Reading, acknowledgment and timeout never release it.
+Unrelated purposes remain available. New feedback interrupts a wait for handling.
 
-Desktop/interactive paths, arbitrary JavaScript effects, suppressed rejections,
-wrappers, compound commands and continuing interactive stdin remain outside
-coverage. Actual hook crashes or timeouts may fail open. Broader performance and
-fleet acceptance remain separate work.
+Waiting uses one bounded CLI invocation with incremental reads and backoff;
+it is not server push or indefinite host parking. A timeout leaves the intent
+and required results durable. Use [the request commands](https://github.com/cardinalhq/cardinal-agent-plugins/blob/main/docs/specs/coordination-requests.md)
+and [the runtime contract](https://github.com/cardinalhq/cardinal-agent-plugins/blob/main/docs/specs/coordination-gate-runtime.md)
+for feedback review, exact references, outcomes and resumption.
+
+Deploy backend support for `coordination_intents` version 1 and `request_protocol:2`
+before upgrading clients. Upgrade participants sharing an Investigation before
+creating intent-only requests: old clients fail closed on those records. Existing
+records remain readable; their old action categories do not intercept tools in
+new clients. Broader fleet/performance acceptance remains separate work.
+
+After upgrading, run the existing hook repair and restart Codex to remove the old
+managed coordination registration. Stale registrations return quietly.
 
 ## Requirements
 
