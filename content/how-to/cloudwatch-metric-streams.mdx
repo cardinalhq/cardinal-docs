@@ -86,7 +86,7 @@ Open the **Amazon Data Firehose** console in the region whose metrics you want, 
 5. Under **Buffer hints**:
    - **Buffer size:** `5` MiB
    - **Buffer interval:** `60` seconds
-   Firehose flushes when either limit is reached. A 60-second interval gives metrics close to the freshness CloudWatch itself offers; a longer interval sends fewer, larger requests.
+   Firehose flushes when either limit is reached. A 60-second interval gives metrics close to the freshness CloudWatch itself offers; a longer interval sends fewer, larger requests. Keep the buffer size at or below 48 MiB: Firehose base64-encodes records into the request body, which grows it by about a third, and Cardinal rejects bodies over 64 MiB.
 6. Under **Backup settings**:
    - **Source record backup in Amazon S3:** `Failed data only`
    - **S3 backup bucket:** your backup bucket
@@ -143,13 +143,21 @@ Metric streams are regional. For each additional region, repeat the Firehose and
 
 The module below creates everything the console steps create: the backup bucket, both IAM roles, the Firehose stream with the Cardinal HTTP endpoint, and the metric stream. Apply it once per region per account, with a provider aliased to that region.
 
-Requires the AWS provider v5.0 or later.
+Requires the AWS provider v6.0 or later (validated with v6.69.1). On v5 providers, use `data.aws_region.current.name` in place of `.region`.
 
 ```hcl copy
-variable "cardinal_api_key" {
-  description = "Cardinal organization ingest API key (from Cardinal support)"
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = ">= 6.0"
+    }
+  }
+}
+
+variable "cardinal_api_key_secret_arn" {
+  description = "ARN of a Secrets Manager secret holding {\"api_key\": \"<Cardinal organization ingest API key>\"}, in this region"
   type        = string
-  sensitive   = true
 }
 
 variable "name" {
@@ -175,6 +183,13 @@ locals {
 }
 
 data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
+
+# IAM role names are account-global, so qualify them with the region. This lets
+# the same module be applied once per region without role-name collisions.
+locals {
+  role_prefix = "${var.name}-${data.aws_region.current.region}"
+}
 
 # ---------------------------------------------------------------------------
 # Backup bucket. Firehose requires one for HTTP endpoint destinations; it only
@@ -234,7 +249,7 @@ data "aws_iam_policy_document" "firehose_assume" {
 }
 
 resource "aws_iam_role" "firehose" {
-  name               = "${var.name}-firehose"
+  name               = "${local.role_prefix}-firehose"
   assume_role_policy = data.aws_iam_policy_document.firehose_assume.json
 }
 
@@ -260,6 +275,14 @@ data "aws_iam_policy_document" "firehose" {
     actions   = ["logs:PutLogEvents"]
     resources = ["${aws_cloudwatch_log_group.firehose.arn}:*"]
   }
+
+  # Firehose reads the Cardinal API key from Secrets Manager at delivery time.
+  # Add kms:Decrypt on the key if the secret uses a customer-managed KMS key.
+  statement {
+    sid       = "ReadCardinalApiKey"
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = [var.cardinal_api_key_secret_arn]
+  }
 }
 
 resource "aws_iam_role_policy" "firehose" {
@@ -276,12 +299,27 @@ resource "aws_kinesis_firehose_delivery_stream" "cardinal" {
   destination = "http_endpoint"
 
   http_endpoint_configuration {
-    name       = "Cardinal"
-    url        = local.cardinal_endpoint
-    access_key = var.cardinal_api_key
-    role_arn   = aws_iam_role.firehose.arn
+    name     = "Cardinal"
+    url      = local.cardinal_endpoint
+    role_arn = aws_iam_role.firehose.arn
 
-    # Flush every 60 s or 5 MiB, whichever comes first.
+    # Firehose fetches the API key from Secrets Manager, so it never enters
+    # Terraform state. The secret must be in the same region as the stream.
+    secrets_manager_configuration {
+      enabled    = true
+      secret_arn = var.cardinal_api_key_secret_arn
+      role_arn   = aws_iam_role.firehose.arn
+    }
+
+    # Fallback for AWS provider versions that lack the block above: declare a
+    # sensitive string variable and pass the key directly. It is then stored
+    # in plaintext in Terraform state, so protect the state backend as you
+    # would the key itself.
+    # access_key = var.cardinal_api_key
+
+    # Flush every 60 s or 5 MiB, whichever comes first. Keep buffering_size at
+    # or below 48: Firehose base64-encodes records into the request body,
+    # and Cardinal rejects bodies over 64 MiB with a permanent 413.
     buffering_interval = 60
     buffering_size     = 5
 
@@ -331,7 +369,7 @@ data "aws_iam_policy_document" "metric_stream_assume" {
 }
 
 resource "aws_iam_role" "metric_stream" {
-  name               = "${var.name}-metric-stream"
+  name               = "${local.role_prefix}-metric-stream"
   assume_role_policy = data.aws_iam_policy_document.metric_stream_assume.json
 }
 
@@ -384,17 +422,22 @@ output "metric_stream_arn" {
 }
 ```
 
-Pass the API key from a secret store rather than a `.tfvars` file checked into git, for example:
+The module never sees the API key itself. Store it in Secrets Manager first, in the same region as the stream, as a JSON object with an `api_key` field (the format Firehose requires for HTTP endpoint destinations), then pass the secret's ARN:
 
 ```bash copy
-export TF_VAR_cardinal_api_key="$(aws secretsmanager get-secret-value \
-  --secret-id cardinal/org-ingest-api-key --query SecretString --output text)"
-terraform apply
+SECRET_ARN="$(aws secretsmanager create-secret \
+  --region us-east-1 \
+  --name cardinal/org-ingest-api-key \
+  --secret-string '{"api_key":"<your Cardinal organization ingest API key>"}' \
+  --query ARN --output text)"
+terraform apply -var "cardinal_api_key_secret_arn=$SECRET_ARN"
 ```
+
+If you must use the `access_key` fallback instead, the key is written to Terraform state in plaintext. Restrict read access to the state backend as you would to the key itself.
 
 ### Streaming several regions
 
-Instantiate the configuration once per region with provider aliases. Put the code above in a module directory, then:
+Instantiate the configuration once per region with provider aliases. The module qualifies its IAM role names with the region, so the instances do not collide on account-global role names. Each region needs its own copy of the secret; [Secrets Manager replication](https://docs.aws.amazon.com/secretsmanager/latest/userguide/create-manage-multi-region-secrets.html) keeps one source of truth. Put the code above in a module directory, then:
 
 ```hcl copy
 provider "aws" {
@@ -408,15 +451,15 @@ provider "aws" {
 }
 
 module "cardinal_cwmetrics_us_east_1" {
-  source           = "./modules/cardinal-cwmetrics"
-  providers        = { aws = aws.us_east_1 }
-  cardinal_api_key = var.cardinal_api_key
+  source                      = "./modules/cardinal-cwmetrics"
+  providers                   = { aws = aws.us_east_1 }
+  cardinal_api_key_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:cardinal/org-ingest-api-key-AbCdEf"
 }
 
 module "cardinal_cwmetrics_eu_west_1" {
-  source           = "./modules/cardinal-cwmetrics"
-  providers        = { aws = aws.eu_west_1 }
-  cardinal_api_key = var.cardinal_api_key
+  source                      = "./modules/cardinal-cwmetrics"
+  providers                   = { aws = aws.eu_west_1 }
+  cardinal_api_key_secret_arn = "arn:aws:secretsmanager:eu-west-1:123456789012:secret:cardinal/org-ingest-api-key-AbCdEf"
 }
 ```
 
@@ -445,7 +488,7 @@ Firehose reports every rejection in the stream's CloudWatch Logs group (`/aws/ki
 | `Delivery to HTTP endpoint success` is `0` and the error log shows `401` with `invalid API key` | The **Access key** is not a valid organization ingest API key, or the organization is disabled | Re-enter the key under the Firehose stream's **Destination settings**. New keys start working within a minute |
 | Error log shows `400` with `record is not CloudWatch Metric Streams JSON` | The metric stream's output format is **OpenTelemetry 0.7** or **1.0**, or the Firehose source is a CloudWatch Logs subscription rather than a metric stream | Set the metric stream's output format to **JSON** |
 | Error log shows `400` with `unsupported cardinalhq.format` | The `cardinalhq.format` parameter is set to something other than `cwmetrics` | Set it to `cwmetrics` or remove it |
-| Error log shows `413` | A single request exceeded 64 MiB. Firehose treats this as permanent and writes the batch to the backup bucket | Lower the **Buffer size** |
+| Error log shows `413` | A single request body exceeded 64 MiB. Base64 encoding makes the body about a third larger than the buffer, so a buffer size near Firehose's 64 MiB maximum always fails. Firehose treats this as permanent and writes the batch to the backup bucket | Lower the **Buffer size** to 48 MiB or less |
 | Objects appearing in the backup bucket | Cardinal rejected a batch or was unreachable for longer than the retry duration | Read the error log for the reason. Backup objects are not re-sent automatically |
 | `Incoming records` is `0` | The metric stream is not running, or its role cannot write to Firehose | Check the metric stream's status in CloudWatch → Metrics → Streams, and the role's `firehose:PutRecord` permission |
 | Delivery succeeds but a namespace is missing in Cardinal | The namespace is not in the metric stream's include list, or is in its exclude list | Edit the metric stream's filters. Changes take effect within minutes |
