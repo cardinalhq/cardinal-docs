@@ -18,27 +18,31 @@ Writing to Cardinal, storyboards included, needs that API key; there is no OAuth
 
 <SupportCallout />
 
-## Coordination gate preview
+## Automatic agent coordination
 
-Plugin 0.60.0 adds an **opt-in coordination gate** for the validated `-p` CLI
-paths on Claude Code 2.1.304. Before declared actions, it checks for new input
-from configured collaborators. Pending input blocks the attempted action until
-the session reads the complete contribution and explicitly handles it; the agent
-then chooses its next action again. Installation leaves the gate off.
+Plugin 0.61.0 automatically checks new collaborator feedback before native
+edits, direct commits, pushes, merges and Investigation verdicts on the validated
+Claude Code `-p` CLI paths. Pending feedback prevents that invocation until the
+agent reads every chunk and explicitly handles it, then chooses its next action.
+No mode setting, policy file or enable command is needed.
 
-The backend must advertise `event_snapshot` version 1. Launching with
-`CARDINAL_COORDINATION_MODE=direct-cli` declares the supported protocol; it does
-not activate the gate. Activation additionally needs a session-specific policy
-and fresh probes through the registered `Bash`, `Write`, `Edit` and
-`NotebookEdit` hooks.
+Agents can also declare a required result with `investigation request`, naming
+the assignee and actions that must wait. The assignee responds `complete`,
+`blocked`, `abstain` or `reject`. Only the requester accepting the exact complete
+result, or explicitly cancelling with a reason, releases the dependency.
+Acknowledgments, timeout and blocked/abstain/reject replies never release it;
+unrelated actions remain available.
 
-The [runtime and operator contract](https://github.com/cardinalhq/cardinal-agent-plugins/blob/main/docs/specs/coordination-gate-runtime.md)
-documents setup, policy, the `gate-enable`, `gate-status`, `gate-read`,
-`gate-reviewed` and `gate-disable` commands, and rollback. Disabling preserves
-pending gate content and lets existing delivery resume. MultiEdit,
-interactive/desktop use and unlisted command equivalents are outside this
-preview's coverage. Actual hook crashes or timeouts may fail open. Broader
-performance and fleet acceptance are still pending.
+Use [the request commands](https://github.com/cardinalhq/cardinal-agent-plugins/blob/main/docs/specs/coordination-requests.md)
+for explicit dependencies and [the runtime contract](https://github.com/cardinalhq/cardinal-agent-plugins/blob/main/docs/specs/coordination-gate-runtime.md)
+for feedback handling and coverage. The connected backend must advertise
+`event_snapshot` and `coordination_requests` version 1; incompatible or unreadable
+state defers covered actions with an upgrade/retry message.
+
+Desktop/interactive paths, arbitrary JavaScript effects, suppressed rejections,
+wrappers, compound commands and continuing interactive stdin remain outside
+coverage. Actual hook crashes or timeouts may fail open. Broader performance and
+fleet acceptance remain separate work.
 
 ## Requirements
 
