@@ -31,16 +31,21 @@ The moving parts are the metric stream, the Firehose stream, and your organizati
 
 ## How it works
 
-```
-Your AWS account (per region)                         Cardinal Cloud
-┌──────────────────────┐   ┌────────────────────┐     ┌────────────────────────┐
-│ CloudWatch           │   │ Amazon Data        │ TLS │ CloudWatch intake      │
-│ Metric Stream        │──►│ Firehose           │────►│ awsfirehose-cwmetrics. │──► Cardinal Data Lake
-│ (output format JSON) │   │ (HTTP endpoint)    │POST │ us-east-2.aws.         │    (metrics)
-└──────────────────────┘   └────────┬───────────┘     │ cardinalhq.io          │
-                                    │ failed batches   └────────────────────────┘
-                                    ▼
-                           S3 backup bucket (yours)
+```mermaid
+flowchart TB
+  subgraph aws["Your AWS account, per region"]
+    ms["CloudWatch Metric Stream<br/><i>output format: JSON</i>"]
+    fh["Amazon Data Firehose<br/><i>HTTP endpoint destination</i>"]
+    s3[("S3 backup bucket<br/><i>failed batches only</i>")]
+    ms -- "PutRecordBatch" --> fh
+    fh -. "after retries fail" .-> s3
+  end
+  subgraph cardinal["Cardinal Cloud"]
+    intake["CloudWatch intake<br/><code>awsfirehose-cwmetrics.us-east-2.aws.cardinalhq.io</code>"]
+    lake["Cardinal Data Lake"]
+    intake --> lake
+  end
+  fh == "HTTPS POST, X-Amz-Firehose-Access-Key" ==> intake
 ```
 
 | Setting | Value |
@@ -485,7 +490,7 @@ Firehose reports every rejection in the stream's CloudWatch Logs group (`/aws/ki
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `Delivery to HTTP endpoint success` is `0` and the error log shows `401` with `invalid API key` | The **Access key** is not a valid organization ingest API key, or the organization is disabled | Re-enter the key under the Firehose stream's **Destination settings**. New keys start working within a minute |
+| `Delivery to HTTP endpoint success` is `0` and the error log shows `401` with `invalid API key` | The **Access key** is not a valid organization ingest API key, or the organization is disabled | Console path: re-enter the key under the Firehose stream's **Destination settings**. Terraform path: update the Secrets Manager secret's value; Firehose refreshes its cached secret within 10 minutes. Cardinal accepts a newly issued key within a minute |
 | Error log shows `400` with `record is not CloudWatch Metric Streams JSON` | The metric stream's output format is **OpenTelemetry 0.7** or **1.0**, or the Firehose source is a CloudWatch Logs subscription rather than a metric stream | Set the metric stream's output format to **JSON** |
 | Error log shows `400` with `unsupported cardinalhq.format` | The `cardinalhq.format` parameter is set to something other than `cwmetrics` | Set it to `cwmetrics` or remove it |
 | Error log shows `413` | A single request body exceeded 64 MiB. Base64 encoding makes the body about a third larger than the buffer, so a buffer size near Firehose's 64 MiB maximum always fails. Firehose treats this as permanent and writes the batch to the backup bucket | Lower the **Buffer size** to 48 MiB or less |
