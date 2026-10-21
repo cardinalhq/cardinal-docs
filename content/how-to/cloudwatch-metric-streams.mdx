@@ -1,11 +1,12 @@
 import SupportCallout from '../../components/SupportCallout';
 import { Prerequisites, Steps, Step, NextSteps } from '../../components/HowTo';
+import { Tabs } from 'nextra/components';
 
 # Streaming CloudWatch Metrics to Cardinal Cloud
 
 This guide streams AWS CloudWatch metrics into Cardinal Cloud (SaaS) over HTTPS. A CloudWatch **Metric Stream** writes to an **Amazon Data Firehose** stream, and Firehose POSTs each batch to Cardinal's CloudWatch intake endpoint. Nothing runs in your account except the two AWS-managed streams: no collector, no polling agent, no per-metric `GetMetricData` charges.
 
-The moving parts are the metric stream, the Firehose stream, and your organization ingest API key. Around them you provision what Firehose itself requires: an S3 bucket that receives only failed batches, two IAM roles, and a CloudWatch Logs group for delivery errors. The guide shows every step in the AWS console first, then the same setup as Terraform.
+The moving parts are the metric stream, the Firehose stream, and your organization ingest API key. Around them you provision what Firehose itself requires: an S3 bucket that receives only failed batches, two IAM roles, and a CloudWatch Logs group for delivery errors. The setup section covers both the AWS console and Terraform; pick the tab you want.
 
 > **Which path is this?** Cardinal can also read Metric Streams that Firehose delivers to **your own S3 bucket**, which is the path for self-hosted Cardinal Data Lake and customer-account deployments. That path is described in the blog post [Getting CloudWatch Metrics into Cardinal Data Lake](https://cardinalhq.io/blog/cloudwatch-metrics-to-cardinal). This page covers the **HTTP endpoint** path: Firehose sends metrics directly to Cardinal, so there is no bucket notification, ingest queue, or prefix mapping to configure, and the only bucket on your side holds failed batches. This is the right choice for Cardinal Cloud.
 
@@ -60,7 +61,11 @@ Cardinal identifies your organization from the API key alone. Every metric strea
 
 The endpoint is hosted in `us-east-2`, but it is a plain HTTPS URL. A Firehose stream in any AWS region can deliver to it. Metric Streams are regional, so you create one metric stream and one Firehose stream per region you want to monitor.
 
-## Setup in the AWS console
+## Setup
+
+<Tabs items={['AWS console', 'Terraform']} storageKey="cloudwatch-setup">
+
+<Tabs.Tab>
 
 Firehose requires an S3 bucket for HTTP endpoint destinations, used for batches that Cardinal could not accept. Create or pick a bucket before you start; it stays empty in normal operation.
 
@@ -144,7 +149,9 @@ Metric streams are regional. For each additional region, repeat the Firehose and
 
 </Steps>
 
-## Setup with Terraform
+</Tabs.Tab>
+
+<Tabs.Tab>
 
 The module below creates everything the console steps create: the backup bucket, both IAM roles, the Firehose stream with the Cardinal HTTP endpoint, and the metric stream. Apply it once per region per account, with a provider aliased to that region.
 
@@ -469,6 +476,10 @@ module "cardinal_cwmetrics_eu_west_1" {
 ```
 
 Add `include_filter` blocks with `metric_names` if you want only specific metrics from a namespace rather than the whole namespace.
+
+</Tabs.Tab>
+
+</Tabs>
 
 ## What arrives in Cardinal
 
