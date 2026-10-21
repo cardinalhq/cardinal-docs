@@ -1,0 +1,100 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# Saved Queries
+
+A saved query is a Logs search you can reuse. Build a search in [Explore Logs](/ui/explore/logs), save it, and choose which of its values should be filled in each time it runs. The rest of the query stays fixed.
+
+For example, a query that finds checkout errors for one order can be saved with the service and order ID as fill-in values. Later, anyone in your organization picks it from the search bar, enters an order ID, and runs it.
+
+Saved queries are available in Explore Logs for every organization. There is nothing to enable.
+
+## What a saved query keeps
+
+A saved query keeps the query itself:
+
+- the filters in the Builder search bar, such as services, levels, field filters, trace IDs, and message text, and
+- any message parsing applied to the search.
+
+It does not keep the time range, sort order, grouping, chart settings, or the current result view. When you run a saved query, it uses the time range and sort order already selected on the page.
+
+## Save a query
+
+1. In **Explore** > **Logs**, build the search with at least one filter in the Builder search bar.
+2. Click the **Save query** icon (a bookmark with a plus sign) in the search bar's toolbar.
+3. Enter a **Name** and, optionally, a **Description**. The description is searchable, so include words people are likely to type.
+4. Under **Ask for these values when this query runs**, check each filter whose value should be filled in at run time. Filters left unchecked are shown as **fixed** and are saved as they are.
+5. Review the **Preview** line, then click **Save query**.
+
+**Save query** appears only for users who can create and change content in the organization. Viewers can find and run saved queries but cannot save, rename, or delete them.
+
+### Choose which values to fill in
+
+Each checked filter becomes a fill-in value:
+
+- **Value name.** Cardinal suggests a name from the field. For example, `service_name` becomes `service`, and message text becomes `message`. Names must start with a letter or underscore, contain only letters, digits, and underscores, and be unique within the query.
+- **Default.** With **default** checked, the current value is filled in when the query runs, and the person running it can change it. With **default** cleared, the value is required and the field starts empty.
+
+Only the value of a filter can be filled in. The field, the operator (such as `=`, `!=`, `contains`, or `matches`), and whether the filter includes or excludes values stay as saved. A query can ask for up to 10 values.
+
+A saved query with no fill-in values is still useful: it runs immediately when selected.
+
+> **Required values are still stored.** When a value is required (no default), Cardinal still stores the value that was in the search when you saved it so it can locate that filter later. It is not shown or filled in, but it is saved with the query, which everyone in the organization can access. Do not save a query while a secret or sensitive identifier is in a filter value.
+
+### Replace an existing saved query
+
+Names are unique within an organization. If another saved query already uses the name, Cardinal asks **Replace existing saved query?** Choose **Replace** to overwrite it for everyone, or **Back** to pick a different name.
+
+## Find a saved query
+
+Saved queries appear in the Builder search bar's suggestion list.
+
+- **Click into an empty search bar.** The **Saved queries** section lists up to three of the most recently used saved queries, followed by **View all saved queries…**. The usual service and field suggestions appear below them under **Build query**. Pressing Enter in an empty search bar opens the first saved query in the list.
+- **Type at least two characters.** Cardinal matches saved query names and descriptions and shows up to three results. Exact name matches rank first, then names that start with the text, then other word and description matches. Ties go to the most recently used query.
+
+Service, level, and value suggestions for what you typed stay at the top of the list, so Enter still applies those filters. For example, typing `err` and pressing Enter still adds `level = error`.
+
+Each saved query row shows the values it asks for, such as `{service}` and `{order_id}`.
+
+## Fill in values and run
+
+Selecting a saved query with fill-in values opens a short form in place of the suggestion list. It shows the query name, description, each value to fill in, and the fixed filters.
+
+- Focus starts on the first required field that is empty.
+- Value fields suggest known values for that field in the current time range. You can also type any value, which is useful for high-cardinality fields such as IDs.
+- Fields that accept several values (for example, `service_name = a, b`) take multiple entries. Type values separated by commas or pick them from the suggestions.
+- Press Tab and Shift+Tab to move between fields. Enter in the last field, or Cmd+Enter (Ctrl+Enter on Windows and Linux) anywhere, runs the query.
+- Press Esc or click **Back** to return to the suggestion list without losing what you typed in the search bar.
+
+The query always runs against the Cardinal Data Lake instance currently selected on the page. If it was saved on a different instance, the form shows a warning with both instance names, but it does not switch instances.
+
+## After a saved query runs
+
+Running a saved query replaces the current search with the saved filters and your values. It also returns the page to the log lines view, clearing any grouping, chart settings, or raw aggregation expression. The time range and sort order do not change.
+
+The result is an ordinary Logs search. Editing its filters afterward does not change the saved query.
+
+A notification confirms the run, for example **Ran "Cart order lookup"**. Click **Undo** in the notification to restore the search and view you had before. Undo is available while the notification is visible, for about 10 seconds, and is cleared if you switch instances.
+
+## Manage saved queries
+
+Choose **View all saved queries…** from the suggestion list to open the **Saved queries** list. It shows each query's name, description, the values it asks for, and when it was last used.
+
+- **Run** opens the query's fill-in form, or runs it right away if it asks for no values.
+- **Rename** changes the name in place. Press Enter to save or Esc to cancel.
+- **Delete** asks **Delete for everyone?** before removing the query.
+
+To change which filters a saved query uses or which values it asks for, run it, edit the search, and save it again under the same name. Choose **Replace** when prompted.
+
+When the page is showing a raw LogQL expression from an older shared link instead of the Builder, use the **Saved queries…** button beside the expression to open the same list.
+
+## Saved queries are shared with your organization
+
+Every saved query is visible to everyone in the organization. Anyone who can save queries can also rename, replace, or delete any saved query, including ones created by someone else. Private saved queries are not available.
+
+## When a saved query can no longer run
+
+If a saved query no longer matches how Cardinal represents that search, for example after a change to how filters are stored, it is marked **needs re-saving** and cannot run. Cardinal never guesses which filter a value belongs to.
+
+To fix it, rebuild the search in the Builder first. Then open the saved query and choose **Re-save query**. Cardinal opens **Save query** for the current search with the old name and description filled in. Choose the values to fill in, save, and choose **Replace**. A query that needs re-saving can still be deleted from the **Saved queries** list.
+
+<SupportCallout />
