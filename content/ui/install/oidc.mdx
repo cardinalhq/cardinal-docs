@@ -204,7 +204,7 @@ Cognito access tokens carry no `aud`, `azp` or `email` claim, so Cardinal UI mus
      value: cognito:groups
    ```
 
-   `OIDC_CLIENT_ID` defaults to `OIDC_AUDIENCE`, so it can be omitted. Do **not** set `OIDC_SUPERADMIN_GROUP`: setting it makes the browser request a `groups` scope, which Cognito does not offer and rejects with `invalid_scope`. The superadmin group already defaults to `maestro-superadmin`, and Cognito includes `cognito:groups` in the ID token without any extra scope.
+   `OIDC_CLIENT_ID` defaults to `OIDC_AUDIENCE`, so it can be omitted. Leave `OIDC_SUPERADMIN_GROUP` unset: setting it makes the browser request a `groups` scope, which Cognito does not offer. The superadmin group already defaults to `maestro-superadmin`, and Cognito includes `cognito:groups` in the ID token without any extra scope.
 
 This is also the route for **Microsoft Entra ID** when a Keycloak broker is not an option: federate Entra into the Cognito user pool (**Sign-in experience → Federated identity provider sign-in → OpenID Connect**) and point Cardinal UI at Cognito. Entra cannot be the issuer directly, because the access token it mints is for Microsoft Graph and cannot be verified by anyone else.
 
