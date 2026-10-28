@@ -40,6 +40,7 @@ maestro:
 | `OIDC_SUPERADMIN_EMAILS` | Comma-separated email allowlist for superadmin. Case-insensitive. Use this to bootstrap before groups are configured |
 | `OIDC_JWKS_URL` | Override if your JWKS is at a non-standard path |
 | `OIDC_TRUST_UNVERIFIED_EMAILS` | `true` treats all OIDC emails as verified. Only use with IdPs that gate email ownership in another way |
+| `OIDC_BEARER_TOKEN` | Which token the browser sends as its bearer: `access` (default) or `id`. Set `id` for IdPs whose access tokens carry no `aud` or `email`, such as Amazon Cognito |
 | `OIDC_EMAIL_CLAIM` | Token claim to read the user's email from. Default `email` |
 | `OIDC_EMAIL_VERIFIED_CLAIM` | Token claim to read the email-verified boolean from. Default `email_verified` |
 | `OIDC_DISPLAY_NAME_CLAIMS` | Comma-separated fallback chain for the display name. Default `name,preferred_username,email` |
@@ -50,11 +51,13 @@ All five claim-mapping variables are optional; leaving them unset preserves the 
 
 ## Redirect URI
 
-Register the following redirect URI with your IdP (where `MAESTRO_BASE_URL` is whatever you set):
+Register the site root, with the trailing slash, as both the sign-in redirect URI and the post-logout redirect URI (where `MAESTRO_BASE_URL` is whatever you set):
 
 ```
-https://ui.example.com/api/auth/callback
+https://ui.example.com/
 ```
+
+The SPA handles the callback itself; there is no `/api/auth/callback` route.
 
 ## Required token claims
 
@@ -110,7 +113,7 @@ Cardinal UI is developed against Keycloak and the docker-compose dev stack uses 
 ## Okta
 
 1. Create an OIDC **Single-Page Application**.
-2. Sign-in redirect URI: `https://ui.example.com/api/auth/callback`.
+2. Sign-in redirect URI and sign-out redirect URI: `https://ui.example.com/`.
 3. Add a **Groups claim** to the ID token — filter to the groups you care about.
 4. Assign users to a group (e.g. `maestro-superadmin`) and assign that group to the app.
 5. Set:
@@ -178,6 +181,36 @@ Google OIDC does not issue a `groups` claim out of the box. Use the email allowl
 - name: OIDC_SUPERADMIN_EMAILS
   value: alice@example.com,bob@example.com
 ```
+
+## Amazon Cognito
+
+Cognito access tokens carry no `aud`, `azp` or `email` claim, so Cardinal UI must send the ID token instead. Set `OIDC_BEARER_TOKEN=id`.
+
+1. In the user pool, create an app client: public (no client secret), authorization code grant with PKCE.
+2. Allowed callback URL and sign-out URL: `https://ui.example.com/`.
+3. OpenID Connect scopes: `openid`, `profile`, `email`.
+4. For group-based superadmin, create a user pool group `maestro-superadmin` and add yourself. Group names arrive in the `cognito:groups` claim.
+5. Set:
+   ```yaml
+   - name: OIDC_ISSUER_URL
+     value: https://cognito-idp.{region}.amazonaws.com/{user-pool-id}
+   - name: OIDC_JWKS_URL
+     value: https://cognito-idp.{region}.amazonaws.com/{user-pool-id}/.well-known/jwks.json
+   - name: OIDC_AUDIENCE
+     value: {app client id}
+   - name: OIDC_BEARER_TOKEN
+     value: id
+   - name: OIDC_GROUPS_CLAIM
+     value: cognito:groups
+   - name: OIDC_SUPERADMIN_GROUP
+     value: maestro-superadmin
+   ```
+
+   `OIDC_CLIENT_ID` defaults to `OIDC_AUDIENCE`, so it can be omitted.
+
+This is also the route for **Microsoft Entra ID** when a Keycloak broker is not an option: federate Entra into the Cognito user pool (**Sign-in experience → Federated identity provider sign-in → OpenID Connect**) and point Cardinal UI at Cognito. Entra cannot be the issuer directly, because the access token it mints is for Microsoft Graph and cannot be verified by anyone else.
+
+Requires maestro v1.128 or later (`OIDC_BEARER_TOKEN`).
 
 ## Claim mapping
 
