@@ -52,14 +52,14 @@ Both `/api/v1/logs/query` and `/api/v1/metrics/query` accept the same JSON body.
 
 ```json
 {
-  "q": "{resource_service_name=\"api-server\"} |= \"error\"",
+  "q": "{service_name=\"api-server\"} |= \"error\"",
   "s": "e-1h",
   "e": "now",
   "step": 60,
   "maxDataPoints": 480,
   "reverse": false,
   "limit": 1000,
-  "fields": ["log_level", "trace_id"],
+  "fields": ["level", "trace_id"],
   "summary": false
 }
 ```
@@ -191,8 +191,8 @@ Payload is the log record for one matching row:
   "timestamp_ns": 1729180800123456789,
   "tags": {
     "message":                "GET /orders 500 timeout after 30s",
-    "resource_service_name":  "api-server",
-    "log_level":              "ERROR",
+    "service_name":           "api-server",
+    "level":                  "ERROR",
     "trace_id":               "4bf92f3577b34da6a3ce929d0e0e4736",
     "span_id":                "00f067aa0ba902b7"
   }
@@ -327,7 +327,7 @@ curl -N \
   -H 'Content-Type: application/json' \
   "$LAKE_URL/api/v1/logs/query" \
   --data-raw '{
-    "q":       "{resource_service_name=\"api-server\"} |= \"error\"",
+    "q":       "{service_name=\"api-server\"} |= \"error\"",
     "s":       "e-15m",
     "e":       "now",
     "reverse": true,
@@ -338,9 +338,9 @@ curl -N \
 Trimmed output:
 
 ```
-data: {"type":"result","data":{"timestamp":1729180801523,"timestamp_ns":1729180801523118000,"tags":{"message":"GET /orders 500 timeout after 30s","resource_service_name":"api-server","log_level":"ERROR","trace_id":"4bf92f3577b34da6a3ce929d0e0e4736"}}}
+data: {"type":"result","data":{"timestamp":1729180801523,"timestamp_ns":1729180801523118000,"tags":{"message":"GET /orders 500 timeout after 30s","service_name":"api-server","level":"ERROR","trace_id":"4bf92f3577b34da6a3ce929d0e0e4736"}}}
 
-data: {"type":"result","data":{"timestamp":1729180800912,"timestamp_ns":1729180800912004000,"tags":{"message":"panic: nil pointer dereference","resource_service_name":"api-server","log_level":"ERROR"}}}
+data: {"type":"result","data":{"timestamp":1729180800912,"timestamp_ns":1729180800912004000,"tags":{"message":"panic: nil pointer dereference","service_name":"api-server","level":"ERROR"}}}
 
 data: {"type":"done","data":{"status":"ok"}}
 ```
@@ -355,7 +355,7 @@ curl -N \
   -H 'Content-Type: application/json' \
   "$LAKE_URL/api/v1/logs/query" \
   --data-raw '{
-    "q":    "sum by (log_level) (rate({resource_service_name=\"api-server\"}[1m]))",
+    "q":    "sum by (level) (rate({service_name=\"api-server\"}[1m]))",
     "s":    "e-1h",
     "e":    "now",
     "step": 60

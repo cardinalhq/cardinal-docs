@@ -183,7 +183,7 @@ export default function CollectorManifestsWizard() {
               <span className={styles.errorText}>Must be an http(s) URL if set</span>
             )}
             <span className={styles.hint}>
-              Only set for S3-compatible stores (MinIO, R2, GCS-in-S3-mode, etc.). AWS S3 uses the default for the region.
+              Only set for S3-compatible stores (MinIO, R2, GCS-in-S3-mode, etc.). AWS S3 uses the default for the region. S3-compatible stores usually also need <a href="/data-lake/collectors#upload-notifications">upload notifications</a> on the gateway.
             </span>
           </div>
         </div>

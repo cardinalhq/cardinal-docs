@@ -120,7 +120,7 @@ export default function QuickStartSteps() {
         </Step>
         <Step title="Access Grafana">
           <p>If Grafana was included in your installation, port-forward it to your local machine:</p>
-          <CodeBlock lang="bash" code="kubectl port-forward -n lakerunner svc/grafana 3000:3000" />
+          <CodeBlock lang="bash" code="kubectl port-forward -n lakerunner svc/lakerunner-grafana 3000:3000" />
           <p>
             Open{' '}
             <a href="http://localhost:3000" target="_blank" rel="noopener noreferrer">

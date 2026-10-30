@@ -25,6 +25,70 @@ The fastest manual path — deploy Cardinal Data Lake on a local Kubernetes clus
 
 <QuickStartSteps />
 
+## Before you install
+
+These apply to any install beyond the local quick start.
+
+### Kubernetes version
+
+Use Kubernetes 1.33 or later. The chart's README lists 1.28 as its minimum, but these docs only cover 1.33 and later.
+
+### Cluster size
+
+At minimum replicas, the chart's pods request about **16.3 vCPU and 29.5 GiB of memory**, including Grafana and 2
+`pubsub-http` pods. Add room for system overhead and for scale-up:
+
+- Each worker role can scale to 10 replicas. On a small cluster, lower `process.<signal>.autoscaling.maxReplicas`.
+- The query worker defaults to a 100Gi `emptyDir` scratch limit, which is close to the whole disk on nodes with about
+  120 GiB. Lower `queryWorker.temporaryStorage.size` to fit your nodes.
+
+### PostgreSQL connections
+
+Set `max_connections` to **at least 200**. A minimum-replica install held 66 to 98 connections while idle, and scale-up
+adds more, so the common default of 100 runs out. When it does, `control-plane` crash-loops with:
+
+```text
+remaining connection slots are reserved for roles with the SUPERUSER attribute (SQLSTATE 53300)
+```
+
+## S3-compatible storage
+
+Cardinal Data Lake only processes an object after it gets an event about it. Without events, the bucket fills, ingest
+stays idle, queries return nothing, and no error appears. Outside AWS, set the wizard's **S3 Endpoint**, choose **HTTP**
+for notifications, and use one of these routes.
+
+### Collector gateway notifications (recommended)
+
+The store needs no event support, because the Cardinal collector's `awss3` exporter POSTs after each successful upload.
+It needs collector v1.7.0 or later. Add this to the [gateway's exporter
+config](/data-lake/collectors#upload-notifications), using your Helm release name and namespace:
+
+```yaml copy
+exporters:
+  awss3:
+    s3uploader:
+      notifications:
+        endpoint: http://<release>-pubsub-http.<namespace>.svc.cluster.local:8080/
+```
+
+This has limits:
+
+- The queue is in memory, and each delivery is tried 3 times by default.
+- A dropped notification leaves that object in the bucket unprocessed.
+- Anything else that writes to the bucket produces no event.
+
+### Bucket events
+
+The store POSTs to the webhook itself, so it has to support webhook events. Set `pubsub.HTTP.enabled: true` and make the
+Service reachable from the store, because it defaults to ClusterIP (`pubsub.HTTP.service.type`).
+
+The webhook:
+
+- Listens on port 8080 and accepts POST on any path.
+- Accepts the S3 `Records` JSON format.
+- Has **no authentication**, so restrict access by network if you expose it. On a LoadBalancer, use
+  `pubsub.HTTP.service.loadBalancerSourceRanges`.
+
 ## Configuration wizard
 
 Use the interactive wizard below to generate a `values.yaml` for your deployment. Select your installation type
@@ -49,7 +113,7 @@ kubectl get pods -n lakerunner -l app.kubernetes.io/name=lakerunner
 Configure an Ingress or use port-forwarding to access Grafana:
 
 ```bash copy
-kubectl port-forward -n lakerunner svc/grafana 3000:3000
+kubectl port-forward -n lakerunner svc/lakerunner-grafana 3000:3000
 ```
 
 ## Deploying on OpenShift

@@ -302,16 +302,61 @@ describe('generateValuesYaml', () => {
   });
 
   describe('Scaling Configuration', () => {
-    test('generates processLogs/processMetrics/processTraces with autoscaling', () => {
+    test('writes the storage profile fields the chart documents', () => {
+      const state = createValidAWSState();
+      state.storage.endpoint = ' https://s3.example.com ';
+
+      const yaml = generateValuesYaml(state);
+
+      expect(yaml).toContain('      instance_num: 1');
+      expect(yaml).toContain('      endpoint: "https://s3.example.com"');
+      expect(yaml).toContain('      use_path_style: true');
+    });
+
+    test('omits endpoint when blank and S3 settings on GCP', () => {
+      expect(generateValuesYaml(createValidAWSState())).not.toContain('endpoint:');
+
+      const gcp = createValidGCPState();
+      gcp.storage.endpoint = 'https://s3.example.com';
+      const yaml = generateValuesYaml(gcp);
+
+      expect(yaml).toContain('      instance_num: 1');
+      expect(yaml).not.toContain('endpoint:');
+      expect(yaml).not.toContain('use_path_style');
+    });
+
+    test('rejects an endpoint that is not an http(s) URL', () => {
+      const state = createValidAWSState();
+      state.storage.endpoint = 'not a url';
+
+      expect(generateValuesYaml(state)).toBeNull();
+    });
+
+    test('writes passwordKey only for existing secrets that set one', () => {
+      const state = createValidAWSState();
+      state.lrdb.credentialMode = 'existing';
+      state.lrdb.existingSecretName = 'cnpg-app';
+      state.lrdb.passwordKey = 'password';
+      state.configdb.credentialMode = 'existing';
+      state.configdb.existingSecretName = 'cnpg-config';
+
+      const yaml = generateValuesYaml(state);
+
+      expect(yaml).toContain('secretName: "cnpg-app"\n  passwordKey: "password"');
+      expect(yaml).toContain('secretName: "cnpg-config"\n  lrdb:');
+    });
+
+    test('generates process.<signal> autoscaling, not the deprecated blocks', () => {
       const state = createValidAWSState();
       state.scaling = { processLogsMax: '5', processMetricsMax: '8', processTracesMax: '3' };
 
       const yaml = generateValuesYaml(state);
 
       expect(yaml).not.toBeNull();
-      expect(yaml).toContain('processLogs:');
-      expect(yaml).toContain('processMetrics:');
-      expect(yaml).toContain('processTraces:');
+      expect(yaml).toContain('process:\n  logs:\n    autoscaling:');
+      expect(yaml).toContain('  metrics:\n    autoscaling:');
+      expect(yaml).toContain('  traces:\n    autoscaling:');
+      expect(yaml).not.toMatch(/process(Logs|Metrics|Traces):/);
       expect(yaml).toContain('minReplicas: 1');
       expect(yaml).toContain('maxReplicas: 5');
       expect(yaml).toContain('maxReplicas: 8');

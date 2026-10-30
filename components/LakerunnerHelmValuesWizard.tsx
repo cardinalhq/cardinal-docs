@@ -12,6 +12,7 @@ import {
   createDefaultState,
   generateValuesYaml,
 } from '../lib/generateValuesYaml';
+import { isValidEndpointUrl } from '../lib/generateCollectorManifests';
 
 function generateUUID(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -244,6 +245,22 @@ export default function LakerunnerHelmValuesWizard() {
                       placeholder="us-east-1"
                       className={!state.storage.region.trim() ? styles.inputError : ''}
                     />
+                  </div>
+                  <div className={`${styles.formGroup} ${styles.fullWidth}`}>
+                    <label>S3 Endpoint</label>
+                    <input
+                      type="text"
+                      value={state.storage.endpoint ?? ''}
+                      onChange={(e) => updateNested('storage', 'endpoint', e.target.value)}
+                      placeholder="Leave blank for AWS S3"
+                      className={!isValidEndpointUrl(state.storage.endpoint ?? '') ? styles.inputError : ''}
+                    />
+                    {!isValidEndpointUrl(state.storage.endpoint ?? '') && (
+                      <span className={styles.errorText}>Must be an http(s) URL if set</span>
+                    )}
+                    <span className={styles.hint}>
+                      Only set for S3-compatible stores. These also need a way to deliver notifications: see <a href="/data-lake/manual-install#s3-compatible-storage">S3-compatible storage</a>.
+                    </span>
                   </div>
                   <div className={`${styles.formGroup} ${styles.fullWidth}`}>
                     <label>Credentials</label>
@@ -522,7 +539,19 @@ export default function LakerunnerHelmValuesWizard() {
                     placeholder="pg-credentials"
                     className={!state.lrdb.existingSecretName.trim() ? styles.inputError : ''}
                   />
-                  <span className={styles.hint}>Name of existing Kubernetes secret containing password (key: LRDB_PASSWORD)</span>
+                  <span className={styles.hint}>Name of existing Kubernetes secret containing the password</span>
+                </div>
+              )}
+              {state.lrdb.credentialMode === 'existing' && (
+                <div className={styles.formGroup}>
+                  <label>Password Key</label>
+                  <input
+                    type="text"
+                    value={state.lrdb.passwordKey ?? ''}
+                    onChange={(e) => updateNested('lrdb', 'passwordKey', e.target.value)}
+                    placeholder="LRDB_PASSWORD"
+                  />
+                  <span className={styles.hint}>Key that holds the password in the secret. Leave blank for LRDB_PASSWORD. CloudNativePG secrets use password.</span>
                 </div>
               )}
               <div className={styles.formGroup}>
@@ -622,7 +651,19 @@ export default function LakerunnerHelmValuesWizard() {
                     placeholder="configdb-credentials"
                     className={!state.configdb.existingSecretName.trim() ? styles.inputError : ''}
                   />
-                  <span className={styles.hint}>Name of existing Kubernetes secret containing password (key: CONFIGDB_PASSWORD)</span>
+                  <span className={styles.hint}>Name of existing Kubernetes secret containing the password</span>
+                </div>
+              )}
+              {state.configdb.credentialMode === 'existing' && (
+                <div className={styles.formGroup}>
+                  <label>Password Key</label>
+                  <input
+                    type="text"
+                    value={state.configdb.passwordKey ?? ''}
+                    onChange={(e) => updateNested('configdb', 'passwordKey', e.target.value)}
+                    placeholder="CONFIGDB_PASSWORD"
+                  />
+                  <span className={styles.hint}>Key that holds the password in the secret. Leave blank for CONFIGDB_PASSWORD. CloudNativePG secrets use password.</span>
                 </div>
               )}
               <div className={styles.formGroup}>
@@ -644,7 +685,7 @@ export default function LakerunnerHelmValuesWizard() {
           <section className={styles.section}>
             <h3 className={styles.sectionTitle}>License</h3>
             <p className={styles.hint}>
-              A valid license is required for Cardinal Data Lake to operate. Contact <a href="mailto:support@cardinalhq.com">support@cardinalhq.com</a> to obtain one.
+              A valid license is required for Cardinal Data Lake to operate. Contact <a href="mailto:support@cardinalhq.io">support@cardinalhq.io</a> to obtain one.
             </p>
             <div className={styles.formGrid}>
               <div className={`${styles.formGroup} ${styles.fullWidth}`}>
@@ -794,7 +835,7 @@ export default function LakerunnerHelmValuesWizard() {
             ) : (
               <>
                 <p className={styles.hint}>
-                  Choose how S3 object notifications are ingested. HTTP provides a webhook endpoint. SQS polls from an AWS SQS queue.
+                  Choose how S3 object notifications are ingested. HTTP provides a webhook endpoint. SQS polls from an AWS SQS queue. For S3-compatible stores, choose HTTP and see <a href="/data-lake/manual-install#s3-compatible-storage">S3-compatible storage</a>.
                 </p>
                 <div className={styles.providerSelect}>
                   <button
@@ -906,7 +947,7 @@ helm install lakerunner oci://public.ecr.aws/cardinalhq.io/lakerunner \\
                 <h4>Access Grafana</h4>
                 <pre className={styles.codeBlock}>
 {`# Port-forward to access Grafana locally:
-kubectl port-forward -n lakerunner svc/grafana 3000:3000
+kubectl port-forward -n lakerunner svc/lakerunner-grafana 3000:3000
 
 # Then access Grafana at: http://localhost:3000`}
                 </pre>

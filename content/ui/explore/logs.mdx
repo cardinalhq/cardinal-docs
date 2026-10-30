@@ -24,7 +24,7 @@ Switch to **Code** to edit the LogQL expression directly. A raw log selector con
 For example:
 
 ```logql
-{resource_service_name="checkout"} |~ "(?i)timeout|exception"
+{service_name="checkout"} |~ "(?i)timeout|exception"
 ```
 
 Explore checks the expression while you type. Expressions that cannot be represented by the Builder stay in Code mode. Cardinal Data Lake implements a focused LogQL subset; see [Log Queries](/data-lake/query-language#log-queries-logql-style) and [Supported Subset](/data-lake/query-language#supported-subset) for the available syntax.

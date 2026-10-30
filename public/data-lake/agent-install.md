@@ -223,8 +223,6 @@ curl -N -H @<header-file> -H 'Content-Type: application/json' \
 rm <header-file>
 ```
 
-If that's empty, also try `resource_service_name`.
-
 ## Troubleshooting
 
 | Symptom | Cause and fix |

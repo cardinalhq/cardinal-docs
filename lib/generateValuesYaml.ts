@@ -1,3 +1,5 @@
+import { isValidEndpointUrl } from './generateCollectorManifests';
+
 // Types for the Install Wizard state
 export type InstallType = 'poc' | 'production';
 export type CloudProvider = 'aws' | 'gcp' | 'azure';
@@ -42,6 +44,7 @@ export interface PostgresConfig {
   password: string;
   sslMode: string;
   existingSecretName: string;
+  passwordKey?: string;
 }
 
 export interface ScalingConfig {
@@ -120,6 +123,7 @@ export function isBasicsConfigured(state: WizardState): boolean {
   // Validate storage configuration
   if (!state.storage.bucket.trim()) return false;
   if (!state.storage.region.trim()) return false;
+  if (state.cloudProvider === 'aws' && !isValidEndpointUrl(state.storage.endpoint ?? '')) return false;
 
   // Validate cloud provider credentials
   if (state.cloudProvider === 'aws') {
@@ -263,6 +267,7 @@ export function generateValuesYaml(state: WizardState): string | null {
   lines.push('  create: true');
   lines.push('  yaml:');
   lines.push(`    - organization_id: "${state.organizationId}"`);
+  lines.push('      instance_num: 1');
   lines.push(`      collector_name: "${state.collectorName}"`);
   lines.push(`      cloud_provider: "${state.cloudProvider}"`);
   lines.push(`      region: "${state.storage.region}"`);
@@ -271,8 +276,11 @@ export function generateValuesYaml(state: WizardState): string | null {
   } else {
     lines.push(`      bucket: "${state.storage.bucket}"`);
   }
-  if (state.storage.endpoint) {
-    lines.push(`      endpoint: "${state.storage.endpoint}"`);
+  if (state.cloudProvider === 'aws') {
+    if (state.storage.endpoint?.trim()) {
+      lines.push(`      endpoint: "${state.storage.endpoint.trim()}"`);
+    }
+    lines.push('      use_path_style: true');
   }
   lines.push('');
 
@@ -281,6 +289,9 @@ export function generateValuesYaml(state: WizardState): string | null {
   if (state.lrdb.credentialMode === 'existing') {
     lines.push('  create: false');
     lines.push(`  secretName: "${state.lrdb.existingSecretName}"`);
+    if (state.lrdb.passwordKey?.trim()) {
+      lines.push(`  passwordKey: "${state.lrdb.passwordKey.trim()}"`);
+    }
   } else {
     lines.push('  create: true');
   }
@@ -299,6 +310,9 @@ export function generateValuesYaml(state: WizardState): string | null {
   if (state.configdb.credentialMode === 'existing') {
     lines.push('  create: false');
     lines.push(`  secretName: "${state.configdb.existingSecretName}"`);
+    if (state.configdb.passwordKey?.trim()) {
+      lines.push(`  passwordKey: "${state.configdb.passwordKey.trim()}"`);
+    }
   } else {
     lines.push('  create: true');
   }
@@ -314,20 +328,19 @@ export function generateValuesYaml(state: WizardState): string | null {
   lines.push('');
 
   // Process service scaling
-  lines.push('processLogs:');
-  lines.push('  autoscaling:');
-  lines.push(`    minReplicas: 1`);
-  lines.push(`    maxReplicas: ${state.scaling.processLogsMax}`);
-  lines.push('');
-  lines.push('processMetrics:');
-  lines.push('  autoscaling:');
-  lines.push(`    minReplicas: 1`);
-  lines.push(`    maxReplicas: ${state.scaling.processMetricsMax}`);
-  lines.push('');
-  lines.push('processTraces:');
-  lines.push('  autoscaling:');
-  lines.push(`    minReplicas: 1`);
-  lines.push(`    maxReplicas: ${state.scaling.processTracesMax}`);
+  lines.push('process:');
+  lines.push('  logs:');
+  lines.push('    autoscaling:');
+  lines.push(`      minReplicas: 1`);
+  lines.push(`      maxReplicas: ${state.scaling.processLogsMax}`);
+  lines.push('  metrics:');
+  lines.push('    autoscaling:');
+  lines.push(`      minReplicas: 1`);
+  lines.push(`      maxReplicas: ${state.scaling.processMetricsMax}`);
+  lines.push('  traces:');
+  lines.push('    autoscaling:');
+  lines.push(`      minReplicas: 1`);
+  lines.push(`      maxReplicas: ${state.scaling.processTracesMax}`);
   lines.push('');
 
   // PubSub (ingestion)
