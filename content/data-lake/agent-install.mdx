@@ -4,8 +4,10 @@ import SupportCallout from '../../components/SupportCallout';
 # Install with an AI Agent
 
 This skill walks an AI agent through installing Cardinal Data Lake on a Kubernetes cluster. The agent works out what it
-can from your kubeconfig, cloud CLI and infrastructure code, and asks only what it can't find. It covers managed
-Kubernetes, S3-compatible object storage, and externally managed PostgreSQL.
+can from your kubeconfig, cloud CLI and infrastructure code, and asks only what it can't find. It covers AWS EKS,
+Google GKE, OVHcloud Managed Kubernetes, and Kubernetes on Linux VPS hosts,
+with object storage and externally managed PostgreSQL. It links to public provider bootstrap guides when you do not
+already have a cluster. You still need provider credentials and a Cardinal account/site or a license.
 
 Paste this into your agent:
 
@@ -22,8 +24,26 @@ If your agent can't fetch URLs, use the copy button on [the skill below](#the-sk
 | Part | Status |
 |---|---|
 | Values, secrets, Postgres connection numbers, troubleshooting | Tested with chart 4.2.2 on a self-hosted cluster |
+| HTTP, SQS and GCP values examples | Rendered against public OCI chart 4.2.2; provider IAM and ingestion remain untested |
 | Collector gateway `notifications` | Checked against the exporter source. Not retested end to end for this guide |
 | Managed Kubernetes, VPS object storage, managed PostgreSQL | **Not run yet.** Based on provider docs and the chart |
+
+## Can an agent deploy using public resources?
+
+**There is enough public documentation to plan and attempt these deployments**, provided you supply the account access,
+license/site and infrastructure budget. The skill separates operator-managed installation from manual Helm for a POC,
+and includes AWS SQS and native GCP Pub/Sub values alongside the portable S3-compatible recipe. These are documentation
+and chart-rendering checks; they do not establish that a deployment has succeeded on those providers.
+
+| Target | Deployment path | Main checks |
+|---|---|---|
+| AWS EKS | EKS worker nodes, S3, SQS and external PostgreSQL | CSI/default StorageClass, pod IAM, bucket-to-queue policy, database connections |
+| Google GKE | GKE Standard, GCS, Pub/Sub and external PostgreSQL; or an external S3-compatible store | Workload Identity for the native reader; the documented `awss3` writer separately needs GCS HMAC credentials |
+| OVHcloud Managed Kubernetes | Public Cloud cluster/node pool, S3 Object Storage, collector HTTP notifications and external PostgreSQL | S3 region/endpoint, private networking, CSI/default StorageClass, database limits |
+| OVHcloud VPS/dedicated servers or another VPS host | Provision Linux hosts, install Kubernetes (for example K3s), then use the portable S3 route | Workload capacity beyond Kubernetes minimums, durable storage, backups, private node networking and database reachability |
+
+The skill's provider bootstrap table links directly to the public instructions. For production, use the operator and
+review external storage/database support with Cardinal. A single VPS POC does not provide high availability.
 
 ## Provider notes
 
@@ -31,6 +51,7 @@ These are leads from October 2026, not test results. Check the provider's curren
 
 | Provider | What we found |
 |---|---|
+| OVHcloud Object Storage | The public [S3 compliance table](https://github.com/ovh/docs/blob/develop/pages/storage_and_backup/object_storage/s3_s3_compliancy/guide.en-gb.md) marks bucket notification configuration unsupported. Use collector gateway notifications; recheck the selected offer/region when deploying |
 | DigitalOcean Spaces | The [S3 compatibility page](https://docs.digitalocean.com/products/spaces/reference/s3-compatibility/) has no notification row, and a [2024 community answer](https://digitalocean.com/community/questions/any-webhook-functionality-with-spaces) says there are no native webhooks |
 | DigitalOcean managed PostgreSQL | The [limits page](https://docs.digitalocean.com/products/databases/postgresql/details/limits/) lists backend connections by plan: 197 for 8 GiB, up to 997 for 64 GiB and above. New Standard Edition clusters can't use plans above 4 GiB, from 15 October 2026 for new accounts and 30 November 2026 for all accounts |
 | Akamai/Linode Object Storage | A [staff forum reply](https://www.linode.com/community/questions/21051/object-storage-bucket-notification) says notifications aren't a feature. The post may be out of date |
