@@ -30,11 +30,11 @@ Stream selectors filter logs by label. They are enclosed in curly braces:
 #### Examples
 
 ```logql
-{resource_service_name="api-server"}
+{service_name="api-server"}
 ```
 
 ```logql
-{environment="prod", resource_service_name=~"api-.*"}
+{environment="prod", service_name=~"api-.*"}
 ```
 
 ```logql
@@ -55,11 +55,11 @@ After a stream selector, you can apply line filters to match or exclude log cont
 #### Examples
 
 ```logql
-{resource_service_name="api-server"} |= "error"
+{service_name="api-server"} |= "error"
 ```
 
 ```logql
-{resource_service_name="api-server"} !~ "debug|trace"
+{service_name="api-server"} !~ "debug|trace"
 ```
 
 ```logql
@@ -71,7 +71,7 @@ After a stream selector, you can apply line filters to match or exclude log cont
 Use label filters to refine results based on parsed or indexed labels:
 
 ```logql
-{resource_service_name="api-server"} | log_level="ERROR"
+{service_name="api-server"} | level="ERROR"
 ```
 
 ```logql

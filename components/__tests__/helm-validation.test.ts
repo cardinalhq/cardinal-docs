@@ -2,28 +2,28 @@ import { spawnSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import * as yaml from 'js-yaml';
 import {
   generateValuesYaml,
   createDefaultState,
   type WizardState,
 } from '../../lib/generateValuesYaml';
+import { CHART_PATH, loadChartValues, missingKeys, type Node } from '../../lib/__tests__/chartValues';
 
 // These tests validate that the wizard-generated YAML can be successfully
 // templated with the actual Cardinal Data Lake helm chart using `helm template`.
-// Uses the local chart at ../charts/lakerunner/ for speed.
-
-const CHART_PATH = path.resolve(__dirname, '../../../charts/lakerunner');
+// Uses the local chart at ../charts/lakerunner/ for speed. CI checks it out too,
+// and fails rather than skips if it is missing.
 
 describe('Helm Template Validation', () => {
   let tempDir: string;
+  let chartValues: Node | null;
   let chartAvailable: boolean;
 
   beforeAll(() => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lakerunner-test-'));
-    chartAvailable = fs.existsSync(path.join(CHART_PATH, 'Chart.yaml'));
-    if (!chartAvailable) {
-      console.warn(`Skipping helm template tests: chart not found at ${CHART_PATH}`);
-    }
+    chartValues = loadChartValues();
+    chartAvailable = chartValues !== null;
   });
 
   afterAll(() => {
@@ -133,6 +133,33 @@ describe('Helm Template Validation', () => {
     }
     return false;
   }
+
+  describe('Chart drift', () => {
+    test('every key the wizard writes exists in the chart', () => {
+      if (skipIfNoChart()) return;
+
+      const sqs = createValidAWSState();
+      sqs.pubsub.type = 'sqs';
+      sqs.pubsub.sqsQueueURL = 'https://sqs.us-east-1.amazonaws.com/123456789012/q';
+      sqs.pubsub.sqsRegion = 'us-east-1';
+      sqs.pubsub.sqsRoleARN = 'arn:aws:iam::123456789012:role/my-role';
+      sqs.storage.endpoint = 'https://s3.example.com';
+      sqs.lrdb.credentialMode = 'existing';
+      sqs.lrdb.existingSecretName = 'lrdb-credentials';
+      sqs.lrdb.passwordKey = 'password';
+      sqs.configdb.credentialMode = 'existing';
+      sqs.configdb.existingSecretName = 'configdb-credentials';
+      sqs.configdb.passwordKey = 'password';
+      const gcp = createValidGCPState();
+      gcp.gcp.credentialMode = 'service_account';
+      gcp.gcp.serviceAccountJson = '{"type":"service_account"}';
+
+      for (const state of [createValidAWSState(), sqs, gcp]) {
+        const values = yaml.load(generateValuesYaml(state)!) as Node;
+        expect(missingKeys(values, chartValues!)).toEqual([]);
+      }
+    });
+  });
 
   describe('AWS + HTTP PubSub', () => {
     test('POC with AWS create credentials + HTTP pubsub', () => {

@@ -10,30 +10,10 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
-
-type Node = Record<string, unknown>;
+import { CHART_PATH, loadChartValues, missingKeys, type Node } from './chartValues';
 
 const SKILL = fs.readFileSync(path.resolve(__dirname, '../../public/data-lake/agent-install.md'), 'utf8');
-const CHART_PATH = path.resolve(__dirname, '../../../charts/lakerunner');
-const VALUES_PATH = path.join(CHART_PATH, 'values.yaml');
 const VALUES_BLOCK = SKILL.match(/```yaml\n(license:[\s\S]*?)```/)![1];
-
-function chartValues(): Node | null {
-  if (fs.existsSync(VALUES_PATH)) return yaml.load(fs.readFileSync(VALUES_PATH, 'utf8')) as Node;
-  if (process.env.CI) throw new Error(`chart not found at ${CHART_PATH}`);
-  console.warn(`Skipping chart checks: chart not found at ${CHART_PATH}`);
-  return null;
-}
-
-function missingKeys(block: Node, chart: Node, prefix = ''): string[] {
-  return Object.entries(block).flatMap(([key, value]) => {
-    const keyPath = `${prefix}${key}`;
-    if (!(key in chart)) return [keyPath];
-    // Arrays such as storageProfiles.yaml are free-form in values.yaml.
-    if (value === null || typeof value !== 'object' || Array.isArray(value)) return [];
-    return missingKeys(value as Node, chart[key] as Node, `${keyPath}.`);
-  });
-}
 
 function hasPath(chart: Node, dotted: string): boolean {
   let node: unknown = chart;
@@ -59,13 +39,13 @@ describe('agent install skill', () => {
   });
 
   test('values keys exist in the chart', () => {
-    const chart = chartValues();
+    const chart = loadChartValues();
     if (!chart) return;
     expect(missingKeys(yaml.load(VALUES_BLOCK) as Node, chart)).toEqual([]);
   });
 
   test('chart paths named in the prose exist in the chart', () => {
-    const chart = chartValues();
+    const chart = loadChartValues();
     if (!chart) return;
     const paths = Array.from(SKILL.matchAll(/`((?:global|setup|process|queryWorker|pubsub|grafana)\.[\w.]+)`/g), (m) => m[1]);
     expect(paths.length).toBeGreaterThan(0);
@@ -73,7 +53,7 @@ describe('agent install skill', () => {
   });
 
   test('values render and use the secrets the skill creates', () => {
-    if (!chartValues()) return;
+    if (!loadChartValues()) return;
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-install-'));
     try {
       const filled = VALUES_BLOCK.replace(/<port>/g, '5432').replace(/<[^>\n]+>/g, 'placeholder');

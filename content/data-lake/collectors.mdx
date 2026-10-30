@@ -297,6 +297,20 @@ service:
       exporters: [awss3]
 ```
 
+### Upload notifications
+
+Cardinal Data Lake only processes an object after it gets an event about it. If your store doesn't send bucket events, the gateway can send them instead. It POSTs to the `pubsub-http` webhook after each successful upload (collector v1.7.0 or later):
+
+```yaml copy
+exporters:
+  awss3:
+    s3uploader:
+      notifications:
+        endpoint: http://<release>-pubsub-http.<namespace>.svc.cluster.local:8080/
+```
+
+See [S3-compatible storage](/data-lake/manual-install#s3-compatible-storage) for the limits and the other route.
+
 ### Gateway Resources
 
 | Resource | Request | Limit |
