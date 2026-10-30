@@ -2,6 +2,7 @@ export default {
   index: 'Overview',
   install: 'Installation',
   'manual-install': 'Manual Install (Helm)',
+  'agent-install': 'Install with an AI Agent',
   quickstart: { display: 'hidden' },
   collectors: 'OpenTelemetry Collectors',
   instrumentation: 'App Instrumentation',
