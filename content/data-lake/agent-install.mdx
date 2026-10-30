@@ -1,0 +1,44 @@
+import AgentInstallSkill from '../../components/AgentInstallSkill';
+import SupportCallout from '../../components/SupportCallout';
+
+# Install with an AI Agent
+
+This skill walks an AI agent through installing Cardinal Data Lake on a Kubernetes cluster. The agent works out what it
+can from your kubeconfig, cloud CLI and infrastructure code, and asks only what it can't find. It covers managed
+Kubernetes, S3-compatible object storage, and externally managed PostgreSQL.
+
+Paste this into your agent:
+
+```text copy
+Install Cardinal Data Lake on my Kubernetes cluster.
+Fetch https://docs.cardinalhq.io/data-lake/agent-install.md and follow it.
+```
+
+If your agent can't fetch URLs, use the copy button on [the skill below](#the-skill). To keep it as a skill, save the
+[raw Markdown](https://docs.cardinalhq.io/data-lake/agent-install.md) as `SKILL.md`.
+
+## How far this has been tested
+
+| Part | Status |
+|---|---|
+| Values, secrets, Postgres connection numbers, troubleshooting | Tested with chart 4.2.2 on a self-hosted cluster |
+| Collector gateway `notifications` | Checked against the exporter source. Not retested end to end for this guide |
+| Managed Kubernetes, VPS object storage, managed PostgreSQL | **Not run yet.** Based on provider docs and the chart |
+
+## Provider notes
+
+These are leads from October 2026, not test results. Check the provider's current docs.
+
+| Provider | What we found |
+|---|---|
+| DigitalOcean Spaces | The [S3 compatibility page](https://docs.digitalocean.com/products/spaces/reference/s3-compatibility/) has no notification row, and a [2024 community answer](https://digitalocean.com/community/questions/any-webhook-functionality-with-spaces) says there are no native webhooks |
+| DigitalOcean managed PostgreSQL | The [limits page](https://docs.digitalocean.com/products/databases/postgresql/details/limits/) lists backend connections by plan: 197 for 8 GiB, up to 997 for 64 GiB and above. New Standard Edition clusters can't use plans above 4 GiB, from 15 October 2026 for new accounts and 30 November 2026 for all accounts |
+| Akamai/Linode Object Storage | A [staff forum reply](https://www.linode.com/community/questions/21051/object-storage-bucket-notification) says notifications aren't a feature. The post may be out of date |
+| Hetzner Object Storage | Only a [third-party comparison](https://blog.admin-intelligence.de/?p=6575) says they're missing |
+| Vultr Object Storage | We found nothing either way |
+
+## The skill
+
+<AgentInstallSkill />
+
+<SupportCallout />
