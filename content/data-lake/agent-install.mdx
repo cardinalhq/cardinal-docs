@@ -3,62 +3,66 @@ import SupportCallout from '../../components/SupportCallout';
 
 # Install with an AI Agent
 
-This skill walks an AI agent through installing Cardinal Data Lake on a Kubernetes cluster. The agent works out what it
-can from your kubeconfig, cloud CLI and infrastructure code, and asks only what it can't find. It covers AWS EKS,
-Google GKE, OVHcloud Managed Kubernetes, and Kubernetes on Linux VPS hosts,
-with object storage and externally managed PostgreSQL. It links to public provider bootstrap guides when you do not
-already have a cluster. You still need provider credentials and a Cardinal account/site or a license.
+Use your AI coding agent to deploy Cardinal Data Lake on Kubernetes. Give it the install instructions below and access
+to your infrastructure. The agent checks your cluster, configures storage and PostgreSQL, installs Cardinal, and
+verifies the deployment by querying an ingested record.
 
-Paste this into your agent:
+## Before you start
+
+Have these ready:
+
+- An AI agent that can run `kubectl`, Helm and your provider's CLI.
+- Access to your Kubernetes cluster, or a cloud/VPS account where the agent can create one.
+- A [Cardinal account](https://app.cardinalhq.io) for an operator-managed install, or a license file for a manual Helm POC.
+- Your preferred provider and region, plus access to object storage and PostgreSQL. The agent can help provision them.
+
+Use the [operator-managed installation](/data-lake/install) for production. Use [manual Helm](/data-lake/manual-install)
+for a POC where you manage upgrades and monitoring yourself.
+
+## Start the install
+
+Paste this into your agent, adding your provider, region and cluster name if you know them:
 
 ```text copy
 Install Cardinal Data Lake on my Kubernetes cluster.
 Fetch https://docs.cardinalhq.io/data-lake/agent-install.md and follow it.
+Inspect my existing infrastructure first, then prepare the deployment configuration.
+Ask me to approve paid resources or public endpoints before creating them.
+Verify the installation by sending a test log and querying it back.
 ```
 
-If your agent can't fetch URLs, use the copy button on [the skill below](#the-skill). To keep it as a skill, save the
-[raw Markdown](https://docs.cardinalhq.io/data-lake/agent-install.md) as `SKILL.md`.
+If you need a cluster, tell the agent which provider to use. For example: “Create a Kubernetes cluster on OVHcloud in
+my preferred region, then install Cardinal Data Lake.”
 
-## How far this has been tested
+If your agent cannot fetch URLs, copy [the full install instructions below](#install-instructions) into its context.
+To reuse them as a skill, save the [raw Markdown](https://docs.cardinalhq.io/data-lake/agent-install.md) as `SKILL.md`.
 
-| Part | Status |
-|---|---|
-| Values, secrets, Postgres connection numbers, troubleshooting | Tested with chart 4.2.2 on a self-hosted cluster |
-| HTTP, SQS and GCP values examples | Rendered against public OCI chart 4.2.2; provider IAM and ingestion remain untested |
-| Collector gateway `notifications` | Checked against the exporter source. Not retested end to end for this guide |
-| Managed Kubernetes, VPS object storage, managed PostgreSQL | **Not run yet.** Based on provider docs and the chart |
+## Choose your deployment path
 
-## Can an agent deploy using public resources?
-
-**There is enough public documentation to plan and attempt these deployments**, provided you supply the account access,
-license/site and infrastructure budget. The skill separates operator-managed installation from manual Helm for a POC,
-and includes AWS SQS and native GCP Pub/Sub values alongside the portable S3-compatible recipe. These are documentation
-and chart-rendering checks; they do not establish that a deployment has succeeded on those providers.
-
-| Target | Deployment path | Main checks |
+| Target | Cluster and storage | Configuration |
 |---|---|---|
-| AWS EKS | EKS worker nodes, S3, SQS and external PostgreSQL | CSI/default StorageClass, pod IAM, bucket-to-queue policy, database connections |
-| Google GKE | GKE Standard, GCS, Pub/Sub and external PostgreSQL; or an external S3-compatible store | Workload Identity for the native reader; the documented `awss3` writer separately needs GCS HMAC credentials |
-| OVHcloud Managed Kubernetes | Public Cloud cluster/node pool, S3 Object Storage, collector HTTP notifications and external PostgreSQL | S3 region/endpoint, private networking, CSI/default StorageClass, database limits |
-| OVHcloud VPS/dedicated servers or another VPS host | Provision Linux hosts, install Kubernetes (for example K3s), then use the portable S3 route | Workload capacity beyond Kubernetes minimums, durable storage, backups, private node networking and database reachability |
+| AWS | EKS, S3 and external PostgreSQL | S3 object notifications through SQS; configure pod IAM and a default StorageClass |
+| Google Cloud | GKE Standard, GCS and external PostgreSQL | GCS notifications through Pub/Sub; configure Workload Identity for Lakerunner and separate HMAC credentials for the documented collector |
+| OVHcloud Managed Kubernetes | Public Cloud cluster and node pool, S3 Object Storage and external PostgreSQL | Use collector gateway HTTP notifications; configure the S3 endpoint for your region and private database access |
+| OVHcloud VPS/dedicated servers or another Linux VPS host | Kubernetes such as K3s, S3-compatible storage and external PostgreSQL | Provision Kubernetes first, then use collector gateway HTTP notifications; plan durable storage and backups |
 
-The skill's provider bootstrap table links directly to the public instructions. For production, use the operator and
-review external storage/database support with Cardinal. A single VPS POC does not provide high availability.
+The install instructions include public provider setup guides and the values for each notification route. You can
+also run Kubernetes on one provider and use an S3-compatible store on another.
 
-## Provider notes
+For S3-compatible storage, use collector gateway notifications unless the provider documents a compatible event route.
+This avoids depending on bucket notification support. The gateway sends a notification after each upload; its delivery
+limits are described in the instructions below.
 
-These are leads from October 2026, not test results. Check the provider's current docs.
+## Confirm the result
 
-| Provider | What we found |
-|---|---|
-| OVHcloud Object Storage | The public [S3 compliance table](https://github.com/ovh/docs/blob/develop/pages/storage_and_backup/object_storage/s3_s3_compliancy/guide.en-gb.md) marks bucket notification configuration unsupported. Use collector gateway notifications; recheck the selected offer/region when deploying |
-| DigitalOcean Spaces | The [S3 compatibility page](https://docs.digitalocean.com/products/spaces/reference/s3-compatibility/) has no notification row, and a [2024 community answer](https://digitalocean.com/community/questions/any-webhook-functionality-with-spaces) says there are no native webhooks |
-| DigitalOcean managed PostgreSQL | The [limits page](https://docs.digitalocean.com/products/databases/postgresql/details/limits/) lists backend connections by plan: 197 for 8 GiB, up to 997 for 64 GiB and above. New Standard Edition clusters can't use plans above 4 GiB, from 15 October 2026 for new accounts and 30 November 2026 for all accounts |
-| Akamai/Linode Object Storage | A [staff forum reply](https://www.linode.com/community/questions/21051/object-storage-bucket-notification) says notifications aren't a feature. The post may be out of date |
-| Hetzner Object Storage | Only a [third-party comparison](https://blog.admin-intelligence.de/?p=6575) says they're missing |
-| Vultr Object Storage | We found nothing either way |
+Ask the agent to report the release name, namespace, installed version, Secret locations and verification results.
+The deployment is ready when a log sent through your collector appears in a query result. Running pods or an empty
+successful query are not sufficient.
 
-## The skill
+Keep the generated configuration and upgrade procedure. Before running production workloads, review capacity,
+backups, retention, high availability and TLS access with your operator.
+
+## Install instructions
 
 <AgentInstallSkill />
 

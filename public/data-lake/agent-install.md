@@ -5,15 +5,11 @@ description: Install Cardinal Data Lake (Lakerunner) on any Kubernetes cluster, 
 
 # Install Cardinal Data Lake
 
-Last checked against chart 4.2.2 (Lakerunner v1.98.1). Provider references reviewed 2026-10-30.
-These are deployment instructions, not evidence that every provider combination has been run.
+Deploy Cardinal Data Lake on an existing Kubernetes cluster, or provision a cluster on AWS, Google Cloud,
+OVHcloud or Linux VPS hosts first. Discover the infrastructure, choose the storage and notification route,
+install with the operator or Helm, then send a test log and query it back.
 
-How far this guide has been tested, which you should tell the operator before you start:
-
-- Values, secrets, Postgres connection numbers and troubleshooting: tested on a self-hosted cluster.
-- HTTP, SQS and GCP values examples: rendered against the public OCI chart 4.2.2; this checks manifests, not provider IAM or ingestion.
-- Collector gateway `notifications`: checked against the exporter source, not retested end to end for this guide.
-- Managed Kubernetes, VPS object storage and managed PostgreSQL: **not run yet**. Expect to find problems, and report them to support@cardinalhq.io.
+Chart baseline: 4.2.2 (Lakerunner v1.98.1). Use the operator for production and manual Helm for POCs.
 
 ## Rules
 
@@ -34,7 +30,7 @@ Choose a provider and region with the operator, then use its public bootstrap gu
 | Target | Public bootstrap reference | Before installing Cardinal |
 |---|---|---|
 | AWS EKS | https://docs.aws.amazon.com/eks/latest/userguide/create-cluster.html | Create worker nodes as well as the control plane; retrieve kubeconfig with `aws eks update-kubeconfig`. For ordinary EKS with EBS-backed PVCs, configure the EBS CSI driver and its IAM permissions: https://docs.aws.amazon.com/eks/latest/userguide/ebs-csi.html. Check the actual default StorageClass rather than assuming a class name. Use S3 + SQS below, or the portable S3 route |
-| Google GKE | https://docs.cloud.google.com/kubernetes-engine/docs/how-to/creating-a-zonal-cluster | Start with Standard for this untested recipe; review regional clusters for production. Retrieve kubeconfig with `gcloud container clusters get-credentials`. Native GCS needs the GCP overlay and writer credentials below. GKE can also use an external S3-compatible store with the portable recipe |
+| Google GKE | https://docs.cloud.google.com/kubernetes-engine/docs/how-to/creating-a-zonal-cluster | Use GKE Standard for this recipe; review regional clusters for production. Retrieve kubeconfig with `gcloud container clusters get-credentials`. Native GCS needs the GCP overlay and writer credentials below. GKE can also use an external S3-compatible store with the portable recipe |
 | OVHcloud Managed Kubernetes | https://docs.ovhcloud.com/en/guides/public-cloud/containers-orchestration/managed-kubernetes/create-cluster | Create a Public Cloud project, cluster and node pool; download kubeconfig. Verify the region's StorageClass, private network and PostgreSQL reachability. Use the S3 API endpoint and credentials for the selected Object Storage region, not Swift credentials |
 | OVHcloud VPS/dedicated servers, Hetzner or another Linux VPS host | https://docs.k3s.io/quick-start and https://docs.k3s.io/installation/requirements | Provision Linux hosts and install a supported Kubernetes release first. Size for Cardinal plus Kubernetes, not K3s's own minimum. Verify container image architecture support. Keep node/control-plane traffic on private networking or a VPN and restrict administrative access. Node-local storage does not survive node loss; use durable volumes/database and backups for production. Use the portable S3 recipe |
 
@@ -334,3 +330,11 @@ Tell the operator:
 - The exact upgrade command with release, namespace, pinned chart version and all values files (or the operator-managed upgrade procedure).
 - Which verification steps passed.
 - What's still open: backups, HA, retention, Ingress, and anything you skipped.
+
+## Validation scope
+
+The base configuration was tested on a self-hosted cluster. The HTTP, SQS and GCP examples render against
+public chart 4.2.2. Managed Kubernetes, provider object storage and managed PostgreSQL combinations have not
+been validated end to end; collector gateway notifications were checked against the exporter source.
+Confirm provider IAM, connectivity and notification delivery during installation, and require the query-back
+check before reporting success. For deployment issues, contact support@cardinalhq.io.
