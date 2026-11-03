@@ -37,10 +37,13 @@ See [OIDC setup](/ui/install/oidc) for a walkthrough.
 
 | Variable | Required | Default | Notes |
 | -------- | -------- | ------- | ----- |
-| `OIDC_ISSUER_URL` | Yes | — | Issuer URL of your IdP. JWKS is discovered from it |
+| `OIDC_ISSUER_URL` | Yes | — | Issuer URL of your IdP. The SPA signs in through its discovery document, and the signing keys (`jwks_uri`) come from it |
+| `OIDC_EXPECTED_ISSUER` | — | `OIDC_ISSUER_URL` | The `iss` value tokens must carry, when the discovery document names a different issuer |
 | `OIDC_AUDIENCE` | — | `maestro-ui` | Expected `aud` claim on incoming tokens. For many IdPs this equals the OAuth client ID |
 | `OIDC_CLIENT_ID` | — | `OIDC_AUDIENCE` | OAuth client ID the SPA sends in `/authorize` requests. Set separately when the token's `aud` is a resource identifier distinct from the client ID (e.g. Okta with a custom authorization server) |
-| `OIDC_JWKS_URL` | — | derived | Override if your IdP's JWKS lives outside the standard discovery path |
+| `OIDC_JWKS_URL` | — | discovery `jwks_uri` | Override when the pod must reach the keys on a different URL |
+| `OIDC_BEARER_TOKEN` | — | `access` | Which token the SPA sends: `access` or `id` (`id` for Amazon Cognito) |
+| `OIDC_DEBUG` | — | `false` | Log a summary of each distinct sign-in token (no email or name values) |
 | `OIDC_SUPERADMIN_GROUP` | — | `maestro-superadmin` | Users in this OIDC group are promoted to superadmin |
 | `OIDC_SUPERADMIN_EMAILS` | — | — | Comma-separated email allowlist. Matched case-insensitively. Use this to bootstrap the first superadmin before you've wired groups |
 | `OIDC_TRUST_UNVERIFIED_EMAILS` | — | `false` | Treat all OIDC emails as verified regardless of the `email_verified` claim. Only set this if you trust your IdP to gate email ownership itself (some Okta setups) |
