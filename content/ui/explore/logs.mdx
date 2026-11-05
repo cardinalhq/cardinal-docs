@@ -10,7 +10,7 @@ The **Builder** narrows logs with four kinds of input:
 
 - **Service name** selects one or more services.
 - **Level** selects the severity values present in the current result.
-- **Message contains** matches text in the log message.
+- **Message contains** matches words in the log message, ignoring case. Use **Message matches** for a case-sensitive regular expression.
 - **Field filters** match indexed log attributes. Each row supports equality, inequality, and regular-expression operators where the field allows them.
 
 Available fields and values are scoped by the other filters and the selected time range. If a value you expect is missing, widen the range or remove a neighboring filter before entering it manually.
