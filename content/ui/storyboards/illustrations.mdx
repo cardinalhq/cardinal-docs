@@ -1,0 +1,38 @@
+import SupportCallout from '../../../components/SupportCallout';
+
+# Illustrated milestones
+
+Each milestone of a storyboard is shown on a standard card: its title, its description and one tile per number it cites. When a milestone is easier to grasp as a picture, you can ask your agent to **illustrate** it. The agent draws one isometric figure of a physical object whose parts *are* the finding, for example a gauge whose needle is the measured p99 and whose red set hand is the objective. It attaches the figure to that milestone.
+
+- **Drawn by your agent, from the milestone's evidence.** Every number in the figure is bound from the same evidence receipts the milestone cites. Nothing is typed in, and Cardinal never draws it for you.
+- **Only the picture changes.** The milestone's title, description, state and evidence stay exactly as the agent wrote them.
+- **Nothing is published or shared.** An illustration is part of the open act's draft, like the rest of it.
+
+<SupportCallout />
+
+## Illustrate a milestone
+
+1. Open the storyboard and go to the milestone (it must be in the act that is still open).
+2. Select **Illustrate**. Optionally say what it should show, for example "a gauge of p99 against the objective".
+3. Select **Ask agent**. The milestone shows **Illustration requested**.
+
+Your agent session picks the request up on its next turn, draws the figure, checks its rendering locally, and attaches it. The milestone then shows the figure in place of the card; the page updates on its own.
+
+| On the milestone | What you can do |
+| --- | --- |
+| Standard card | **Illustrate** |
+| **Illustration requested** | **Cancel request** |
+| Illustrated | **Redraw** (ask again, with a new note), **Revert to card** |
+
+## Who can use it
+
+- **The investigation's author only**, signed in to Cardinal on the web. The request is recorded as your decision on the investigation and is delivered to your own agent sessions; nobody else's agent acts on it.
+- **Open act only.** A published act is final. To change it, reopen the story first.
+- **Storyboards that allow custom visuals.** A storyboard limited to standard visuals (prefabs) has no **Illustrate**.
+- Your agent needs the Cardinal plugin, up to date. An older plugin still sees your request as a decision, but without the drawing instructions.
+
+## Good to know
+
+- When the agent later rewrites the milestone's text, the illustration stays. If the milestone's numbers change, select **Redraw**.
+- A figure is drawn in your theme (light or dark) and sized for a phone; small dial markings are decoration, and the caption carries the numbers.
+- The drawing kit is the open-source [anatomy](https://github.com/wheresryan22/anatomy) isometric kit (MIT license), shipped with Cardinal and run inside the storyboard's sandboxed frame, with no network access.
