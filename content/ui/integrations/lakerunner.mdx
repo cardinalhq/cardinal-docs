@@ -57,11 +57,11 @@ API. Cardinal-fleet-operated deployments never set this override.
 
 If your Cardinal Data Lake deployment also runs the Perch operator and you've
 pointed `perch.maestro.url` at this Cardinal UI, you must hand Perch an
-ingest API key that this Cardinal UI recognises — Perch sends collector
+organization API key that this Cardinal UI recognises — Perch sends collector
 inventory to your local Cardinal UI, not to `app.cardinalhq.io`.
 
-1. After provisioning the integration above, copy the active ingest
-   API key from **Settings → Integrations → Cardinal Data Lake**.
+1. After provisioning the integration above, copy the active
+   organization API key from **Settings → Integrations → Cardinal Data Lake**.
 2. Create a Secret in the namespace where Cardinal Data Lake runs:
 
    ```sh copy
