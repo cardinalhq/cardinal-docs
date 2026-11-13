@@ -16,7 +16,7 @@ This page documents:
 
 ## Base URL
 
-The query API is served by the Cardinal Data Lake **query service**. In the default Helm/operator install the service listens on port `8080`; behind Cardinal's UI it is reverse-proxied at the same origin under `/api/v1/…`. Use whichever address is reachable from your client:
+Use the direct Query API base URL supplied by your Data Lake administrator. Remote clients should use your deployment's HTTPS endpoint. The Cardinal Data Lake query service listens on port `8080` by default in a Helm or operator installation:
 
 ```
 http://<query-service-host>:8080
@@ -28,7 +28,11 @@ The rest of this page abbreviates that as `$LAKE_URL`.
 
 ## Authentication
 
-Every request must present an **org-scoped API key**. The server accepts it in any of these places, checked in order:
+To authenticate directly with an API key, use an **organization API key** for the Data Lake workspace you want to query. For a connected workspace, a Cardinal organization owner can open **Settings → API Keys**, select the workspace's **Organization API Keys** panel, and click **Create Key**. Copy the secret when it is shown and store it in your secret manager. Older Cardinal UI versions label the panel **Ingest API Keys**. These organization keys authenticate both ingest and queries.
+
+Creating a key in Cardinal UI also updates the credential Cardinal uses for that integration. To issue a separate key without updating the integration, a Data Lake administrator can send `POST /api/v1/organizations/{org_id}/api-keys` to the **Data Lake Admin API** with the `Authorization: Bearer <admin-api-key>` header and a JSON body such as `{"name":"copilot-query"}`. The response contains the new organization key in `full_key`. Ask your Data Lake administrator for the Query API URL that goes with the key.
+
+The Query API accepts the key through the following methods.
 
 | Where | Example |
 |-------|---------|
@@ -38,7 +42,7 @@ Every request must present an **org-scoped API key**. The server accepts it in a
 | `Authorization: Basic <base64(user:pass)>` (Elasticsearch clients) | `Authorization: Basic …` |
 | `api_key` cookie | — |
 
-An invalid or missing key returns `401 Unauthorized` with a JSON error body (see [Errors](#errors)).
+An invalid key or missing credentials returns `401 Unauthorized`.
 
 ### Query correlation
 
