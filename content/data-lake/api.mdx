@@ -28,7 +28,7 @@ The rest of this page abbreviates that as `$LAKE_URL`.
 
 ## Authentication
 
-To authenticate directly with an API key, use an **organization API key** for the Data Lake workspace you want to query. For a connected workspace, a Cardinal organization owner can open **Settings → API Keys**, select the workspace's **Organization API Keys** panel, and click **Create Key**. Copy the secret when it is shown and store it in your secret manager. Older Cardinal UI versions label the panel **Ingest API Keys**. These organization keys authenticate both ingest and queries.
+To authenticate directly with an API key, use an **organization API key** for the Data Lake workspace you want to query. For a connected workspace, a Cardinal organization owner or member can open **Settings → API Keys**, select the workspace's **Organization API Keys** panel, and click **Create Key**. Copy the secret when it is shown and store it in your secret manager. Members can revoke the keys they created; owners can revoke any key. Older Cardinal UI versions label the panel **Ingest API Keys**. These organization keys authenticate both ingest and queries.
 
 Creating a key in Cardinal UI also updates the credential Cardinal uses for that integration. To issue a separate key without updating the integration, a Data Lake administrator can send `POST /api/v1/organizations/{org_id}/api-keys` to the **Data Lake Admin API** with the `Authorization: Bearer <admin-api-key>` header and a JSON body such as `{"name":"copilot-query"}`. The response contains the new organization key in `full_key`. Ask your Data Lake administrator for the Query API URL that goes with the key.
 
