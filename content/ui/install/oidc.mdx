@@ -33,12 +33,15 @@ maestro:
 | Variable | Notes |
 | -------- | ----- |
 | `MAESTRO_BASE_URL` | Must exactly match the redirect URI registered with your IdP |
-| `OIDC_ISSUER_URL` | Used for JWKS discovery (`{issuer}/.well-known/openid-configuration`) |
+| `OIDC_ISSUER_URL` | The SPA signs in through `{issuer}/.well-known/openid-configuration`, and Cardinal UI takes the signing keys (`jwks_uri`) from it. Tokens must carry this exact value as `iss` unless `OIDC_EXPECTED_ISSUER` is set |
+| `OIDC_EXPECTED_ISSUER` | The `iss` value Cardinal UI requires, when the discovery document at `OIDC_ISSUER_URL` names a different issuer (for example Amazon Cognito behind a custom URL). Defaults to `OIDC_ISSUER_URL`. Exactly one issuer is accepted |
 | `OIDC_AUDIENCE` | The `aud` claim Cardinal UI expects on incoming tokens. Defaults to `maestro-ui` |
 | `OIDC_CLIENT_ID` | OAuth client ID the SPA sends in `/authorize` requests. Defaults to `OIDC_AUDIENCE`. Set this explicitly when your IdP issues tokens whose `aud` differs from the client ID (e.g. Okta with a custom authorization server) |
 | `OIDC_SUPERADMIN_GROUP` | Name of a `groups` claim value granting superadmin. Default `maestro-superadmin` |
 | `OIDC_SUPERADMIN_EMAILS` | Comma-separated email allowlist for superadmin. Case-insensitive. Use this to bootstrap before groups are configured |
-| `OIDC_JWKS_URL` | Override if your JWKS is at a non-standard path |
+| `OIDC_JWKS_URL` | Overrides the discovery document's `jwks_uri`, e.g. when the pod must reach the keys on an internal URL. Without discovery, Cardinal UI falls back to Keycloak's `{issuer}/protocol/openid-connect/certs` |
+| `OIDC_BEARER_TOKEN` | `access` (default) or `id`: which token the SPA sends. Use `id` for Amazon Cognito, whose access tokens have no `aud` or `email` |
+| `OIDC_DEBUG` | `true` logs a summary of each distinct sign-in token (issuer, audience, algorithm, claim names; never email or name values). Use while setting up an IdP |
 | `OIDC_TRUST_UNVERIFIED_EMAILS` | `true` treats all OIDC emails as verified. Only use with IdPs that gate email ownership in another way |
 | `OIDC_BEARER_TOKEN` | Which token the browser sends as its bearer: `access` (default) or `id`. Set `id` for IdPs whose access tokens carry no `aud` or `email`, such as Amazon Cognito |
 | `OIDC_EMAIL_CLAIM` | Token claim to read the user's email from. Default `email` |
@@ -239,13 +242,26 @@ Do not toggle this variable on a populated database without a planned migration.
 
 ## Troubleshooting
 
+At startup Cardinal UI compares its settings with what the IdP publishes and logs an `OIDC endpoints: …` line, plus one `OIDC check <code>: …` line per problem (for example `issuer_differs_from_discovery`, `jwks_unreachable`, `scope_unsupported`, `cognito_access_token`). Each message names the setting that fixes it.
+
+For the full report on demand, run the doctor in the pod. It uses the pod's own settings:
+
+```bash
+kubectl exec deploy/<release>-maestro -c maestro -- /app/entrypoint.sh oidc-doctor
+# verify a real token end to end (the id_token or access_token from the
+# browser's oidc.user:… localStorage entry); only its issuer, audience,
+# algorithm and claim names are printed
+kubectl exec -i deploy/<release>-maestro -c maestro -- /app/entrypoint.sh oidc-doctor --token - < token.txt
+```
+
 | Symptom | Cause |
 | ------- | ----- |
+| `JWT issuer mismatch: token iss=… expected …` in logs | The token's `iss` differs from `OIDC_ISSUER_URL`, usually because the discovery document at that URL names another issuer. If the token's issuer is correct, set `OIDC_EXPECTED_ISSUER` to it (the log line prints the exact value) |
 | Redirect loop after login | `MAESTRO_BASE_URL` doesn't match the redirect URI registered with the IdP, or it's behind a different hostname than the browser is using |
 | "Invalid token audience" | `OIDC_AUDIENCE` doesn't match the token's `aud` claim (for some IdPs this is the client ID; for others — e.g. Okta with a custom authorization server — it's a resource identifier distinct from the client ID, in which case set `OIDC_CLIENT_ID` separately) |
 | "Your email is not verified" | The IdP is omitting `email_verified` or setting it to `false`. Fix at the IdP, or set `OIDC_TRUST_UNVERIFIED_EMAILS=true` if appropriate |
 | Logged in but no admin menu | You're not in `OIDC_SUPERADMIN_GROUP` **and** not in `OIDC_SUPERADMIN_EMAILS`. Add yourself to one of them and log out / back in |
-| JWKS fetch errors in logs | `OIDC_ISSUER_URL` unreachable from the pod, or the IdP's JWKS lives outside the standard discovery path — set `OIDC_JWKS_URL` explicitly |
+| JWKS fetch errors in logs | The discovery document or its `jwks_uri` is unreachable from the pod (the log line shows the URL and where it came from) — set `OIDC_JWKS_URL` to a URL the pod can reach |
 | `OIDC_EXTERNAL_ID_CLAIM ('x') resolves to the same claim as OIDC_EMAIL_CLAIM` at startup | You pointed the email and account-key to the same token claim (either directly, or via defaults + one override). Pick a different stable claim for `OIDC_EXTERNAL_ID_CLAIM` — see [Claim mapping](#claim-mapping) |
 
 <SupportCallout />
